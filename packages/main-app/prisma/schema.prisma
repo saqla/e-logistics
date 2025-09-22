@@ -1,0 +1,142 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Audit logs
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // "login", "logout", etc.
+  details   String?  // Additional details in JSON format
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+// スタッフの種別
+enum StaffKind {
+  ALL     // All（どの業務にも割当可能）
+  UNIC    // ユニック
+  HAKO    // 箱車
+  JIMU    // 事務
+}
+
+// スタッフ
+model Staff {
+  id         String     @id @default(cuid())
+  name       String
+  kind       StaffKind
+  deletedAt  DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  // relations
+  routeAssignments RouteAssignment[]
+  lowerAssignments LowerAssignment[]
+
+  @@index([name])
+  @@map("staffs")
+}
+
+// 上段：通常業務以外のメモ（1セル=テキストのみ）
+model DayNote {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int      // 1-12
+  day       Int      // 1-31（表示都合で31固定想定）
+  slot      Int      // 1..4（上段メモのスロット）
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month, day, slot], name: "year_month_day_slot")
+  @@map("day_notes")
+}
+
+// 上段最下部3行のルート種別
+enum RouteKind {
+  EZAKI_DONKI
+  SANCHOKU
+  MARUNO_DONKI
+}
+
+// 連結/休配の特別値（前日継続・配送なし）
+enum RouteSpecialValue {
+  CONTINUE  // ―
+  OFF       // ×
+}
+
+// 上段最下部3行：1日×3行の担当
+model RouteAssignment {
+  id        String    @id @default(cuid())
+  year      Int
+  month     Int
+  day       Int
+  route     RouteKind
+  staffId   String?
+  special   RouteSpecialValue?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  staff     Staff?    @relation(fields: [staffId], references: [id])
+
+  @@unique([year, month, day, route])
+  @@index([year, month, day])
+  @@map("route_assignments")
+}
+
+// 下段：休み表示 1日あたり13行
+model LowerAssignment {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int
+  day       Int
+  rowIndex  Int      // 1..13
+  staffId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+
+  // 同じ日に同じスタッフを重複選択させない（NULLは許容）
+  @@unique([year, month, day, staffId])
+  @@unique([year, month, day, rowIndex])
+  @@index([year, month, day])
+  @@map("lower_assignments")
+}
+
+// 右側備考エリア
+model Remark {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("remarks")
+}
