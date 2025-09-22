@@ -1,8 +1,19 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
+const isProduction = process.env.NODE_ENV === 'production'
+
+// 本番では必ず環境変数を使用。開発時のみデフォルトを許容。
+const SHARED_USER_ID = isProduction
+  ? process.env.SHARED_USER_ID
+  : (process.env.SHARED_USER_ID || "kss")
+
+const SHARED_PASSWORD = isProduction
+  ? process.env.SHARED_PASSWORD
+  : (process.env.SHARED_PASSWORD || "9se2")
+
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET || "your-secret-key-here",
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -11,39 +22,18 @@ export const authOptions: NextAuthOptions = {
         password: { label: "パスワード", type: "password" }
       },
       async authorize(credentials, req) {
-        console.log("=== Auth attempt ===")
-        console.log("Credentials:", credentials)
-        console.log("Req:", req)
-
         if (!credentials?.email || !credentials?.password) {
-          console.log("Missing credentials")
           return null
         }
 
-        // 社内共有アカウントの認証
-        const SHARED_USER_ID = "kss"
-        const SHARED_PASSWORD = "9se2"
-
-        console.log("Environment variables:")
-        console.log("SHARED_USER_ID:", process.env.SHARED_USER_ID)
-        console.log("SHARED_PASSWORD:", process.env.SHARED_PASSWORD)
-
-        console.log("Expected:", { SHARED_USER_ID, SHARED_PASSWORD })
-        console.log("Received:", { email: credentials.email, password: credentials.password })
-
-        // ユーザーIDチェック
-        if (credentials.email !== SHARED_USER_ID) {
-          console.log("User ID mismatch")
+        // 本番で未設定なら認証不可
+        if (!SHARED_USER_ID || !SHARED_PASSWORD) {
           return null
         }
 
-        // パスワードチェック（プレーンテキスト比較）
-        if (credentials.password !== SHARED_PASSWORD) {
-          console.log("Password mismatch")
-          return null
-        }
-
-        console.log("Authentication successful")
+        // シンプルな平文比較（必要なら将来ハッシュ化に移行）
+        if (credentials.email !== SHARED_USER_ID) return null
+        if (credentials.password !== SHARED_PASSWORD) return null
 
         return {
           id: "shared-user",
