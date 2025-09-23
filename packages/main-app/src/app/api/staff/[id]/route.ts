@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { StaffKind } from '@prisma/client'
 
 // PATCH /api/staff/:id  { name?, kind? }
 export async function PATCH(_req: Request, { params }: { params: { id: string } }) {
@@ -19,9 +20,19 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
     }
   }
 
+  const data: { name?: string; kind?: StaffKind } = {}
+  if (name) data.name = name
+  if (kind) {
+    const upper = String(kind).toUpperCase()
+    if (!Object.values(StaffKind).includes(upper as StaffKind)) {
+      return NextResponse.json({ error: '種別kindが不正です' }, { status: 400 })
+    }
+    data.kind = upper as StaffKind
+  }
+
   const updated = await prisma.staff.update({
     where: { id },
-    data: { name, kind }
+    data
   })
   return NextResponse.json({ staff: updated })
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { StaffKind } from '@prisma/client'
 
 // GET /api/staff?year=2025&month=9
 // アクティブスタッフ一覧（名前昇順）と、指定年月の下段表示数を返す
@@ -45,7 +46,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '同名のスタッフが既に存在します' }, { status: 409 })
   }
 
-  const created = await prisma.staff.create({ data: { name, kind } })
+  const upper = String(kind).toUpperCase()
+  if (!Object.values(StaffKind).includes(upper as StaffKind)) {
+    return NextResponse.json({ error: '種別kindが不正です' }, { status: 400 })
+  }
+
+  const created = await prisma.staff.create({ data: { name, kind: upper as StaffKind } })
   return NextResponse.json({ staff: created })
 }
 
