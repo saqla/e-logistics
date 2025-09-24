@@ -1,5 +1,6 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -239,11 +240,31 @@ export default function SchedulePage() {
     setCellSeq({})
   }
 
+  // 右サイドの共通内容
+  const RightSideContent = ({ compact = false }: { compact?: boolean }) => (
+    <>
+      <div className="border rounded-md p-3 w-full break-words">
+        <div className="mb-2">
+          <div className="font-semibold text-center text-xl">備考</div>
+        </div>
+        <RemarkPanel compact={compact} />
+      </div>
+
+      <div className="border rounded-md p-3 w-full break-words mt-4 md:mt-0">
+        <div className="flex flex-col gap-2">
+          <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
+          <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
+          <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
+        </div>
+      </div>
+    </>
+  )
+
   const headerCell = (day: number) => {
     const dow = getDow(ym.year, ym.month, day)
     const isHol = isHoliday(ym.year, ym.month, day)
     const color = isHol ? 'text-red-600' : (dow === 6 ? 'text-blue-600' : 'text-gray-900')
-    return <div className={`text-center text-base font-semibold ${color}`}>{day}</div>
+    return <div className={`flex items-center justify-center text-base font-semibold tabular-nums ${color}`}>{day}</div>
   }
 
   // Note dialog state
@@ -282,6 +303,93 @@ export default function SchedulePage() {
     }
   }, [])
 
+  // レスポンシブ列幅（xl以上は31列が収まるように調整）
+  const [leftColPx, setLeftColPx] = useState(64)
+  const [dayColPx, setDayColPx] = useState(56)
+  const computeGridCols = useCallback(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 0
+    // 余白見積り：左右パディング(px-4)=32, main-aside gap=16
+    const sidePadding = 32
+    const gap = 16
+    const left = 56
+    if (w >= 1440) {
+      const aside = 300
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 31)
+      perDay = Math.max(30, Math.min(perDay, 56))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else if (w >= 1200) { // lg以上
+      const aside = 260
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 31)
+      // lg帯では最小幅を少し下げて31列確保を優先
+      perDay = Math.max(22, Math.min(perDay, 56))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else if (w >= 768) { // md以上（タブレット想定）
+      const aside = 240
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 31)
+      perDay = Math.max(18, Math.min(perDay, 40))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else {
+      // スマホ：1画面に7日分が収まるように計算（asideは非表示）
+      const leftMobile = 44
+      const visibleDays = 7
+      const availableForDays = w - sidePadding - leftMobile
+      let perDay = Math.floor(availableForDays / visibleDays)
+      // 下限/上限（上限は広めにして1週間表示の変化を確実に反映）
+      perDay = Math.max(12, Math.min(perDay, 56))
+      setLeftColPx(leftMobile)
+      setDayColPx(perDay)
+    }
+  }, [])
+
+  useEffect(() => {
+    computeGridCols()
+    window.addEventListener('resize', computeGridCols)
+    return () => window.removeEventListener('resize', computeGridCols)
+  }, [computeGridCols])
+
+  const GRID_TEMPLATE = `${leftColPx}px repeat(31, ${dayColPx}px)`
+
+  // モバイルで右サイドを開くボタン/ダイアログ
+  const [asideOpen, setAsideOpen] = useState(false)
+  const [showFab, setShowFab] = useState(false)
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || document.documentElement.scrollTop
+      setShowFab(y > 48)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  function FloatingAsideButton({ onClick, visible }: { onClick: () => void, visible: boolean }) {
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => { setMounted(true) }, [])
+    if (!mounted || typeof document === 'undefined') return null
+    return createPortal(
+      <div className="md:hidden fixed inset-0 z-50 pointer-events-none">
+        <button
+          type="button"
+          onClick={onClick}
+          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
+          aria-label="備考と管理を開く"
+          data-visible={visible}
+          
+        >
+          備考/管理
+        </button>
+      </div>,
+      document.body
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <div className="sticky top-0 bg-white border-b z-10">
@@ -304,8 +412,8 @@ export default function SchedulePage() {
             <div
               ref={topScrollRef}
               onScroll={handleTopScroll}
-              className="overflow-x-auto border rounded-md mb-2"
-              style={{ height: 12 }}
+              className="overflow-x-auto border border-gray-200 rounded-md mb-2 bg-white"
+              style={{ height: 14 }}
               aria-label="スケジュール上部スクロール"
             >
               <div style={{ width: `${scrollContentWidth}px`, height: 1 }} />
@@ -314,90 +422,99 @@ export default function SchedulePage() {
             <div
               ref={mainScrollRef}
               onScroll={handleMainScroll}
-              className="overflow-x-auto border rounded-md"
+              className="overflow-x-auto border border-gray-200 rounded-md bg-white"
             >
               <div ref={contentRef}>
             {/* ヘッダー行（31日ぶん） */}
-            <div className="grid" style={{ gridTemplateColumns: `64px repeat(31, minmax(48px,1fr))` }}>
-              <div className="sticky left-0 bg-gray-50 border-b border-r px-1 py-2 font-semibold text-center"></div>
-              {Array.from({length: 31}).map((_, i) => (
-                <div key={i} className={`border-b px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}>{headerCell(i+1)}</div>
+            <div className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
+              <div className="sticky left-0 bg-gray-50 border-b border-r border-gray-300 px-1 py-2 font-semibold text-center z-10"></div>
+            {Array.from({length: 31}).map((_, i) => (
+                <div key={i} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}>{headerCell(i+1)}</div>
               ))}
             </div>
-            {/* メモ4行 */}
-            <div className="grid" style={{ gridTemplateColumns: `64px repeat(31, minmax(48px,1fr))` }}>
-            <div
-              className="sticky left-0 bg-white border-b border-r px-1 h-10 flex items-center justify-center font-medium text-center"
-              style={{ gridRow: '1 / span 4' }}
-            >
-              メモ
-            </div>
+            {/* メモ4行（セル結合なし） */}
             <TooltipProvider>
               {Array.from({ length: 4 }).map((_, slotIdx) => (
-                Array.from({ length: 31 }).map((_, i) => {
-                  const d = i + 1
-                  const slot = slotIdx + 1
-                  const text = getNote(d, slot)
-                  return (
-                    <Tooltip key={`memo-${slot}-${d}`}>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => d <= monthDays && openNote(d, slot)}
-                          className={`text-left border-b px-2 h-10 hover:bg-yellow-50 overflow-hidden ${d>monthDays?'bg-gray-50 cursor-not-allowed':''}`}
-                          style={{ gridColumnStart: i + 2, gridRowStart: slotIdx + 1 }}
-                        >
-                          {text ? (
-                            <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis">{text}</span>
-                          ) : null}
-                        </button>
-                      </TooltipTrigger>
-                      {text ? (
-                        <TooltipContent
-                          side={slotIdx >= 2 ? 'top' : 'bottom'}
-                          align="center"
-                          sideOffset={12}
-                          alignOffset={0}
-                          avoidCollisions={false}
-                          collisionPadding={8}
-                          className="max-w-sm whitespace-pre-wrap shadow-lg border bg-white z-50"
-                        >
-                          {text}
-                        </TooltipContent>
-                      ) : null}
-                    </Tooltip>
-                  )
-                })
+                <div key={`memo-row-${slotIdx}`} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
+                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
+                    {slotIdx === 0 ? 'メモ' : ''}
+                  </div>
+                  {Array.from({ length: 31 }).map((_, i) => {
+                    const d = i + 1
+                    const slot = slotIdx + 1
+                    const text = getNote(d, slot)
+                    return (
+                      <Tooltip key={`memo-${slot}-${d}`}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => d <= monthDays && openNote(d, slot)}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''}`}
+                          >
+                            {text ? (
+                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                            ) : null}
+                          </button>
+                        </TooltipTrigger>
+                        {text ? (
+                          <TooltipContent
+                            side={slotIdx >= 2 ? 'top' : 'bottom'}
+                            align="center"
+                            sideOffset={12}
+                            alignOffset={0}
+                            avoidCollisions={false}
+                            collisionPadding={8}
+                            className="max-w-sm whitespace-pre-wrap shadow-lg border bg-white z-50"
+                          >
+                            {text}
+                          </TooltipContent>
+                        ) : null}
+                      </Tooltip>
+                    )
+                  })}
+                </div>
               ))}
             </TooltipProvider>
-            </div>
 
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
-            {(Object.keys(ROUTE_LABEL) as RouteKind[]).map((rk) => (
-              <div key={rk} className="grid" style={{ gridTemplateColumns: `64px repeat(31, minmax(48px,1fr))` }}>
-              <div className={`sticky left-0 bg-white border-b border-r px-1 py-2 text-center ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
+            {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
+              <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b px-1 py-2 ${d>monthDays?'bg-gray-50':''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''}`}>
                     {d<=monthDays && (
-                      <select
-                        className="w-full bg-transparent outline-none text-gray-900 text-sm appearance-none"
-                        value={r?.special ? r.special : (r?.staffId || '')}
-                        onChange={(e)=>{
-                          const v = e.target.value
-                          if (v === '') { setRoute(d, rk, null, null); return }
-                          if (v === 'CONTINUE' || v === 'OFF') { setRoute(d, rk, null, v as RouteSpecial); return }
-                          setRoute(d, rk, v, null)
-                        }}
-                      >
-                        <option value=""></option>
-                        <option value="CONTINUE">―</option>
-                        <option value="OFF">×</option>
-                        {staffs.filter(s=> s.kind==='ALL' || s.kind==='HAKO').map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
+                      <div className="relative h-5">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
+                          {(() => {
+                            if (r?.special === 'CONTINUE') return '―'
+                            if (r?.special === 'OFF') return '×'
+                            if (r?.staffId) {
+                              const m = new Map(staffs.map(s => [s.id, s.name]))
+                              return m.get(r.staffId) || ''
+                            }
+                            return ''
+                          })()}
+                        </div>
+                        <select
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none"
+                          value={r?.special ? r.special : (r?.staffId || '')}
+                          onChange={(e)=>{
+                            const v = e.target.value
+                            if (v === '') { setRoute(d, rk, null, null); return }
+                            if (v === 'CONTINUE' || v === 'OFF') { setRoute(d, rk, null, v as RouteSpecial); return }
+                            setRoute(d, rk, v, null)
+                          }}
+                        >
+                          <option value=""></option>
+                          <option value="CONTINUE">―</option>
+                          <option value="OFF">×</option>
+                          {staffs.filter(s=> s.kind==='ALL' || s.kind==='HAKO').map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     )}
                     {d>monthDays && <span></span>}
                   </div>
@@ -407,17 +524,22 @@ export default function SchedulePage() {
             ))}
 
             {/* 下段ヘッダー（日付再掲） */}
-            <div className="grid" style={{ gridTemplateColumns: `64px repeat(31, minmax(48px,1fr))` }}>
-            <div className="sticky left-0 bg-gray-50 border-b border-r px-1 py-2 font-semibold text-center"></div>
+            <div className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
+            <div className="sticky left-0 bg-gray-50 border-b border-r border-gray-300 px-1 py-2 font-semibold text-center z-10"></div>
             {Array.from({length: 31}).map((_,i) => (
-              <div key={`lower-h-${i}`} className={`border-2 border-gray-300 px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}>{headerCell(i+1)}</div>
+              <div
+                key={`lower-h-${i}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}
+              >
+                {headerCell(i+1)}
+              </div>
             ))}
             </div>
 
             {/* 下段13行 */}
             {Array.from({length: 13}).map((_,rowIdx) => (
-              <div key={rowIdx} className="grid" style={{ gridTemplateColumns: `64px repeat(31, minmax(48px,1fr))` }}>
-              <div className="sticky left-0 bg-white border-b border-r px-1 py-2 text-center">{rowIdx+1}</div>
+              <div key={rowIdx} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
+              <div className="sticky left-0 bg-white border-b border-r border-gray-300 px-1 py-2 text-center z-10">{rowIdx+1}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const staffId = getLower(d, rowIdx+1)
@@ -425,23 +547,32 @@ export default function SchedulePage() {
                 const rank = staffId ? (lowerKeyRankMap[key] || 0) : 0
                 const bg = rank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''}`} title={`${staffId ?? ''}#${rank}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''}`} title={`${staffId ?? ''}#${rank}`}>
                     {d<=monthDays && (
-                      <select
-                        className="w-full bg-transparent outline-none text-gray-900 text-sm appearance-none"
-                        value={staffId || ''}
-                        onChange={(e)=>{
-                          const v = e.target.value
-                          const sid = v === '' ? null : v
-                          if (!canSelectLower(d, sid, rowIdx+1)) { alert('同じ日に同じ名前は選べません'); return }
-                          setLower(d, rowIdx+1, sid)
-                        }}
-                      >
-                        <option value=""></option>
-                        {staffs.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
+                      <div className="relative h-5">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
+                          {(() => {
+                            if (!staffId) return ''
+                            const m = new Map(staffs.map(s => [s.id, s.name]))
+                            return m.get(staffId) || ''
+                          })()}
+                        </div>
+                        <select
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none"
+                          value={staffId || ''}
+                          onChange={(e)=>{
+                            const v = e.target.value
+                            const sid = v === '' ? null : v
+                            if (!canSelectLower(d, sid, rowIdx+1)) { alert('同じ日に同じ名前は選べません'); return }
+                            setLower(d, rowIdx+1, sid)
+                          }}
+                        >
+                          <option value=""></option>
+                          {staffs.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     )}
                   </div>
                 )
@@ -453,26 +584,14 @@ export default function SchedulePage() {
           </div>
 
           {/* 右サイド：備考パネル + 管理ボタン */}
-          <aside className="flex-none space-y-4 w-[300px]">
-            {/* 備考パネル */}
-            <div className="border rounded-md p-3 w-full break-words">
-              <div className="mb-2">
-                <div className="font-semibold text-center text-xl">備考</div>
-              </div>
-              <RemarkPanel />
-            </div>
-
-            {/* 管理ボタン */}
-            <div className="border rounded-md p-3 w-full break-words">
-              <div className="flex flex-col gap-2">
-                <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
-                <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
-                <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
-              </div>
-            </div>
+          <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
+            <RightSideContent />
           </aside>
         </div>
       </div>
+
+      {/* モバイル用 フローティングボタン（常に画面右下） */}
+      <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} />
 
       {/* 上段メモ 編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
@@ -499,6 +618,16 @@ export default function SchedulePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* モバイル用 右サイド ダイアログ */}
+      <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
+        <DialogContent className="md:hidden max-w-md">
+          <DialogHeader>
+            <DialogTitle>備考・管理</DialogTitle>
+          </DialogHeader>
+          <RightSideContent compact />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -515,7 +644,7 @@ function useRemarks() {
   return { items, refresh, setRefresh }
 }
 
-function RemarkPanel() {
+function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const { items, setRefresh } = useRemarks()
   const first3 = items.slice(0,3)
   const rest = items.slice(3)
@@ -548,34 +677,49 @@ function RemarkPanel() {
       <div className="flex justify-end mb-2">
         <Button size="sm" className="text-base" onClick={openCreate}>新規</Button>
       </div>
-          <div className="space-y-2">
-        {first3.map(r => (
-          <div key={r.id} className="border rounded p-2 break-words">
-            <div className="font-medium text-lg break-words">{r.title}</div>
-            <div className="text-base text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
-            <div className="flex justify-end gap-2 mt-2">
-              <Button size="sm" className="text-base" variant="outline" onClick={()=>openEdit(r)}>編集</Button>
-              <Button size="sm" className="text-base" variant="destructive" onClick={()=>del(r.id)}>削除</Button>
+      {!compact ? (
+        <div className="space-y-2">
+          {first3.map(r => (
+            <div key={r.id} className="border rounded p-2 break-words">
+              <div className="font-medium text-lg break-words">{r.title}</div>
+              <div className="text-base text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
+              <div className="flex justify-end gap-2 mt-2">
+                <Button size="sm" className="text-base" variant="outline" onClick={()=>openEdit(r)}>編集</Button>
+                <Button size="sm" className="text-base" variant="destructive" onClick={()=>del(r.id)}>削除</Button>
+              </div>
             </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {[...first3, ...rest].map((r) => (
+            <button
+              key={r.id}
+              className="block w-full text-left underline break-words whitespace-normal text-base"
+              onClick={() => openEdit(r)}
+            >
+              {r.title}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!compact && rest.length > 0 && (
+        <div className="mt-3">
+          <div className="text-sm text-gray-600 mb-1">その他（タイトルのみ）</div>
+          <div className="space-y-1">
+            {rest.map((r) => (
+              <button
+                key={r.id}
+                className="block w-full text-left underline break-words whitespace-normal text-base"
+                onClick={() => openEdit(r)}
+              >
+                {r.title}
+              </button>
+            ))}
           </div>
-        ))}
-      </div>
-      {rest.length > 0 && (
-  <div className="mt-3">
-    <div className="text-sm text-gray-600 mb-1">その他（タイトルのみ）</div>
-    <div className="space-y-1">
-      {rest.map((r) => (
-        <button
-          key={r.id}
-          className="block w-full text-left underline break-words whitespace-normal text-base"
-          onClick={() => openEdit(r)}
-        >
-          {r.title}
-        </button>
-      ))}
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

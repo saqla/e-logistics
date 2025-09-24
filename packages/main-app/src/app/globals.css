@@ -3,24 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 17, 24, 39; /* gray-900 */
+  --background-rgb: 255, 255, 255;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+html {
+  font-size: 14px; /* 既定16pxから1段階ダウン */
 }
 
 body {
-  color: #111827; /* 固定の濃い文字色（Tailwind: text-gray-900 相当） */
-  background: #ffffff;
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
 }
 
+/* App 共通のタイポ（過度な上書きは避ける） */
+@layer base {
+  h1 { @apply text-xl font-bold; }
+  h2 { @apply text-lg font-semibold; }
+  h3 { @apply text-base font-medium; }
+}
 
+@media (max-width: 639px) {
+  html { font-size: 12px; }
+}
 
-
+/* FAB の右からのスライドイン */
+[data-visible="false"] {
+  transform: translateX(120%);
+}
+[data-visible="true"] {
+  transform: translateX(0);
+}
