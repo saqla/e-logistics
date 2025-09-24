@@ -8,6 +8,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoginModal } from "@/components/login-modal"
+import { SiteHeader } from "@/components/site-header"
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -68,36 +69,7 @@ export default function Home() {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* ヘッダー */}
-        <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <div className="flex items-center space-x-1">
-                <Image
-                  src="/logo.png"
-                  alt="E-Logistics Logo"
-                  width={120}
-                  height={40}
-                  className="w-[120px] h-[40px] object-contain"
-                  priority
-                />
-                <span className="text-lg font-semibold text-gray-900">Eロジスティクス</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-500">Ver.0.1.0</span>
-                <span className="text-sm text-gray-600">
-                  ようこそ、{session.user?.name || session.user?.email}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-red-600 text-white border border-red-600 rounded-md hover:bg-red-700 hover:border-red-700 transition-colors font-medium"
-                >
-                  ログアウト
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <SiteHeader />
 
         {/* メインコンテンツ */}
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -154,27 +126,7 @@ export default function Home() {
   console.log("Rendering login page - status:", status, "session:", session)
   return (
     <div className="min-h-screen bg-white">
-      {/* ヘッダー */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Image
-                src="/logo.png"
-                alt="E-Logistics Logo"
-                width={120}
-                height={40}
-                className="w-[120px] h-[40px] object-contain"
-                priority
-              />
-              <span className="text-lg font-semibold text-gray-900">Eロジスティクス</span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-500">Ver.0.1.0</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
