@@ -45,6 +45,8 @@ export default function SchedulePage() {
   const [lowers, setLowers] = useState<LowerAssignment[]>([])
   const [saving, setSaving] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [monthChangeOpen, setMonthChangeOpen] = useState(false)
+  const [pendingMove, setPendingMove] = useState<number | null>(null)
   // 入力順トラッキング（セルごとにシーケンス番号を付与）
   const [lowerSeqCounter, setLowerSeqCounter] = useState(0)
   const [cellSeq, setCellSeq] = useState<Record<string, number>>({})
@@ -74,13 +76,17 @@ export default function SchedulePage() {
   useEffect(() => { loadAll() }, [ym])
 
   const title = useMemo(() => `${ym.year}年${ym.month}月`, [ym])
-  const move = (d: number) => {
-    if (isDirty) {
-      const ok = confirm('未保存の変更があります。月を変更すると破棄されます。続行しますか？')
-      if (!ok) return
-    }
+  const proceedMove = (d: number) => {
     const date = new Date(ym.year, ym.month - 1 + d, 1)
     setYm({ year: date.getFullYear(), month: date.getMonth() + 1 })
+  }
+  const move = (d: number) => {
+    if (isDirty) {
+      setPendingMove(d)
+      setMonthChangeOpen(true)
+      return
+    }
+    proceedMove(d)
   }
 
   // 上側・下側スクロールの相互同期
@@ -638,6 +644,34 @@ export default function SchedulePage() {
               <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
               <Button onClick={saveNote}>保存</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 月変更 確認ダイアログ */}
+      <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>未保存の変更があります</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-700">
+            月を変更すると未保存の編集内容は破棄されます。続行しますか？
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setMonthChangeOpen(false)}>キャンセル</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingMove !== null) {
+                  setMonthChangeOpen(false)
+                  setIsDirty(false)
+                  proceedMove(pendingMove)
+                  setPendingMove(null)
+                }
+              }}
+            >
+              変更を破棄して移動
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
