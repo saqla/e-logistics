@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { daysInMonth, getDow, isHoliday } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 type Staff = { id: string; name: string; kind: 'ALL'|'UNIC'|'HAKO'|'JIMU'; lowerCount: number }
@@ -429,7 +430,16 @@ export default function SchedulePage() {
             <Button variant="outline" onClick={() => move(-1)}>◀</Button>
             <span className="text-2xl font-semibold w-40 text-center">{title}</span>
             <Button variant="outline" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>{saving ? '保存中...' : '保存'}</Button>
+            <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
+                  保存中...
+                </span>
+              ) : (
+                '保存'
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -651,15 +661,18 @@ export default function SchedulePage() {
 
       {/* 月変更 確認ダイアログ */}
       <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
-        <DialogContent className="bg-white text-gray-900 border border-gray-200 shadow-lg">
+        <DialogContent className="bg-amber-50 text-amber-900 border border-amber-200 shadow-lg">
           <DialogHeader>
-            <DialogTitle>未保存の変更があります</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              未保存の変更があります
+            </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm">
             月を変更すると未保存の編集内容は破棄されます。続行しますか？
           </p>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setMonthChangeOpen(false)}>キャンセル</Button>
+            <Button variant="outline" onClick={() => setMonthChangeOpen(false)} disabled={saving}>キャンセル</Button>
             <Button
               variant="secondary"
               onClick={async () => {
@@ -672,8 +685,16 @@ export default function SchedulePage() {
                   }
                 }
               }}
+              disabled={saving}
             >
-              保存してから移動
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"></span>
+                  保存中...
+                </span>
+              ) : (
+                '保存してから移動'
+              )}
             </Button>
             <Button
               variant="destructive"
@@ -685,6 +706,7 @@ export default function SchedulePage() {
                   setPendingMove(null)
                 }
               }}
+              disabled={saving}
             >
               変更を破棄して移動
             </Button>
