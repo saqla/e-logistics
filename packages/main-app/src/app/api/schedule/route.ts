@@ -46,12 +46,13 @@ export async function POST(req: Request) {
       })
     }
 
-    // LowerAssignment（全13行のうち指定分をUpsert）
-    for (const l of lowers) {
-      await tx.lowerAssignment.upsert({
-        where: { year_month_day_rowIndex: { year, month, day: l.day, rowIndex: l.rowIndex } },
-        update: { staffId: l.staffId ?? null },
-        create: { year, month, day: l.day, rowIndex: l.rowIndex, staffId: l.staffId ?? null }
+    // LowerAssignment
+    // 月全体を一旦削除し、NULLでないものだけ再作成（ユニーク制約 year,month,day,staffId の衝突回避）
+    await tx.lowerAssignment.deleteMany({ where: { year, month } })
+    for (const l of lowers as any[]) {
+      if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
+      await tx.lowerAssignment.create({
+        data: { year, month, day: l.day, rowIndex: l.rowIndex, staffId: l.staffId }
       })
     }
   })
