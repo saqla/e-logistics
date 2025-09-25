@@ -4,10 +4,11 @@ import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { daysInMonth, getDow, isHoliday } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 type Staff = { id: string; name: string; kind: 'ALL'|'UNIC'|'HAKO'|'JIMU'; lowerCount: number }
@@ -44,6 +45,9 @@ export default function SchedulePage() {
   const [routes, setRoutes] = useState<RouteAssignment[]>([])
   const [lowers, setLowers] = useState<LowerAssignment[]>([])
   const [saving, setSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [monthChangeOpen, setMonthChangeOpen] = useState(false)
+  const [pendingMove, setPendingMove] = useState<number | null>(null)
   // 入力順トラッキング（セルごとにシーケンス番号を付与）
   const [lowerSeqCounter, setLowerSeqCounter] = useState(0)
   const [cellSeq, setCellSeq] = useState<Record<string, number>>({})
@@ -67,14 +71,23 @@ export default function SchedulePage() {
     setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
     setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
     setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+    setIsDirty(false)
   }
 
   useEffect(() => { loadAll() }, [ym])
 
   const title = useMemo(() => `${ym.year}年${ym.month}月`, [ym])
-  const move = (d: number) => {
+  const proceedMove = (d: number) => {
     const date = new Date(ym.year, ym.month - 1 + d, 1)
     setYm({ year: date.getFullYear(), month: date.getMonth() + 1 })
+  }
+  const move = (d: number) => {
+    if (isDirty) {
+      setPendingMove(d)
+      setMonthChangeOpen(true)
+      return
+    }
+    proceedMove(d)
   }
 
   // 上側・下側スクロールの相互同期
@@ -108,6 +121,7 @@ export default function SchedulePage() {
       if (idx >= 0) { const next = [...prev]; next[idx] = { day, slot, text }; return next }
       return [...prev, { day, slot, text }]
     })
+    setIsDirty(true)
   }
 
   const getRoute = (day: number, route: RouteKind): RouteAssignment | undefined => routes.find(r => r.day === day && r.route === route)
@@ -118,6 +132,7 @@ export default function SchedulePage() {
       if (idx >= 0) { const next = [...prev]; next[idx] = value; return next }
       return [...prev, value]
     })
+    setIsDirty(true)
   }
 
   const getLower = (day: number, rowIndex: number) => lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.staffId || null
@@ -144,6 +159,7 @@ export default function SchedulePage() {
         return next
       })
     }
+    setIsDirty(true)
   }
 
   // duplicate prevention in lowers (same day must be unique)
@@ -202,9 +218,10 @@ export default function SchedulePage() {
   const clearAllNotes = () => {
     if (!confirm('上段メモを全てクリアします。よろしいですか？')) return
     setNotes([])
+    setIsDirty(true)
   }
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     setSaving(true)
     try {
       const payload = {
@@ -218,9 +235,11 @@ export default function SchedulePage() {
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
         alert(e.error || '保存に失敗しました')
-        return
+        return false
       }
       alert('保存しました')
+      setIsDirty(false)
+      return true
     } finally {
       setSaving(false)
     }
@@ -238,6 +257,7 @@ export default function SchedulePage() {
     // 採番もリセット
     setLowerSeqCounter(0)
     setCellSeq({})
+    setIsDirty(true)
   }
 
   // 右サイドの共通内容
@@ -275,14 +295,43 @@ export default function SchedulePage() {
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
   const openNote = (day: number, slot: number) => { setNoteDay(day); setNoteSlot(slot); setNoteText(getNote(day, slot)); setNoteOpen(true) }
   const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
+  const copyNoteText = async (text: string) => {
+    if (!text) return
+    setNoteClipboard(text)
+    try { await (navigator as any)?.clipboard?.writeText?.(text) } catch {}
+  }
+  const pasteIntoEditor = async () => {
+    if (noteClipboard) { setNoteText(noteClipboard); setIsDirty(true); return }
+    try {
+      const t = await (navigator as any)?.clipboard?.readText?.()
+      if (typeof t === 'string') { setNoteText(t); setIsDirty(true) }
+    } catch {}
+  }
 
   const monthDays = daysInMonth(ym.year, ym.month)
+  const todayCol = useMemo(() => {
+    if (ym.year === today.getFullYear() && ym.month === (today.getMonth() + 1)) {
+      return today.getDate()
+    }
+    return null
+  }, [ym])
 
   // 月変更時は採番リセット
   useEffect(() => {
     setLowerSeqCounter(0)
     setCellSeq({})
   }, [ym])
+
+  // 未保存データがある場合、ページ離脱時に警告
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
 
   // コンテンツ幅の監視（内容変化やリサイズに追従）
   useEffect(() => {
@@ -303,7 +352,7 @@ export default function SchedulePage() {
     }
   }, [])
 
-  // レスポンシブ列幅（xl以上は31列が収まるように調整）
+  // レスポンシブ列幅
   const [leftColPx, setLeftColPx] = useState(64)
   const [dayColPx, setDayColPx] = useState(56)
   const computeGridCols = useCallback(() => {
@@ -315,6 +364,7 @@ export default function SchedulePage() {
     if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
+      // xlは31日表示（従来どおり）
       let perDay = Math.floor(availableForDays / 31)
       perDay = Math.max(30, Math.min(perDay, 56))
       setLeftColPx(left)
@@ -322,15 +372,16 @@ export default function SchedulePage() {
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 31)
-      // lg帯では最小幅を少し下げて31列確保を優先
-      perDay = Math.max(22, Math.min(perDay, 56))
+      // lgは20日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 20)
+      perDay = Math.max(24, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 768) { // md以上（タブレット想定）
       const aside = 240
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 31)
+      // mdも20日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 20)
       perDay = Math.max(18, Math.min(perDay, 40))
       setLeftColPx(left)
       setDayColPx(perDay)
@@ -358,6 +409,57 @@ export default function SchedulePage() {
   // モバイルで右サイドを開くボタン/ダイアログ
   const [asideOpen, setAsideOpen] = useState(false)
   const [showFab, setShowFab] = useState(false)
+  // 検索モーダル
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<'month'|'jump'>('month')
+  const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
+  const [searchResults, setSearchResults] = useState<{ day: number; where: 'note'|'lower'; snippet: string }[]>([])
+
+  const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
+  const scrollToDay = (day: number) => {
+    const main = mainScrollRef.current
+    const top = topScrollRef.current
+    if (!main) return
+    const offset = Math.max(0, leftColPx + dayColPx * (day - 1) - dayColPx * 2)
+    main.scrollLeft = offset
+    if (top) top.scrollLeft = offset
+  }
+  const runSearch = () => {
+    const q = searchQuery.trim().toLowerCase()
+    const days = new Set<number>()
+    const results: { day: number; where: 'note'|'lower'; snippet: string }[] = []
+    if (!q) { setSearchResults([]); setHighlightDays(new Set()); return }
+    // 上段メモ本文
+    for (const n of notes) {
+      const text = (n.text || '')
+      if (text.toLowerCase().includes(q)) {
+        days.add(n.day)
+        results.push({ day: n.day, where: 'note', snippet: text })
+      }
+    }
+    // 下段の担当者名
+    for (const l of lowers) {
+      const name = l.staffId ? (idToName.get(l.staffId) || '') : ''
+      if (name && name.toLowerCase().includes(q)) {
+        days.add(l.day)
+        results.push({ day: l.day, where: 'lower', snippet: name })
+      }
+    }
+    setSearchResults(results)
+    if (searchScope === 'month') {
+      setHighlightDays(days)
+    } else {
+      if (results.length > 0) {
+        const first = Math.min(...results.map(r => r.day))
+        setHighlightDays(new Set([first]))
+        scrollToDay(first)
+      } else {
+        setHighlightDays(new Set())
+      }
+      setSearchOpen(false)
+    }
+  }
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY || document.documentElement.scrollTop
@@ -396,10 +498,19 @@ export default function SchedulePage() {
         <div className="w-full px-4 py-3 flex items-center justify-center gap-14">
           <h1 className="text-2xl font-bold">月予定表</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => move(-1)}>◀</Button>
+            <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-2xl font-semibold w-40 text-center">{title}</span>
-            <Button variant="outline" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>{saving ? '保存中...' : '保存'}</Button>
+            <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
+            <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
+                  保存中...
+                </span>
+              ) : (
+                '保存'
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -429,7 +540,12 @@ export default function SchedulePage() {
             <div className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
               <div className="sticky left-0 bg-gray-50 border-b border-r border-gray-300 px-1 py-2 font-semibold text-center z-10"></div>
             {Array.from({length: 31}).map((_, i) => (
-                <div key={i} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}>{headerCell(i+1)}</div>
+                <div
+                  key={i}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                >
+                  {headerCell(i+1)}
+                </div>
               ))}
             </div>
             {/* メモ4行（セル結合なし） */}
@@ -448,7 +564,7 @@ export default function SchedulePage() {
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''}`}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
                               <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
@@ -478,18 +594,18 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 font-medium ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium">
                           {(() => {
                             if (r?.special === 'CONTINUE') return '―'
-                            if (r?.special === 'OFF') return '×'
+                            if (r?.special === 'OFF') return <span className="text-xl font-semibold text-red-700">×</span>
                             if (r?.staffId) {
                               const m = new Map(staffs.map(s => [s.id, s.name]))
                               return m.get(r.staffId) || ''
@@ -529,7 +645,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {headerCell(i+1)}
               </div>
@@ -547,7 +663,7 @@ export default function SchedulePage() {
                 const rank = staffId ? (lowerKeyRankMap[key] || 0) : 0
                 const bg = rank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''}`} title={`${staffId ?? ''}#${rank}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${rank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
@@ -586,6 +702,9 @@ export default function SchedulePage() {
           {/* 右サイド：備考パネル + 管理ボタン */}
           <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
             <RightSideContent />
+            <div className="border rounded-md p-3 w-full break-words mt-4">
+              <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
+            </div>
           </aside>
         </div>
       </div>
@@ -605,16 +724,90 @@ export default function SchedulePage() {
             onChange={(e)=>setNoteText(e.target.value)}
           />
           <div className="flex items-center justify-between gap-2 mt-2">
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => copyNoteText(noteText)}
+                disabled={!noteText}
+                title="エディタの内容をコピー"
+              >
+                コピー
+              </Button>
+              <Button
+                variant="outline"
+                onClick={pasteIntoEditor}
+                title="クリップボードから貼り付け"
+              >
+                ペースト
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
+              >
+                削除
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
+                <Button onClick={saveNote}>保存</Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 月変更 確認ダイアログ */}
+      <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
+        <DialogContent className="bg-amber-50 text-amber-900 border border-amber-200 shadow-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              未保存の変更があります
+            </DialogTitle>
+            <DialogDescription>
+              月を変更すると未保存の編集内容は破棄されます。続行しますか？
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setMonthChangeOpen(false)} disabled={saving}>キャンセル</Button>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                if (pendingMove !== null) {
+                  const ok = await handleSave()
+                  if (ok) {
+                    setMonthChangeOpen(false)
+                    proceedMove(pendingMove)
+                    setPendingMove(null)
+                  }
+                }
+              }}
+              disabled={saving}
+            >
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"></span>
+                  保存中...
+                </span>
+              ) : (
+                '保存してから移動'
+              )}
+            </Button>
             <Button
               variant="destructive"
-              onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
+              onClick={() => {
+                if (pendingMove !== null) {
+                  setMonthChangeOpen(false)
+                  setIsDirty(false)
+                  proceedMove(pendingMove)
+                  setPendingMove(null)
+                }
+              }}
+              disabled={saving}
             >
-              削除
+              変更を破棄して移動
             </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-              <Button onClick={saveNote}>保存</Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -626,6 +819,54 @@ export default function SchedulePage() {
             <DialogTitle>備考・管理</DialogTitle>
           </DialogHeader>
           <RightSideContent compact />
+          <div className="mt-3">
+            <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 検索ダイアログ */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>スケジュール検索</DialogTitle>
+            <DialogDescription>キーワードで当月または全体から検索します。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="q">キーワード</Label>
+              <Input id="q" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} placeholder="名前 / メモ / × / ― など" />
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="scope" checked={searchScope==='month'} onChange={()=>setSearchScope('month')} /> 当月をハイライト
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="scope" checked={searchScope==='jump'} onChange={()=>setSearchScope('jump')} /> 全体から最初の一致へジャンプ
+              </label>
+            </div>
+            {searchResults.length > 0 && (
+              <div className="max-h-64 overflow-auto border rounded p-2 bg-white">
+                <div className="text-sm text-gray-600 mb-1">{searchResults.length}件ヒット</div>
+                <ul className="space-y-1">
+                  {searchResults.map((r, idx) => (
+                    <li key={idx}>
+                      <button
+                        className="w-full text-left text-sm underline hover:text-blue-700"
+                        onClick={() => { setSearchOpen(false); setHighlightDays(new Set([r.day])); scrollToDay(r.day) }}
+                      >
+                        {r.day}日 [{r.where==='note' ? '上段メモ' : '下段'}] — {r.snippet}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={()=>setSearchOpen(false)}>閉じる</Button>
+              <Button onClick={runSearch}>検索</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
