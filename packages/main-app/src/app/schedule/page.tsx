@@ -543,7 +543,7 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 font-medium ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
@@ -551,7 +551,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium">
                           {(() => {
                             if (r?.special === 'CONTINUE') return '―'
                             if (r?.special === 'OFF') return '×'
