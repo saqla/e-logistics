@@ -22,7 +22,7 @@ export function SiteHeader() {
             <span className="text-lg font-semibold text-gray-900">Eロジスティクス</span>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500">Ver.0.1.0</span>
+            <span className="text-sm text-gray-500">Ver.0.3.0</span>
             {status === "authenticated" ? (
               <>
                 <span className="text-sm text-gray-600">
