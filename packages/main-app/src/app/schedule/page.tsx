@@ -414,6 +414,7 @@ export default function SchedulePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchScope, setSearchScope] = useState<'month'|'jump'>('month')
   const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
+  const [searchResults, setSearchResults] = useState<{ day: number; where: 'note'|'lower'; snippet: string }[]>([])
 
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
   const scrollToDay = (day: number) => {
@@ -427,27 +428,30 @@ export default function SchedulePage() {
   const runSearch = () => {
     const q = searchQuery.trim().toLowerCase()
     const days = new Set<number>()
-    if (!q) { setHighlightDays(new Set()); return }
-    // notes
+    const results: { day: number; where: 'note'|'lower'; snippet: string }[] = []
+    if (!q) { setSearchResults([]); setHighlightDays(new Set()); return }
+    // 上段メモ本文
     for (const n of notes) {
-      if ((n.text || '').toLowerCase().includes(q)) days.add(n.day)
+      const text = (n.text || '')
+      if (text.toLowerCase().includes(q)) {
+        days.add(n.day)
+        results.push({ day: n.day, where: 'note', snippet: text })
+      }
     }
-    // routes
-    for (const r of routes) {
-      const name = r.staffId ? (idToName.get(r.staffId) || '') : ''
-      if (name.toLowerCase().includes(q)) days.add(r.day)
-      if ((r.special === 'OFF' && ('×x'.includes(q))) || (r.special === 'CONTINUE' && ('―-'.includes(q)))) days.add(r.day)
-    }
-    // lowers
+    // 下段の担当者名
     for (const l of lowers) {
       const name = l.staffId ? (idToName.get(l.staffId) || '') : ''
-      if (name.toLowerCase().includes(q)) days.add(l.day)
+      if (name && name.toLowerCase().includes(q)) {
+        days.add(l.day)
+        results.push({ day: l.day, where: 'lower', snippet: name })
+      }
     }
+    setSearchResults(results)
     if (searchScope === 'month') {
       setHighlightDays(days)
     } else {
-      if (days.size > 0) {
-        const first = Math.min(...Array.from(days))
+      if (results.length > 0) {
+        const first = Math.min(...results.map(r => r.day))
         setHighlightDays(new Set([first]))
         scrollToDay(first)
       } else {
@@ -841,6 +845,23 @@ export default function SchedulePage() {
                 <input type="radio" name="scope" checked={searchScope==='jump'} onChange={()=>setSearchScope('jump')} /> 全体から最初の一致へジャンプ
               </label>
             </div>
+            {searchResults.length > 0 && (
+              <div className="max-h-64 overflow-auto border rounded p-2 bg-white">
+                <div className="text-sm text-gray-600 mb-1">{searchResults.length}件ヒット</div>
+                <ul className="space-y-1">
+                  {searchResults.map((r, idx) => (
+                    <li key={idx}>
+                      <button
+                        className="w-full text-left text-sm underline hover:text-blue-700"
+                        onClick={() => { setSearchOpen(false); setHighlightDays(new Set([r.day])); scrollToDay(r.day) }}
+                      >
+                        {r.day}日 [{r.where==='note' ? '上段メモ' : '下段'}] — {r.snippet}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={()=>setSearchOpen(false)}>閉じる</Button>
               <Button onClick={runSearch}>検索</Button>
