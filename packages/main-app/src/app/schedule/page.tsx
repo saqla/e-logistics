@@ -297,6 +297,12 @@ export default function SchedulePage() {
   const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
 
   const monthDays = daysInMonth(ym.year, ym.month)
+  const todayCol = useMemo(() => {
+    if (ym.year === today.getFullYear() && ym.month === (today.getMonth() + 1)) {
+      return today.getDate()
+    }
+    return null
+  }, [ym])
 
   // 月変更時は採番リセット
   useEffect(() => {
@@ -469,7 +475,12 @@ export default function SchedulePage() {
             <div className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
               <div className="sticky left-0 bg-gray-50 border-b border-r border-gray-300 px-1 py-2 font-semibold text-center z-10"></div>
             {Array.from({length: 31}).map((_, i) => (
-                <div key={i} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}>{headerCell(i+1)}</div>
+                <div
+                  key={i}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''}`}
+                >
+                  {headerCell(i+1)}
+                </div>
               ))}
             </div>
             {/* メモ4行（セル結合なし） */}
@@ -488,7 +499,7 @@ export default function SchedulePage() {
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''}`}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}
                           >
                             {text ? (
                               <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
@@ -523,7 +534,7 @@ export default function SchedulePage() {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
@@ -569,7 +580,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''}`}
               >
                 {headerCell(i+1)}
               </div>
@@ -587,7 +598,7 @@ export default function SchedulePage() {
                 const rank = staffId ? (lowerKeyRankMap[key] || 0) : 0
                 const bg = rank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''}`} title={`${staffId ?? ''}#${rank}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`} title={`${staffId ?? ''}#${rank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
