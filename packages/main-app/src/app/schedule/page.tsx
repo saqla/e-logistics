@@ -300,11 +300,11 @@ export default function SchedulePage() {
     setNoteClipboard(text)
     try { await (navigator as any)?.clipboard?.writeText?.(text) } catch {}
   }
-  const pasteFromClipboardTo = async (day: number, slot: number) => {
-    if (noteClipboard) { setNote(day, slot, noteClipboard); return }
+  const pasteIntoEditor = async () => {
+    if (noteClipboard) { setNoteText(noteClipboard); setIsDirty(true); return }
     try {
       const t = await (navigator as any)?.clipboard?.readText?.()
-      if (typeof t === 'string') setNote(day, slot, t)
+      if (typeof t === 'string') { setNoteText(t); setIsDirty(true) }
     } catch {}
   }
 
@@ -509,36 +509,14 @@ export default function SchedulePage() {
                     return (
                       <Tooltip key={`memo-${slot}-${d}`}>
                         <TooltipTrigger asChild>
-                          <div
+                          <button
+                            onClick={() => d <= monthDays && openNote(d, slot)}
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}
                           >
-                            <div className="flex items-center gap-2 max-w-full">
-                              <button
-                                onClick={() => d <= monthDays && openNote(d, slot)}
-                                className="px-2 py-1 bg-yellow-100 text-yellow-900 text-xs rounded hover:bg-yellow-200"
-                              >
-                                編集
-                              </button>
-                              {text ? (
-                                <span className="inline-block max-w-[10rem] sm:max-w-[16rem] md:max-w-[20rem] bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">
-                                  {text}
-                                </span>
-                              ) : null}
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => copyNoteText(text)}
-                                  className="text-xs underline text-blue-700 hover:text-blue-900"
-                                  disabled={!text}
-                                  title="このセルのメモをコピー"
-                                >コピー</button>
-                                <button
-                                  onClick={() => d <= monthDays && pasteFromClipboardTo(d, slot)}
-                                  className="text-xs underline text-blue-700 hover:text-blue-900"
-                                  title="クリップボードのメモを貼り付け"
-                                >ペースト</button>
-                              </div>
-                            </div>
-                          </div>
+                            {text ? (
+                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                            ) : null}
+                          </button>
                         </TooltipTrigger>
                         {text ? (
                           <TooltipContent
@@ -690,15 +668,34 @@ export default function SchedulePage() {
             onChange={(e)=>setNoteText(e.target.value)}
           />
           <div className="flex items-center justify-between gap-2 mt-2">
-            <Button
-              variant="destructive"
-              onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
-            >
-              削除
-            </Button>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-              <Button onClick={saveNote}>保存</Button>
+              <Button
+                variant="secondary"
+                onClick={() => copyNoteText(noteText)}
+                disabled={!noteText}
+                title="エディタの内容をコピー"
+              >
+                コピー
+              </Button>
+              <Button
+                variant="outline"
+                onClick={pasteIntoEditor}
+                title="クリップボードから貼り付け"
+              >
+                ペースト
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
+              >
+                削除
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
+                <Button onClick={saveNote}>保存</Button>
+              </div>
             </div>
           </div>
         </DialogContent>
