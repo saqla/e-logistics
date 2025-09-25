@@ -409,6 +409,53 @@ export default function SchedulePage() {
   // モバイルで右サイドを開くボタン/ダイアログ
   const [asideOpen, setAsideOpen] = useState(false)
   const [showFab, setShowFab] = useState(false)
+  // 検索モーダル
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<'month'|'jump'>('month')
+  const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
+
+  const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
+  const scrollToDay = (day: number) => {
+    const main = mainScrollRef.current
+    const top = topScrollRef.current
+    if (!main) return
+    const offset = Math.max(0, leftColPx + dayColPx * (day - 1) - dayColPx * 2)
+    main.scrollLeft = offset
+    if (top) top.scrollLeft = offset
+  }
+  const runSearch = () => {
+    const q = searchQuery.trim().toLowerCase()
+    const days = new Set<number>()
+    if (!q) { setHighlightDays(new Set()); return }
+    // notes
+    for (const n of notes) {
+      if ((n.text || '').toLowerCase().includes(q)) days.add(n.day)
+    }
+    // routes
+    for (const r of routes) {
+      const name = r.staffId ? (idToName.get(r.staffId) || '') : ''
+      if (name.toLowerCase().includes(q)) days.add(r.day)
+      if ((r.special === 'OFF' && ('×x'.includes(q))) || (r.special === 'CONTINUE' && ('―-'.includes(q)))) days.add(r.day)
+    }
+    // lowers
+    for (const l of lowers) {
+      const name = l.staffId ? (idToName.get(l.staffId) || '') : ''
+      if (name.toLowerCase().includes(q)) days.add(l.day)
+    }
+    if (searchScope === 'month') {
+      setHighlightDays(days)
+    } else {
+      if (days.size > 0) {
+        const first = Math.min(...Array.from(days))
+        setHighlightDays(new Set([first]))
+        scrollToDay(first)
+      } else {
+        setHighlightDays(new Set())
+      }
+      setSearchOpen(false)
+    }
+  }
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY || document.documentElement.scrollTop
@@ -491,7 +538,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {headerCell(i+1)}
                 </div>
@@ -513,7 +560,7 @@ export default function SchedulePage() {
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
                               <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
@@ -548,7 +595,7 @@ export default function SchedulePage() {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium">
@@ -594,7 +641,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {headerCell(i+1)}
               </div>
@@ -612,7 +659,7 @@ export default function SchedulePage() {
                 const rank = staffId ? (lowerKeyRankMap[key] || 0) : 0
                 const bg = rank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`} title={`${staffId ?? ''}#${rank}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${rank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
@@ -651,6 +698,9 @@ export default function SchedulePage() {
           {/* 右サイド：備考パネル + 管理ボタン */}
           <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
             <RightSideContent />
+            <div className="border rounded-md p-3 w-full break-words mt-4">
+              <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
+            </div>
           </aside>
         </div>
       </div>
@@ -765,6 +815,37 @@ export default function SchedulePage() {
             <DialogTitle>備考・管理</DialogTitle>
           </DialogHeader>
           <RightSideContent compact />
+          <div className="mt-3">
+            <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 検索ダイアログ */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>スケジュール検索</DialogTitle>
+            <DialogDescription>キーワードで当月または全体から検索します。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="q">キーワード</Label>
+              <Input id="q" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} placeholder="名前 / メモ / × / ― など" />
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="scope" checked={searchScope==='month'} onChange={()=>setSearchScope('month')} /> 当月をハイライト
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="scope" checked={searchScope==='jump'} onChange={()=>setSearchScope('jump')} /> 全体から最初の一致へジャンプ
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={()=>setSearchOpen(false)}>閉じる</Button>
+              <Button onClick={runSearch}>検索</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
