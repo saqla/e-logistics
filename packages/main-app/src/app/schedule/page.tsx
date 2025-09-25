@@ -554,7 +554,7 @@ export default function SchedulePage() {
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium">
                           {(() => {
                             if (r?.special === 'CONTINUE') return '―'
-                            if (r?.special === 'OFF') return <span className="text-xl font-semibold text-red-600">×</span>
+                            if (r?.special === 'OFF') return <span className="text-xl font-semibold text-red-700">×</span>
                             if (r?.staffId) {
                               const m = new Map(staffs.map(s => [s.id, s.name]))
                               return m.get(r.staffId) || ''
