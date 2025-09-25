@@ -220,7 +220,7 @@ export default function SchedulePage() {
     setIsDirty(true)
   }
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     setSaving(true)
     try {
       const payload = {
@@ -234,10 +234,11 @@ export default function SchedulePage() {
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
         alert(e.error || '保存に失敗しました')
-        return
+        return false
       }
       alert('保存しました')
       setIsDirty(false)
+      return true
     } finally {
       setSaving(false)
     }
@@ -650,7 +651,7 @@ export default function SchedulePage() {
 
       {/* 月変更 確認ダイアログ */}
       <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white text-gray-900 border border-gray-200 shadow-lg">
           <DialogHeader>
             <DialogTitle>未保存の変更があります</DialogTitle>
           </DialogHeader>
@@ -659,6 +660,21 @@ export default function SchedulePage() {
           </p>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setMonthChangeOpen(false)}>キャンセル</Button>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                if (pendingMove !== null) {
+                  const ok = await handleSave()
+                  if (ok) {
+                    setMonthChangeOpen(false)
+                    proceedMove(pendingMove)
+                    setPendingMove(null)
+                  }
+                }
+              }}
+            >
+              保存してから移動
+            </Button>
             <Button
               variant="destructive"
               onClick={() => {
