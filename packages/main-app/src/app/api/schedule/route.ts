@@ -19,17 +19,18 @@ export async function GET(req: Request) {
 // POST /api/schedule  保存一括
 // { year, month, notes: DayNote[], routes: RouteAssignment[], lowers: LowerAssignment[] }
 export async function POST(req: Request) {
-  const body = await req.json()
-  const year: number = body?.year
-  const month: number = body?.month
-  if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
+  try {
+    const body = await req.json()
+    const year: number = body?.year
+    const month: number = body?.month
+    if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
-  const notes = Array.isArray(body?.notes) ? body.notes : []
-  const routes = Array.isArray(body?.routes) ? body.routes : []
-  const lowers = Array.isArray(body?.lowers) ? body.lowers : []
+    const notes = Array.isArray(body?.notes) ? body.notes : []
+    const routes = Array.isArray(body?.routes) ? body.routes : []
+    const lowers = Array.isArray(body?.lowers) ? body.lowers : []
 
-  // トランザクションでUpsert相当（ユニークキー基準で置換）
-  await prisma.$transaction(async (tx) => {
+    // トランザクションでUpsert相当（ユニークキー基準で置換）
+    await prisma.$transaction(async (tx) => {
     // DayNote（置換保存：先に当月分を削除し、空でないものだけ再作成）
     await tx.dayNote.deleteMany({ where: { year, month } })
     const filteredNotes = (notes as any[]).filter(n => (n?.text ?? '').toString().trim() !== '')
@@ -55,9 +56,15 @@ export async function POST(req: Request) {
         data: { year, month, day: l.day, rowIndex: l.rowIndex, staffId: l.staffId }
       })
     }
-  })
+    })
 
-  return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    console.error('POST /api/schedule error:', e)
+    const message = e?.message || 'Internal Error'
+    const code = e?.code
+    return NextResponse.json({ error: message, code }, { status: 500 })
+  }
 }
 
 

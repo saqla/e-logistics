@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { daysInMonth, getDow, isHoliday } from '@/lib/utils'
@@ -709,10 +709,10 @@ export default function SchedulePage() {
               <AlertTriangle className="h-5 w-5" />
               未保存の変更があります
             </DialogTitle>
+            <DialogDescription>
+              月を変更すると未保存の編集内容は破棄されます。続行しますか？
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm">
-            月を変更すると未保存の編集内容は破棄されます。続行しますか？
-          </p>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setMonthChangeOpen(false)} disabled={saving}>キャンセル</Button>
             <Button
