@@ -29,34 +29,31 @@ export async function POST(req: Request) {
     const routes = Array.isArray(body?.routes) ? body.routes : []
     const lowers = Array.isArray(body?.lowers) ? body.lowers : []
 
-    // トランザクションでUpsert相当（ユニークキー基準で置換）
-    await prisma.$transaction(async (tx) => {
-    // DayNote（置換保存：先に当月分を削除し、空でないものだけ再作成）
-    await tx.dayNote.deleteMany({ where: { year, month } })
+    // 非インタラクティブトランザクション（serverless/接続切替でも安全）
+    const ops: any[] = []
+    // DayNote 置換
+    ops.push(prisma.dayNote.deleteMany({ where: { year, month } }))
     const filteredNotes = (notes as any[]).filter(n => (n?.text ?? '').toString().trim() !== '')
     for (const n of filteredNotes) {
-      await tx.dayNote.create({ data: { year, month, day: n.day, slot: n.slot, text: n.text } })
+      ops.push(prisma.dayNote.create({ data: { year, month, day: n.day, slot: n.slot, text: n.text } }))
     }
-
-    // RouteAssignment
+    // RouteAssignment upsert
     for (const r of routes) {
-      await tx.routeAssignment.upsert({
+      ops.push(prisma.routeAssignment.upsert({
         where: { year_month_day_route: { year, month, day: r.day, route: r.route } },
         update: { staffId: r.staffId ?? null, special: r.special ?? null },
         create: { year, month, day: r.day, route: r.route, staffId: r.staffId ?? null, special: r.special ?? null }
-      })
+      }))
     }
-
-    // LowerAssignment
-    // 月全体を一旦削除し、NULLでないものだけ再作成（ユニーク制約 year,month,day,staffId の衝突回避）
-    await tx.lowerAssignment.deleteMany({ where: { year, month } })
+    // LowerAssignment 置換
+    ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
     for (const l of lowers as any[]) {
       if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
-      await tx.lowerAssignment.create({
+      ops.push(prisma.lowerAssignment.create({
         data: { year, month, day: l.day, rowIndex: l.rowIndex, staffId: l.staffId }
-      })
+      }))
     }
-    })
+    await prisma.$transaction(ops)
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {
