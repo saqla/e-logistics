@@ -44,6 +44,7 @@ export default function SchedulePage() {
   const [routes, setRoutes] = useState<RouteAssignment[]>([])
   const [lowers, setLowers] = useState<LowerAssignment[]>([])
   const [saving, setSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
   // 入力順トラッキング（セルごとにシーケンス番号を付与）
   const [lowerSeqCounter, setLowerSeqCounter] = useState(0)
   const [cellSeq, setCellSeq] = useState<Record<string, number>>({})
@@ -67,12 +68,17 @@ export default function SchedulePage() {
     setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
     setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
     setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+    setIsDirty(false)
   }
 
   useEffect(() => { loadAll() }, [ym])
 
   const title = useMemo(() => `${ym.year}年${ym.month}月`, [ym])
   const move = (d: number) => {
+    if (isDirty) {
+      const ok = confirm('未保存の変更があります。月を変更すると破棄されます。続行しますか？')
+      if (!ok) return
+    }
     const date = new Date(ym.year, ym.month - 1 + d, 1)
     setYm({ year: date.getFullYear(), month: date.getMonth() + 1 })
   }
@@ -108,6 +114,7 @@ export default function SchedulePage() {
       if (idx >= 0) { const next = [...prev]; next[idx] = { day, slot, text }; return next }
       return [...prev, { day, slot, text }]
     })
+    setIsDirty(true)
   }
 
   const getRoute = (day: number, route: RouteKind): RouteAssignment | undefined => routes.find(r => r.day === day && r.route === route)
@@ -118,6 +125,7 @@ export default function SchedulePage() {
       if (idx >= 0) { const next = [...prev]; next[idx] = value; return next }
       return [...prev, value]
     })
+    setIsDirty(true)
   }
 
   const getLower = (day: number, rowIndex: number) => lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.staffId || null
@@ -144,6 +152,7 @@ export default function SchedulePage() {
         return next
       })
     }
+    setIsDirty(true)
   }
 
   // duplicate prevention in lowers (same day must be unique)
@@ -202,6 +211,7 @@ export default function SchedulePage() {
   const clearAllNotes = () => {
     if (!confirm('上段メモを全てクリアします。よろしいですか？')) return
     setNotes([])
+    setIsDirty(true)
   }
 
   const handleSave = async () => {
@@ -221,6 +231,7 @@ export default function SchedulePage() {
         return
       }
       alert('保存しました')
+      setIsDirty(false)
     } finally {
       setSaving(false)
     }
@@ -238,6 +249,7 @@ export default function SchedulePage() {
     // 採番もリセット
     setLowerSeqCounter(0)
     setCellSeq({})
+    setIsDirty(true)
   }
 
   // 右サイドの共通内容
@@ -283,6 +295,17 @@ export default function SchedulePage() {
     setLowerSeqCounter(0)
     setCellSeq({})
   }, [ym])
+
+  // 未保存データがある場合、ページ離脱時に警告
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
 
   // コンテンツ幅の監視（内容変化やリサイズに追従）
   useEffect(() => {
