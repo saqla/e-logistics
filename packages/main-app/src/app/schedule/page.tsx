@@ -352,7 +352,7 @@ export default function SchedulePage() {
     }
   }, [])
 
-  // レスポンシブ列幅（xl以上は31列が収まるように調整）
+  // レスポンシブ列幅
   const [leftColPx, setLeftColPx] = useState(64)
   const [dayColPx, setDayColPx] = useState(56)
   const computeGridCols = useCallback(() => {
@@ -364,23 +364,24 @@ export default function SchedulePage() {
     if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      // xlでは常に横スクロールさせ、20日ぶんを表示
-      let perDay = Math.floor(availableForDays / 20)
+      // xlは31日表示（従来どおり）
+      let perDay = Math.floor(availableForDays / 31)
       perDay = Math.max(30, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 31)
-      // lg帯では最小幅を少し下げて31列確保を優先
-      perDay = Math.max(22, Math.min(perDay, 56))
+      // lgは20日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 20)
+      perDay = Math.max(24, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 768) { // md以上（タブレット想定）
       const aside = 240
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 31)
+      // mdも20日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 20)
       perDay = Math.max(18, Math.min(perDay, 40))
       setLeftColPx(left)
       setDayColPx(perDay)
