@@ -295,6 +295,18 @@ export default function SchedulePage() {
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
   const openNote = (day: number, slot: number) => { setNoteDay(day); setNoteSlot(slot); setNoteText(getNote(day, slot)); setNoteOpen(true) }
   const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
+  const copyNoteText = async (text: string) => {
+    if (!text) return
+    setNoteClipboard(text)
+    try { await (navigator as any)?.clipboard?.writeText?.(text) } catch {}
+  }
+  const pasteFromClipboardTo = async (day: number, slot: number) => {
+    if (noteClipboard) { setNote(day, slot, noteClipboard); return }
+    try {
+      const t = await (navigator as any)?.clipboard?.readText?.()
+      if (typeof t === 'string') setNote(day, slot, t)
+    } catch {}
+  }
 
   const monthDays = daysInMonth(ym.year, ym.month)
   const todayCol = useMemo(() => {
@@ -497,14 +509,36 @@ export default function SchedulePage() {
                     return (
                       <Tooltip key={`memo-${slot}-${d}`}>
                         <TooltipTrigger asChild>
-                          <button
-                            onClick={() => d <= monthDays && openNote(d, slot)}
+                          <div
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''}`}
                           >
-                            {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
-                            ) : null}
-                          </button>
+                            <div className="flex items-center gap-2 max-w-full">
+                              <button
+                                onClick={() => d <= monthDays && openNote(d, slot)}
+                                className="px-2 py-1 bg-yellow-100 text-yellow-900 text-xs rounded hover:bg-yellow-200"
+                              >
+                                編集
+                              </button>
+                              {text ? (
+                                <span className="inline-block max-w-[10rem] sm:max-w-[16rem] md:max-w-[20rem] bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">
+                                  {text}
+                                </span>
+                              ) : null}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => copyNoteText(text)}
+                                  className="text-xs underline text-blue-700 hover:text-blue-900"
+                                  disabled={!text}
+                                  title="このセルのメモをコピー"
+                                >コピー</button>
+                                <button
+                                  onClick={() => d <= monthDays && pasteFromClipboardTo(d, slot)}
+                                  className="text-xs underline text-blue-700 hover:text-blue-900"
+                                  title="クリップボードのメモを貼り付け"
+                                >ペースト</button>
+                              </div>
+                            </div>
+                          </div>
                         </TooltipTrigger>
                         {text ? (
                           <TooltipContent
