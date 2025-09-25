@@ -364,7 +364,8 @@ export default function SchedulePage() {
     if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 31)
+      // xlでは常に横スクロールさせ、20日ぶんを表示
+      let perDay = Math.floor(availableForDays / 20)
       perDay = Math.max(30, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
