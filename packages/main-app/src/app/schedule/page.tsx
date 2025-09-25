@@ -445,9 +445,9 @@ export default function SchedulePage() {
         <div className="w-full px-4 py-3 flex items-center justify-center gap-14">
           <h1 className="text-2xl font-bold">月予定表</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => move(-1)}>◀</Button>
+            <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-2xl font-semibold w-40 text-center">{title}</span>
-            <Button variant="outline" onClick={() => move(1)}>▶</Button>
+            <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <span className="inline-flex items-center gap-2">
