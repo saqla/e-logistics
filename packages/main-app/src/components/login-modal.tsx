@@ -28,7 +28,7 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-white text-gray-900 border border-gray-200 shadow-lg">
         <DialogHeader>
           <DialogTitle>ログイン</DialogTitle>
           <DialogDescription>

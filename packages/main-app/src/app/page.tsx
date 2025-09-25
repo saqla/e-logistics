@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoginModal } from "@/components/login-modal"
 import { SiteHeader } from "@/components/site-header"
+import { ExternalLink } from "lucide-react"
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -78,7 +80,7 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-gray-900 mb-2">
                 ダッシュボード
               </h2>
-              <p className="text-gray-600">
+              <p className="text-lg text-gray-600">
                 利用可能なアプリケーションを選択してください
               </p>
             </div>
@@ -86,18 +88,21 @@ export default function Home() {
             {/* アプリ一覧 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {apps.map((app) => (
-                <Card key={app.id} className="hover:shadow-lg transition-shadow">
+                <Card
+                  key={app.id}
+                  className={`hover:shadow-lg transition-shadow ${app.status === "利用可" ? "bg-emerald-50" : app.status === "開発中" ? "bg-amber-50" : ""}`}
+                >
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       {app.name}
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">{app.status}</span>
+                      <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded">{app.status}</span>
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-base">
                       {app.description}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full" onClick={() => router.push(`/${app.id}`)}>
+                    <Button className="w-full text-base" onClick={() => router.push(`/${app.id}`)}>
                       起動
                     </Button>
                   </CardContent>
@@ -163,6 +168,24 @@ export default function Home() {
                 ログイン
               </button>
             </div>
+          </div>
+          <div className="mt-6 text-center">
+            <p className="text-base text-gray-700">ホームページはこちら</p>
+            <Button
+              asChild
+              variant="link"
+              className="text-base p-0 h-auto mt-1 font-semibold underline underline-offset-4 inline-flex items-center gap-1"
+            >
+              <Link
+                href="http://e-logistics.jp/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Eロジスティクス公式サイトを新規タブで開く"
+              >
+                EロジHP（公式サイト）
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
         </div>
       </main>
