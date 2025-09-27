@@ -301,9 +301,11 @@ export default function SchedulePage() {
   const RightSideContent = ({ compact = false }: { compact?: boolean }) => (
     <>
       <div className="border rounded-md p-3 w-full break-words">
-        <div className="mb-2">
-          <div className="font-semibold text-center text-xl">備考</div>
-        </div>
+        {!compact && (
+          <div className="mb-2">
+            <div className="font-semibold text-center text-xl">備考</div>
+          </div>
+        )}
         <RemarkPanel compact={compact} />
       </div>
 
@@ -855,7 +857,7 @@ export default function SchedulePage() {
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
         <DialogContent className="md:hidden max-w-md">
           <DialogHeader>
-            <DialogTitle>備考・管理</DialogTitle>
+            <DialogTitle>備考</DialogTitle>
           </DialogHeader>
           <RightSideContent compact />
           <div className="mt-3">
