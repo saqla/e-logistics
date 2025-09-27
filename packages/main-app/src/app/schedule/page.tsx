@@ -335,7 +335,15 @@ export default function SchedulePage() {
   const [noteSlot, setNoteSlot] = useState<number>(1)
   const [noteText, setNoteText] = useState('')
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
-  const openNote = (day: number, slot: number) => { setNoteDay(day); setNoteSlot(slot); setNoteText(getNote(day, slot)); setNoteOpen(true) }
+  const [noteMode, setNoteMode] = useState<'view'|'edit'>('edit')
+  const openNote = (day: number, slot: number) => {
+    setNoteDay(day)
+    setNoteSlot(slot)
+    const t = getNote(day, slot)
+    setNoteText(t)
+    setNoteMode(t ? 'view' : 'edit')
+    setNoteOpen(true)
+  }
   const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
   const copyNoteText = async (text: string) => {
     if (!text) return
@@ -756,24 +764,27 @@ export default function SchedulePage() {
       {/* モバイル用 フローティングボタン（常に画面右下） */}
       <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} />
 
-      {/* 上段メモ 編集ダイアログ */}
+      {/* 上段メモ 閲覧/編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>上段メモ入力（{noteDay}日／{noteSlot}）</DialogTitle>
           </DialogHeader>
-          <textarea
-            className="w-full h-40 border rounded-md p-2"
-            value={noteText}
-            onChange={(e)=>setNoteText(e.target.value)}
-          />
-          <div className="flex items-center justify-between gap-2 mt-2">
+          {/* 上部ツールバー：左=コピー中テキスト、右=コピー/ペースト */}
+          <div className="flex items-start justify-between gap-2 mt-1">
+            <div className="text-sm text-gray-600 break-words max-w-[60%]">
+              {noteClipboard ? (
+                <span>コピー中: <span className="font-medium">{noteClipboard}</span></span>
+              ) : (
+                <span>コピー中のテキストはありません</span>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="secondary"
                 onClick={() => copyNoteText(noteText)}
                 disabled={!noteText}
-                title="エディタの内容をコピー"
+                title="内容をコピー"
               >
                 コピー
               </Button>
@@ -785,19 +796,43 @@ export default function SchedulePage() {
                 ペースト
               </Button>
             </div>
-            <div className="flex gap-2">
+          </div>
+
+          {/* 本文（閲覧 or 編集） */}
+          {noteMode === 'view' ? (
+            <div className="w-full min-h-[10rem] border rounded-md p-2 bg-gray-50 whitespace-pre-wrap mt-2">{noteText}</div>
+          ) : (
+            <textarea
+              className="w-full h-40 border rounded-md p-2 mt-2"
+              value={noteText}
+              onChange={(e)=>setNoteText(e.target.value)}
+            />
+          )}
+
+          {/* 下部アクション */}
+          {noteMode === 'view' ? (
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <Button variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
+              <Button onClick={()=>setNoteMode('edit')}>編集</Button>
               <Button
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
               >
                 削除
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-                <Button onClick={saveNote}>保存</Button>
-              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <Button
+                variant="destructive"
+                onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
+              >
+                削除
+              </Button>
+              <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
+              <Button onClick={saveNote}>保存</Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
