@@ -589,7 +589,7 @@ export default function SchedulePage() {
             <TooltipProvider>
               {Array.from({ length: 4 }).map((_, slotIdx) => (
                 <div key={`memo-row-${slotIdx}`} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
+                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 font-medium ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
                     {slotIdx === 0 ? 'メモ' : ''}
                   </div>
                   {Array.from({ length: 31 }).map((_, i) => {
@@ -631,7 +631,7 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 font-medium ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 ${(rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI') ? 'font-semibold' : 'font-medium'} ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
