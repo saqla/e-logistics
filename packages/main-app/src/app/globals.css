@@ -24,7 +24,7 @@ body {
 }
 
 @media (max-width: 639px) {
-  html { font-size: 12px; }
+  html { font-size: 13px; }
 }
 
 /* FAB の右からのスライドイン */
