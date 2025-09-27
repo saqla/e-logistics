@@ -711,11 +711,10 @@ export default function SchedulePage() {
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const staffId = getLower(d, rowIdx+1)
-                const key = `${d}-${rowIdx+1}`
-                const rank = staffId ? (lowerKeyRankMap[key] || 0) : 0
-                const bg = rank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
+                const countUpTo = lowerCountUpToCell(staffId, d, rowIdx+1)
+                const bg = countUpTo >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${rank}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${countUpTo}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
