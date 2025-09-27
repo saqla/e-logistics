@@ -61,17 +61,54 @@ export default function SchedulePage() {
 
   // data load
   const loadAll = async () => {
-    const [staffRes, schedRes] = await Promise.all([
-      fetch(`/api/staff?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' }),
-      fetch(`/api/schedule?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' })
-    ])
-    const staffData = await staffRes.json()
-    setStaffs(staffData.staffs || [])
-    const sched = await schedRes.json()
-    setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
-    setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
-    setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
-    setIsDirty(false)
+    // JSON以外（HTMLエラー等）でも落ちないように安全に読み取る
+    const readJsonSafe = async (res: Response): Promise<any> => {
+      try {
+        const ct = res.headers.get('content-type') || ''
+        if (!ct.includes('application/json')) {
+          const t = await res.text()
+          console.warn('Non-JSON response', res.status, t.slice(0, 200))
+          return { __nonJson: true, status: res.status, text: t }
+        }
+        return await res.json()
+      } catch (e) {
+        console.warn('JSON parse failed', res.status, e)
+        return { __parseError: true, status: res.status }
+      }
+    }
+
+    try {
+      const [staffRes, schedRes] = await Promise.all([
+        fetch(`/api/staff?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' }),
+        fetch(`/api/schedule?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' })
+      ])
+
+      const staffData = await readJsonSafe(staffRes)
+      if (staffRes.ok && !staffData.__nonJson && !staffData.__parseError) {
+        setStaffs(staffData.staffs || [])
+      } else {
+        setStaffs([])
+      }
+
+      const sched = await readJsonSafe(schedRes)
+      if (schedRes.ok && !sched.__nonJson && !sched.__parseError) {
+        setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
+        setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
+        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+      } else {
+        setNotes([])
+        setRoutes([])
+        setLowers([])
+      }
+
+      setIsDirty(false)
+    } catch (e) {
+      console.warn('loadAll failed', e)
+      setStaffs([])
+      setNotes([])
+      setRoutes([])
+      setLowers([])
+    }
   }
 
   useEffect(() => { loadAll() }, [ym])
@@ -182,6 +219,29 @@ export default function SchedulePage() {
     return map
   }, [cellSeq])
 
+  // スタッフごとの「選択順（通し）」を算出（cellSeqベース）。欠番は除外。
+  const perStaffSelectionRankMap = useMemo(() => {
+    const seqByStaff = new Map<string, Map<string, number>>()
+    lowers.forEach((l) => {
+      if (!l.staffId) return
+      const key = `${l.day}-${l.rowIndex}`
+      const seq = cellSeq[key]
+      if (seq === undefined) return
+      const existing = seqByStaff.get(l.staffId)
+      const inner = existing ? existing : new Map<string, number>()
+      inner.set(key, seq)
+      if (!existing) seqByStaff.set(l.staffId, inner)
+    })
+    const rankByStaff = new Map<string, Map<string, number>>()
+    seqByStaff.forEach((inner, sid) => {
+      const sorted = Array.from(inner.entries()).sort((a: [string, number], b: [string, number]) => a[1] - b[1])
+      const rankMap = new Map<string, number>()
+      sorted.forEach(([k], idx) => { rankMap.set(k, idx + 1) })
+      rankByStaff.set(sid, rankMap)
+    })
+    return rankByStaff
+  }, [lowers, cellSeq])
+
   const lowerMonthlyCount = (staffId: string | null) => {
     if (!staffId) return 0
     return lowers.filter(l => l.staffId === staffId).length
@@ -264,17 +324,22 @@ export default function SchedulePage() {
   const RightSideContent = ({ compact = false }: { compact?: boolean }) => (
     <>
       <div className="border rounded-md p-3 w-full break-words">
-        <div className="mb-2">
-          <div className="font-semibold text-center text-xl">備考</div>
-        </div>
+        {!compact && (
+          <div className="mb-2">
+            <div className="font-semibold text-center text-xl">備考</div>
+          </div>
+        )}
         <RemarkPanel compact={compact} />
       </div>
 
-      <div className="border rounded-md p-3 w-full break-words mt-4 md:mt-0">
-        <div className="flex flex-col gap-2">
-          <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
-          <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
-          <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
+      <div className="mt-4 md:mt-0">
+        <div className="font-semibold text-center text-xl mb-2">管理</div>
+        <div className="border rounded-md p-3 w-full break-words">
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
+            <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
+            <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
+          </div>
         </div>
       </div>
     </>
@@ -293,7 +358,15 @@ export default function SchedulePage() {
   const [noteSlot, setNoteSlot] = useState<number>(1)
   const [noteText, setNoteText] = useState('')
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
-  const openNote = (day: number, slot: number) => { setNoteDay(day); setNoteSlot(slot); setNoteText(getNote(day, slot)); setNoteOpen(true) }
+  const [noteMode, setNoteMode] = useState<'view'|'edit'>('edit')
+  const openNote = (day: number, slot: number) => {
+    setNoteDay(day)
+    setNoteSlot(slot)
+    const t = getNote(day, slot)
+    setNoteText(t)
+    setNoteMode(t ? 'view' : 'edit')
+    setNoteOpen(true)
+  }
   const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
   const copyNoteText = async (text: string) => {
     if (!text) return
@@ -387,7 +460,7 @@ export default function SchedulePage() {
       setDayColPx(perDay)
     } else {
       // スマホ：1画面に7日分が収まるように計算（asideは非表示）
-      const leftMobile = 44
+      const leftMobile = 52
       const visibleDays = 7
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
@@ -479,7 +552,7 @@ export default function SchedulePage() {
         <button
           type="button"
           onClick={onClick}
-          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
+          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 text-lg sm:text-base shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
           style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
           aria-label="備考と管理を開く"
           data-visible={visible}
@@ -493,15 +566,15 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <div className="sticky top-0 bg-white border-b z-10">
-        <div className="w-full px-4 py-3 flex items-center justify-center gap-14">
-          <h1 className="text-2xl font-bold">月予定表</h1>
+    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+      <div className="sticky top-0 bg-white border-b z-20">
+        <div className="w-full px-4 py-3 flex items-center justify-between md:justify-center gap-2 md:gap-14">
+          <h1 className="text-xl sm:text-lg font-bold">月予定表</h1>
           <div className="flex items-center gap-2">
             <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-2xl font-semibold w-40 text-center">{title}</span>
+            <span className="text-2xl font-semibold w-28 sm:w-40 text-center">{title}</span>
             <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>
+            <Button className="ml-4 text-lg sm:text-base" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
@@ -552,7 +625,7 @@ export default function SchedulePage() {
             <TooltipProvider>
               {Array.from({ length: 4 }).map((_, slotIdx) => (
                 <div key={`memo-row-${slotIdx}`} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
+                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 font-semibold ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
                     {slotIdx === 0 ? 'メモ' : ''}
                   </div>
                   {Array.from({ length: 31 }).map((_, i) => {
@@ -567,7 +640,7 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
@@ -594,7 +667,9 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 font-medium ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 ${
+                (rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI') ? 'font-bold' : (rk==='SANCHOKU' ? 'font-semibold' : 'font-medium')
+              } ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
@@ -660,10 +735,10 @@ export default function SchedulePage() {
                 const d=i+1
                 const staffId = getLower(d, rowIdx+1)
                 const key = `${d}-${rowIdx+1}`
-                const rank = staffId ? (lowerKeyRankMap[key] || 0) : 0
-                const bg = rank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
+                const selRank = staffId ? (perStaffSelectionRankMap.get(staffId)?.get(key) || 0) : 0
+                const bg = selRank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${rank}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
@@ -712,28 +787,31 @@ export default function SchedulePage() {
       {/* モバイル用 フローティングボタン（常に画面右下） */}
       <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} />
 
-      {/* 上段メモ 編集ダイアログ */}
+      {/* 上段メモ 閲覧/編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent>
+        <DialogContent className="text-lg">
           <DialogHeader>
             <DialogTitle>上段メモ入力（{noteDay}日／{noteSlot}）</DialogTitle>
           </DialogHeader>
-          <textarea
-            className="w-full h-40 border rounded-md p-2"
-            value={noteText}
-            onChange={(e)=>setNoteText(e.target.value)}
-          />
-          <div className="flex items-center justify-between gap-2 mt-2">
+          {/* 上部ツールバー：左=コピー中テキスト、右=コピー/ペースト */}
+          <div className="flex items-start justify-between gap-2 mt-1">
+            <div className="text-base text-gray-600 break-words max-w-[60%]">
+              {noteClipboard ? (
+                <span>コピー中: <span className="font-medium">{noteClipboard}</span></span>
+              ) : (
+                <span>コピー中のテキストはありません</span>
+              )}
+            </div>
             <div className="flex gap-2">
-              <Button
+              <Button className="text-base"
                 variant="secondary"
                 onClick={() => copyNoteText(noteText)}
                 disabled={!noteText}
-                title="エディタの内容をコピー"
+                title="内容をコピー"
               >
                 コピー
               </Button>
-              <Button
+              <Button className="text-base"
                 variant="outline"
                 onClick={pasteIntoEditor}
                 title="クリップボードから貼り付け"
@@ -741,19 +819,43 @@ export default function SchedulePage() {
                 ペースト
               </Button>
             </div>
-            <div className="flex gap-2">
-              <Button
+          </div>
+
+          {/* 本文（閲覧 or 編集） */}
+          {noteMode === 'view' ? (
+            <div className="w-full min-h-[10rem] border rounded-md p-2 bg-gray-50 whitespace-pre-wrap mt-2">{noteText}</div>
+          ) : (
+            <textarea
+              className="w-full h-40 border rounded-md p-2 mt-2"
+              value={noteText}
+              onChange={(e)=>setNoteText(e.target.value)}
+            />
+          )}
+
+          {/* 下部アクション */}
+          {noteMode === 'view' ? (
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
+              <Button className="text-base" onClick={()=>setNoteMode('edit')}>編集</Button>
+              <Button className="text-base"
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
               >
                 削除
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-                <Button onClick={saveNote}>保存</Button>
-              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <Button className="text-base"
+                variant="destructive"
+                onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
+              >
+                削除
+              </Button>
+              <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
+              <Button className="text-base" onClick={saveNote}>保存</Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -814,9 +916,9 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className="md:hidden max-w-md">
+        <DialogContent className="md:hidden max-w-md bg-white">
           <DialogHeader>
-            <DialogTitle>備考・管理</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
           <RightSideContent compact />
           <div className="mt-3">
@@ -932,15 +1034,16 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
           ))}
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {[...first3, ...rest].map((r) => (
-            <button
+            <div
               key={r.id}
-              className="block w-full text-left underline break-words whitespace-normal text-base"
+              className="border rounded p-2 break-words"
               onClick={() => openEdit(r)}
             >
-              {r.title}
-            </button>
+              <div className="font-medium text-lg break-words">{r.title}</div>
+              <div className="text-base text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
+            </div>
           ))}
         </div>
       )}
