@@ -516,7 +516,7 @@ export default function SchedulePage() {
         <button
           type="button"
           onClick={onClick}
-          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
+          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 text-lg sm:text-base shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
           style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
           aria-label="備考と管理を開く"
           data-visible={visible}
@@ -538,7 +538,7 @@ export default function SchedulePage() {
             <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-2xl font-semibold w-40 text-center">{title}</span>
             <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-4 text-base" onClick={handleSave} disabled={saving}>
+            <Button className="ml-4 text-lg sm:text-base" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
