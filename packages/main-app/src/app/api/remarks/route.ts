@@ -1,20 +1,44 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+
+async function getPrisma() {
+  try {
+    const mod = await import('@/lib/prisma')
+    return (mod as any).prisma as any
+  } catch (_e) {
+    return null
+  }
+}
 
 // GET /api/remarks
 export async function GET() {
-  const items = await prisma.remark.findMany({ orderBy: { createdAt: 'asc' } })
-  return NextResponse.json({ remarks: items })
+  try {
+    const prisma = await getPrisma()
+    if (!prisma) return NextResponse.json({ remarks: [] })
+    const items = await prisma.remark.findMany({ orderBy: { createdAt: 'asc' } })
+    return NextResponse.json({ remarks: items })
+  } catch (e: any) {
+    const message = e?.message || 'Internal Error'
+    const code = e?.code
+    return NextResponse.json({ error: message, code }, { status: 500 })
+  }
 }
 
 // POST /api/remarks { title, body }
 export async function POST(req: Request) {
-  const body = await req.json()
-  const title: string = body?.title?.trim()
-  const content: string = body?.body?.trim()
-  if (!title || !content) return NextResponse.json({ error: 'タイトルと本文は必須です' }, { status: 400 })
-  const created = await prisma.remark.create({ data: { title, body: content } })
-  return NextResponse.json({ remark: created })
+  try {
+    const prisma = await getPrisma()
+    if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
+    const body = await req.json()
+    const title: string = body?.title?.trim()
+    const content: string = body?.body?.trim()
+    if (!title || !content) return NextResponse.json({ error: 'タイトルと本文は必須です' }, { status: 400 })
+    const created = await prisma.remark.create({ data: { title, body: content } })
+    return NextResponse.json({ remark: created })
+  } catch (e: any) {
+    const message = e?.message || 'Internal Error'
+    const code = e?.code
+    return NextResponse.json({ error: message, code }, { status: 500 })
+  }
 }
 
 

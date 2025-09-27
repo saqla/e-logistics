@@ -61,17 +61,54 @@ export default function SchedulePage() {
 
   // data load
   const loadAll = async () => {
-    const [staffRes, schedRes] = await Promise.all([
-      fetch(`/api/staff?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' }),
-      fetch(`/api/schedule?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' })
-    ])
-    const staffData = await staffRes.json()
-    setStaffs(staffData.staffs || [])
-    const sched = await schedRes.json()
-    setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
-    setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
-    setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
-    setIsDirty(false)
+    // JSON以外（HTMLエラー等）でも落ちないように安全に読み取る
+    const readJsonSafe = async (res: Response): Promise<any> => {
+      try {
+        const ct = res.headers.get('content-type') || ''
+        if (!ct.includes('application/json')) {
+          const t = await res.text()
+          console.warn('Non-JSON response', res.status, t.slice(0, 200))
+          return { __nonJson: true, status: res.status, text: t }
+        }
+        return await res.json()
+      } catch (e) {
+        console.warn('JSON parse failed', res.status, e)
+        return { __parseError: true, status: res.status }
+      }
+    }
+
+    try {
+      const [staffRes, schedRes] = await Promise.all([
+        fetch(`/api/staff?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' }),
+        fetch(`/api/schedule?year=${ym.year}&month=${ym.month}`, { cache: 'no-store' })
+      ])
+
+      const staffData = await readJsonSafe(staffRes)
+      if (staffRes.ok && !staffData.__nonJson && !staffData.__parseError) {
+        setStaffs(staffData.staffs || [])
+      } else {
+        setStaffs([])
+      }
+
+      const sched = await readJsonSafe(schedRes)
+      if (schedRes.ok && !sched.__nonJson && !sched.__parseError) {
+        setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
+        setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
+        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+      } else {
+        setNotes([])
+        setRoutes([])
+        setLowers([])
+      }
+
+      setIsDirty(false)
+    } catch (e) {
+      console.warn('loadAll failed', e)
+      setStaffs([])
+      setNotes([])
+      setRoutes([])
+      setLowers([])
+    }
   }
 
   useEffect(() => { loadAll() }, [ym])
