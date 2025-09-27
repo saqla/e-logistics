@@ -219,6 +219,29 @@ export default function SchedulePage() {
     return map
   }, [cellSeq])
 
+  // スタッフごとの「選択順（通し）」を算出（cellSeqベース）。欠番は除外。
+  const perStaffSelectionRankMap = useMemo(() => {
+    const seqByStaff = new Map<string, Map<string, number>>()
+    lowers.forEach((l) => {
+      if (!l.staffId) return
+      const key = `${l.day}-${l.rowIndex}`
+      const seq = cellSeq[key]
+      if (seq === undefined) return
+      const existing = seqByStaff.get(l.staffId)
+      const inner = existing ? existing : new Map<string, number>()
+      inner.set(key, seq)
+      if (!existing) seqByStaff.set(l.staffId, inner)
+    })
+    const rankByStaff = new Map<string, Map<string, number>>()
+    seqByStaff.forEach((inner, sid) => {
+      const sorted = Array.from(inner.entries()).sort((a: [string, number], b: [string, number]) => a[1] - b[1])
+      const rankMap = new Map<string, number>()
+      sorted.forEach(([k], idx) => { rankMap.set(k, idx + 1) })
+      rankByStaff.set(sid, rankMap)
+    })
+    return rankByStaff
+  }, [lowers, cellSeq])
+
   const lowerMonthlyCount = (staffId: string | null) => {
     if (!staffId) return 0
     return lowers.filter(l => l.staffId === staffId).length
@@ -711,10 +734,11 @@ export default function SchedulePage() {
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const staffId = getLower(d, rowIdx+1)
-                const countUpTo = lowerCountUpToCell(staffId, d, rowIdx+1)
-                const bg = countUpTo >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
+                const key = `${d}-${rowIdx+1}`
+                const selRank = staffId ? (perStaffSelectionRankMap.get(staffId)?.get(key) || 0) : 0
+                const bg = selRank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${countUpTo}`}>
+                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
