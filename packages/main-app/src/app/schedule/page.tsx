@@ -617,7 +617,7 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-xs px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
