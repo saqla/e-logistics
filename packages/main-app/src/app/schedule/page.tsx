@@ -531,7 +531,7 @@ export default function SchedulePage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <div className="sticky top-0 bg-white border-b z-10">
+      <div className="sticky top-0 bg-white border-b z-20">
         <div className="w-full px-4 py-3 flex items-center justify-center gap-14">
           <h1 className="text-2xl font-bold">月予定表</h1>
           <div className="flex items-center gap-2">
