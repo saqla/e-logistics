@@ -766,13 +766,13 @@ export default function SchedulePage() {
 
       {/* 上段メモ 閲覧/編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent>
+        <DialogContent className="text-lg">
           <DialogHeader>
             <DialogTitle>上段メモ入力（{noteDay}日／{noteSlot}）</DialogTitle>
           </DialogHeader>
           {/* 上部ツールバー：左=コピー中テキスト、右=コピー/ペースト */}
           <div className="flex items-start justify-between gap-2 mt-1">
-            <div className="text-sm text-gray-600 break-words max-w-[60%]">
+            <div className="text-base text-gray-600 break-words max-w-[60%]">
               {noteClipboard ? (
                 <span>コピー中: <span className="font-medium">{noteClipboard}</span></span>
               ) : (
@@ -780,7 +780,7 @@ export default function SchedulePage() {
               )}
             </div>
             <div className="flex gap-2">
-              <Button
+              <Button className="text-base"
                 variant="secondary"
                 onClick={() => copyNoteText(noteText)}
                 disabled={!noteText}
@@ -788,7 +788,7 @@ export default function SchedulePage() {
               >
                 コピー
               </Button>
-              <Button
+              <Button className="text-base"
                 variant="outline"
                 onClick={pasteIntoEditor}
                 title="クリップボードから貼り付け"
@@ -812,9 +812,9 @@ export default function SchedulePage() {
           {/* 下部アクション */}
           {noteMode === 'view' ? (
             <div className="flex items-center justify-end gap-2 mt-2">
-              <Button variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
-              <Button onClick={()=>setNoteMode('edit')}>編集</Button>
-              <Button
+              <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
+              <Button className="text-base" onClick={()=>setNoteMode('edit')}>編集</Button>
+              <Button className="text-base"
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
               >
@@ -823,14 +823,14 @@ export default function SchedulePage() {
             </div>
           ) : (
             <div className="flex items-center justify-end gap-2 mt-2">
-              <Button
+              <Button className="text-base"
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
               >
                 削除
               </Button>
-              <Button variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-              <Button onClick={saveNote}>保存</Button>
+              <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
+              <Button className="text-base" onClick={saveNote}>保存</Button>
             </div>
           )}
         </DialogContent>
