@@ -543,13 +543,13 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
       <div className="sticky top-0 bg-white border-b z-20">
-        <div className="w-full px-4 py-3 flex items-center justify-center gap-14">
+        <div className="w-full px-4 py-3 flex items-center justify-between md:justify-center gap-2 md:gap-14">
           <h1 className="text-lg sm:text-base font-bold">月予定表</h1>
           <div className="flex items-center gap-2">
             <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-2xl font-semibold w-40 text-center">{title}</span>
+            <span className="text-2xl font-semibold w-28 sm:w-40 text-center">{title}</span>
             <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             <Button className="ml-4 text-lg sm:text-base" onClick={handleSave} disabled={saving}>
               {saving ? (
