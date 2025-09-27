@@ -122,7 +122,7 @@ export default function StaffPage() {
                 <div key={s.id} className="grid grid-cols-[100px_1fr_140px] items-center py-2">
                   <div className={s.lowerCount >= 9 ? 'text-pink-600 font-semibold' : ''}>{s.lowerCount}</div>
                   <button className="text-left hover:underline" onClick={() => openEdit(s)}>
-                    {s.name} <span className="text-xs text-gray-500">（{KIND_LABEL[s.kind]}）</span>
+                    {s.name}
                   </button>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => openEdit(s)}>編集</Button>
@@ -148,7 +148,7 @@ export default function StaffPage() {
               {deleted.map((s) => (
                 <div key={s.id} className="flex items-center justify-between py-2">
                   <div>
-                    {s.name} <span className="text-xs text-gray-500">（{KIND_LABEL[s.kind as Staff['kind']]}）</span>
+                    {s.name}
                   </div>
                   <Button variant="outline" onClick={() => restore(s.id)}>復元</Button>
                 </div>
