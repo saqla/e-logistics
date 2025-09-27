@@ -858,7 +858,7 @@ export default function SchedulePage() {
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
         <DialogContent className="md:hidden max-w-md">
           <DialogHeader>
-            <DialogTitle>備考</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
           <RightSideContent compact />
           <div className="mt-3">
