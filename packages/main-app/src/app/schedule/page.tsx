@@ -1034,15 +1034,16 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
           ))}
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {[...first3, ...rest].map((r) => (
-            <button
+            <div
               key={r.id}
-              className="block w-full text-left underline break-words whitespace-normal text-base"
+              className="border rounded p-2 break-words"
               onClick={() => openEdit(r)}
             >
-              {r.title}
-            </button>
+              <div className="font-medium text-lg break-words">{r.title}</div>
+              <div className="text-base text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
+            </div>
           ))}
         </div>
       )}
