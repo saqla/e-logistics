@@ -18,12 +18,14 @@ body {
 
 /* App 共通のタイポ（過度な上書きは避ける） */
 @layer base {
-  h1 { @apply text-xl font-bold; }
-  h2 { @apply text-lg font-semibold; }
-  h3 { @apply text-base font-medium; }
+  /* モバイルファーストで1ランク上げ、sm以上で従来サイズに戻す */
+  h1 { @apply text-2xl sm:text-xl font-bold; }
+  h2 { @apply text-xl sm:text-lg font-semibold; }
+  h3 { @apply text-lg sm:text-base font-medium; }
 }
 
 @media (max-width: 639px) {
+  /* ベースフォントを1段階だけ底上げ（コンポーネントの明示サイズはそのまま） */
   html { font-size: 13px; }
 }
 
