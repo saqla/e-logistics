@@ -754,7 +754,17 @@ export default function SchedulePage() {
                           onChange={(e)=>{
                             const v = e.target.value
                             const sid = v === '' ? null : v
-                            if (!canSelectLower(d, sid, rowIdx+1)) { alert('同じ日に同じ名前は選べません'); return }
+                            // 空選択はそのまま反映
+                            if (!sid) { setLower(d, rowIdx+1, null); return }
+                            // 同日重複がある場合は置き換え確認
+                            if (!canSelectLower(d, sid, rowIdx+1)) {
+                              const ok = confirm('同じ日に同じ名前が既に選択されています。置き換えますか？')
+                              if (!ok) return
+                              const prev = lowers.find(l => l.day === d && l.staffId === sid)
+                              if (prev) {
+                                setLower(d, prev.rowIndex, null)
+                              }
+                            }
                             setLower(d, rowIdx+1, sid)
                           }}
                         >
