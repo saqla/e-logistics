@@ -20,6 +20,7 @@ model User {
 
   // Audit logs
   auditLogs AuditLog[]
+  staffs    Staff[]
 
   @@map("users")
 }
@@ -51,6 +52,8 @@ model Staff {
   id         String     @id @default(cuid())
   name       String
   kind       StaffKind
+  userId     String?    @unique
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   deletedAt  DateTime?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
