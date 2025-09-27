@@ -424,7 +424,7 @@ export default function SchedulePage() {
       setDayColPx(perDay)
     } else {
       // スマホ：1画面に7日分が収まるように計算（asideは非表示）
-      const leftMobile = 44
+      const leftMobile = 52
       const visibleDays = 7
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
