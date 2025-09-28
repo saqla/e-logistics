@@ -8,7 +8,7 @@
 }
 
 html {
-  font-size: 14px; /* 既定16pxから1段階ダウン */
+  font-size: 14px; /* PC基準 */
 }
 
 body {
@@ -25,8 +25,10 @@ body {
 }
 
 @media (max-width: 639px) {
-  /* ベースフォントを1段階だけ底上げ（コンポーネントの明示サイズはそのまま） */
-  html { font-size: 13px; }
+  /* モバイルではベースを16px以上にしてズームを防止 */
+  html { font-size: 16px; }
+  /* フォーム要素の最小フォントサイズのみ保証（ズーム防止） */
+  input, textarea, select { font-size: 16px; }
 }
 
 /* FAB の右からのスライドイン */

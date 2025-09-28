@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const { version } = require('./package.json')
+
 const nextConfig = {
   // Next.js 14ではappDirはデフォルトで有効
   // iPhone等のLANアクセス時に/_next配下のアセット取得がCORSと解釈される場合に備えヘッダーを付与
@@ -21,6 +23,11 @@ const nextConfig = {
     'http://localhost:3002',
     'http://127.0.0.1:3002',
   ],
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_GIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || '',
+    NEXT_PUBLIC_SHOW_SHA: process.env.NEXT_PUBLIC_SHOW_SHA || 'false',
+  },
 }
 
 module.exports = nextConfig

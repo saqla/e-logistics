@@ -1,6 +1,6 @@
 {
   "name": "@e-logistics/main-app",
-  "version": "1.0.0",
+  "version": "0.3.3",
   "private": true,
   "installConfig": {
     "hoistingLimits": "none"
