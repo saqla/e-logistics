@@ -28,10 +28,10 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-white text-gray-900 border border-gray-200 shadow-lg">
+      <DialogContent className="sm:max-w-[425px] bg-white text-gray-900 border border-gray-200 shadow-lg text-sm max-sm:text-lg">
         <DialogHeader>
-          <DialogTitle>ログイン</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg max-sm:text-2xl">ログイン</DialogTitle>
+          <DialogDescription className="text-sm max-sm:text-lg">
             ユーザーIDとパスワードを入力してログインしてください。
           </DialogDescription>
         </DialogHeader>

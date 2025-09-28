@@ -172,7 +172,7 @@ export default function StaffPage() {
               </div>
               <div>
                 <Label htmlFor="kind">種別</Label>
-                <select id="kind" className="mt-1 w-full border rounded-md h-10 px-3" value={kind} onChange={(e) => setKind(e.target.value as Staff['kind'])}>
+                <select id="kind" className="mt-1 w-full border rounded-md h-10 px-3 text-sm max-sm:text-lg" value={kind} onChange={(e) => setKind(e.target.value as Staff['kind'])}>
                   <option value="ALL">All</option>
                   <option value="UNIC">ユニック</option>
                   <option value="HAKO">箱車</option>

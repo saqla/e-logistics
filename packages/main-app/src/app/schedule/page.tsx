@@ -20,9 +20,9 @@ type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; 
 type LowerAssignment = { day: number; rowIndex: number; staffId: string | null }
 
 const ROUTE_LABEL: Record<RouteKind, string> = {
-  EZAKI_DONKI: '江ドンキ',
+  EZAKI_DONKI: '江D',
   SANCHOKU: '産直',
-  MARUNO_DONKI: '丸ドンキ'
+  MARUNO_DONKI: '丸D'
 }
 
 export default function SchedulePage() {
@@ -430,8 +430,9 @@ export default function SchedulePage() {
   const [dayColPx, setDayColPx] = useState(56)
   const computeGridCols = useCallback(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 0
-    // 余白見積り：左右パディング(px-4)=32, main-aside gap=16
-    const sidePadding = 32
+    // 余白見積り：モバイルは左右パディング(px-2)=16, それ以外は32。main-aside gap=16
+    const isMobile = w < 768
+    const sidePadding = isMobile ? 16 : 32
     const gap = 16
     const left = 56
     if (w >= 1440) {
@@ -460,7 +461,7 @@ export default function SchedulePage() {
       setDayColPx(perDay)
     } else {
       // スマホ：1画面に7日分が収まるように計算（asideは非表示）
-      const leftMobile = 52
+      const leftMobile = 48
       const visibleDays = 7
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
@@ -568,13 +569,13 @@ export default function SchedulePage() {
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
       <div className="sticky top-0 bg-white border-b z-20">
-        <div className="w-full px-4 py-3 flex items-center justify-between md:justify-center gap-2 md:gap-14">
-          <h1 className="text-xl sm:text-lg font-bold">月予定表</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-2xl font-semibold w-28 sm:w-40 text-center">{title}</span>
-            <Button variant="ghost" className="focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-4 text-lg sm:text-base" onClick={handleSave} disabled={saving}>
+        <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
+          <h1 className="text-lg sm:text-xl font-bold">月予定表</h1>
+          <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
+            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
+            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
+            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
+            <Button className="ml-2 sm:ml-4 text-base sm:text-lg" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
@@ -667,9 +668,7 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-2 text-center z-10 ${
-                (rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI') ? 'font-bold' : (rk==='SANCHOKU' ? 'font-semibold' : 'font-medium')
-              } ${rk==='EZAKI_DONKI' || rk==='MARUNO_DONKI' ? 'text-xs' : ''}`}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-1 text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
@@ -677,9 +676,13 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm font-medium">
                           {(() => {
-                            if (r?.special === 'CONTINUE') return '―'
+                            if (r?.special === 'CONTINUE') {
+                              return (
+                                <span aria-hidden="true" className="block w-full border-t border-gray-400" />
+                              )
+                            }
                             if (r?.special === 'OFF') return <span className="text-xl font-semibold text-red-700">×</span>
                             if (r?.staffId) {
                               const m = new Map(staffs.map(s => [s.id, s.name]))
@@ -689,7 +692,7 @@ export default function SchedulePage() {
                           })()}
                         </div>
                         <select
-                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none"
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm max-sm:text-lg"
                           value={r?.special ? r.special : (r?.staffId || '')}
                           onChange={(e)=>{
                             const v = e.target.value
@@ -749,7 +752,7 @@ export default function SchedulePage() {
                           })()}
                         </div>
                         <select
-                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none"
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm max-sm:text-lg"
                           value={staffId || ''}
                           onChange={(e)=>{
                             const v = e.target.value
@@ -836,7 +839,7 @@ export default function SchedulePage() {
             <div className="w-full min-h-[10rem] border rounded-md p-2 bg-gray-50 whitespace-pre-wrap mt-2">{noteText}</div>
           ) : (
             <textarea
-              className="w-full h-40 border rounded-md p-2 mt-2"
+              className="w-full h-40 border rounded-md p-2 mt-2 text-sm max-sm:text-lg"
               value={noteText}
               onChange={(e)=>setNoteText(e.target.value)}
             />
@@ -1087,7 +1090,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
             </div>
             <div>
               <Label htmlFor="rbody">本文</Label>
-              <textarea id="rbody" className="w-full h-40 border rounded-md p-2" value={body} onChange={(e)=>setBody(e.target.value)} />
+              <textarea id="rbody" className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2">

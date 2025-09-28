@@ -68,7 +68,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="userId">ユーザーID</Label>
+          <Label htmlFor="userId" className="text-sm max-sm:text-lg">ユーザーID</Label>
           <input
             id="userId"
             type="text"
@@ -77,11 +77,11 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
             onChange={(e) => setUserId(e.target.value)}
             required
             autoComplete="username"
-            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm max-sm:text-lg text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">パスワード</Label>
+          <Label htmlFor="password" className="text-sm max-sm:text-lg">パスワード</Label>
           <div className="relative">
             <input
               id="password"
@@ -91,7 +91,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-sm max-sm:text-lg text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <button
               type="button"
@@ -108,7 +108,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
         </div>
         <button
           type="submit"
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm max-sm:text-lg"
           disabled={isLoading}
         >
           {isLoading ? "ログイン中..." : "ログイン"}

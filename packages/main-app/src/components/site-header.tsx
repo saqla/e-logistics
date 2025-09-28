@@ -22,7 +22,7 @@ export function SiteHeader() {
             <span className="text-lg font-semibold text-gray-900">Eロジスティクス</span>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500">Ver.0.3.0</span>
+            <VersionBadge />
             {status === "authenticated" ? (
               <>
                 <span className="text-sm text-gray-600">
@@ -40,6 +40,17 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+  )
+}
+
+function VersionBadge() {
+  const version = process.env.NEXT_PUBLIC_APP_VERSION
+  const sha = process.env.NEXT_PUBLIC_GIT_SHA
+  const showSha = (process.env.NEXT_PUBLIC_SHOW_SHA || 'false') === 'true'
+  const shortSha = sha ? sha.substring(0, 7) : ''
+  const label = showSha && shortSha ? `v${version}+${shortSha}` : `v${version}`
+  return (
+    <span className="text-sm text-gray-500" title={showSha && sha ? sha : undefined}>{label}</span>
   )
 }
 
