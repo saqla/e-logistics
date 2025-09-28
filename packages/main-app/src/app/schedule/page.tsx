@@ -618,7 +618,7 @@ export default function SchedulePage() {
                   key={i}
                   className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
-                  {headerCell(i+1)}
+                  {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
               ))}
             </div>
@@ -725,7 +725,7 @@ export default function SchedulePage() {
                 key={`lower-h-${i}`}
                 className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
-                {headerCell(i+1)}
+                {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
             ))}
             </div>
