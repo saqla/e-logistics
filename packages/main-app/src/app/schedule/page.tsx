@@ -1094,6 +1094,14 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
             </div>
           </div>
           <div className="flex justify-end gap-2">
+            {mode==='edit' && target && (
+              <Button
+                variant="destructive"
+                onClick={async ()=>{ await del(target.id); setOpen(false) }}
+              >
+                削除
+              </Button>
+            )}
             <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
             <Button onClick={save}>保存</Button>
           </div>
