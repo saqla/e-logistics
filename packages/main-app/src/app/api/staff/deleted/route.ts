@@ -11,7 +11,8 @@ export async function GET() {
     }
     const items = await prisma.staff.findMany({
       where: { deletedAt: { not: null } },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, kind: true, deletedAt: true, createdAt: true, updatedAt: true }
     })
     return NextResponse.json({ staffs: items })
   } catch (err) {
@@ -37,12 +38,12 @@ export async function POST(req: Request) {
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
     // 復元時の同名衝突チェック
-    const target = await prisma.staff.findUnique({ where: { id } })
+    const target = await prisma.staff.findUnique({ where: { id }, select: { id: true, name: true } })
     if (!target) return NextResponse.json({ error: 'not found' }, { status: 404 })
     const dup = await prisma.staff.findFirst({ where: { name: target.name, deletedAt: null } })
     if (dup) return NextResponse.json({ error: '同名のアクティブスタッフが存在します' }, { status: 409 })
 
-    const restored = await prisma.staff.update({ where: { id }, data: { deletedAt: null } })
+    const restored = await prisma.staff.update({ where: { id }, data: { deletedAt: null }, select: { id: true, name: true, kind: true, deletedAt: true, createdAt: true, updatedAt: true } })
     return NextResponse.json({ staff: restored })
   } catch (err) {
     const error = err as Error

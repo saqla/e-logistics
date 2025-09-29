@@ -17,7 +17,15 @@ export async function GET(req: Request) {
 
     const staffs = await prisma.staff.findMany({
       where: { deletedAt: null },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        kind: true,
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      }
     })
 
     if (!year || !month) {
@@ -61,7 +69,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '名前と種別は必須です' }, { status: 400 })
     }
 
-    const exists = await prisma.staff.findFirst({ where: { name, deletedAt: null } })
+    const exists = await prisma.staff.findFirst({ where: { name, deletedAt: null }, select: { id: true } })
     if (exists) {
       return NextResponse.json({ error: '同名のスタッフが既に存在します' }, { status: 409 })
     }
@@ -71,7 +79,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '種別kindが不正です' }, { status: 400 })
     }
 
-    const created = await prisma.staff.create({ data: { name, kind: upper as StaffKind } })
+    const created = await prisma.staff.create({
+      data: { name, kind: upper as StaffKind },
+      select: {
+        id: true,
+        name: true,
+        kind: true,
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    })
     return NextResponse.json({ staff: created })
   } catch (err) {
     const error = err as Error

@@ -25,7 +25,7 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
     }
 
     if (name) {
-      const dup = await prisma.staff.findFirst({ where: { id: { not: id }, name, deletedAt: null } })
+      const dup = await prisma.staff.findFirst({ where: { id: { not: id }, name, deletedAt: null }, select: { id: true } })
       if (dup) {
         return NextResponse.json({ error: '同名のスタッフが既に存在します' }, { status: 409 })
       }
@@ -43,7 +43,8 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
 
     const updated = await prisma.staff.update({
       where: { id },
-      data
+      data,
+      select: { id: true, name: true, kind: true, deletedAt: true, createdAt: true, updatedAt: true }
     })
     return NextResponse.json({ staff: updated })
   } catch (err) {
