@@ -575,7 +575,7 @@ export default function SchedulePage() {
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-2 sm:ml-4 text-base sm:text-lg" onClick={handleSave} disabled={saving}>
+            <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
