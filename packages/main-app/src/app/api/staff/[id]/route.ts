@@ -63,7 +63,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     const id = params.id
     const updated = await prisma.staff.update({
       where: { id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date() },
+      select: { id: true, name: true, kind: true, deletedAt: true, createdAt: true, updatedAt: true }
     })
     return NextResponse.json({ staff: updated })
   } catch (err) {
