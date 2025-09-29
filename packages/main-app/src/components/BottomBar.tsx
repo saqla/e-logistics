@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from './ui/button';
 import { Menu, Save, MessageSquare, X } from 'lucide-react';
@@ -13,9 +13,21 @@ const BottomBar: React.FC = () => {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [hasData, setHasData] = useState(false); // 仮のデータ有無フラグ、後で実装時に調整
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // モバイル判定
+  const checkMobile = useCallback(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
+  useEffect(() => {
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [checkMobile]);
 
   // /scheduleでのみ表示
-  const shouldShowBar = pathname === '/schedule';
+  const shouldShowBar = pathname === '/schedule' && isMobile;
 
   // スクロール方向で表示/非表示を切り替え
   useEffect(() => {
@@ -83,7 +95,7 @@ const BottomBar: React.FC = () => {
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-sm transition-transform duration-300',
+        'fixed bottom-0 left-0 right-0 z-40 bg-gray-100/90 backdrop-blur-sm transition-transform duration-300',
         isVisible ? 'translate-y-0' : 'translate-y-full',
         'pb-[env(safe-area-inset-bottom)]'
       )}
