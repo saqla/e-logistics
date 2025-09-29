@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import DevConsole from '@/components/DevConsole'
+import BottomBar from '@/components/BottomBar'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         <Providers>
           <DevConsole />
           {children}
+          <BottomBar />
         </Providers>
       </body>
     </html>
