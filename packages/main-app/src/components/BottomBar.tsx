@@ -147,7 +147,7 @@ const BottomBar: React.FC = () => {
               onClick={handleMenu}
             >
               <Menu className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">Menu</span>
+              <span className="text-[10px]">アプリ選択</span>
             </Button>
             <Button
               variant="ghost"
@@ -165,7 +165,7 @@ const BottomBar: React.FC = () => {
               onClick={handleRemarks}
             >
               <MessageSquare className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">備考</span>
+              <span className="text-[10px]">備考/管理</span>
             </Button>
           </>
         )}
