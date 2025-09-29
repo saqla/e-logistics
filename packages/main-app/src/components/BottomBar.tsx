@@ -53,8 +53,7 @@ const BottomBar: React.FC = () => {
 
   // 通常時のメニューアクション
   const handleMenu = () => {
-    // アプリ選択画面には遷移しない
-    console.log('Menu clicked, navigation disabled');
+    router.push('/'); // ダッシュボードに戻る
   };
 
   const handleSave = () => {
