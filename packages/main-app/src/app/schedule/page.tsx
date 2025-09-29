@@ -490,6 +490,35 @@ export default function SchedulePage() {
   const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
   const [searchResults, setSearchResults] = useState<{ day: number; where: 'note'|'lower'; snippet: string }[]>([])
 
+  // 備考ダイアログをBottomBarから開くためのイベントリスナー
+  useEffect(() => {
+    const handleOpenRemarks = (event: Event) => {
+      console.log('Received openRemarksDialog event', event);
+      setAsideOpen(true);
+    };
+    window.addEventListener('openRemarksDialog', handleOpenRemarks);
+    return () => window.removeEventListener('openRemarksDialog', handleOpenRemarks);
+  }, []);
+
+  // 保存機能のためのデータ準備（BottomBarと共有するデータ）
+  const scheduleData = useMemo(() => ({
+    year: ym.year,
+    month: ym.month,
+    notes,
+    routes,
+    lowers
+  }), [ym, notes, routes, lowers]);
+
+  // BottomBarからの保存リクエストを処理
+  useEffect(() => {
+    const handleSaveRequest = (event: Event) => {
+      console.log('Received save request from BottomBar', event);
+      handleSave();
+    };
+    window.addEventListener('requestScheduleSave', handleSaveRequest);
+    return () => window.removeEventListener('requestScheduleSave', handleSaveRequest);
+  }, [handleSave]);
+
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
   const scrollToDay = (day: number) => {
     const main = mainScrollRef.current

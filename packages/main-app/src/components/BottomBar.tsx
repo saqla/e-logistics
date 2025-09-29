@@ -69,13 +69,17 @@ const BottomBar: React.FC = () => {
   };
 
   const handleSave = () => {
-    // 保存ロジック、後でフォームと連動
-    console.log('Save clicked - Placeholder for form submission');
+    // 保存リクエストをスケジュールページに送信するカスタムイベントを発火
+    const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
+    window.dispatchEvent(event);
+    console.log('Save clicked - Triggered requestScheduleSave event');
   };
 
   const handleRemarks = () => {
-    // 備考/管理、後でページ別遷移先に調整
-    console.log('Remarks clicked - Placeholder for remarks navigation');
+    // 備考ダイアログを開くためのカスタムイベントを発火
+    const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
+    window.dispatchEvent(event);
+    console.log('Remarks clicked - Triggered openRemarksDialog event');
   };
 
   // 入力フォーカス時のアクション
