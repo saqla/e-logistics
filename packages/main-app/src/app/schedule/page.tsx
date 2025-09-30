@@ -482,7 +482,6 @@ export default function SchedulePage() {
 
   // モバイルで右サイドを開くボタン/ダイアログ
   const [asideOpen, setAsideOpen] = useState(false)
-  const [showFab, setShowFab] = useState(false)
   // 検索モーダル
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -563,37 +562,38 @@ export default function SchedulePage() {
       setSearchOpen(false)
     }
   }
-  useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY || document.documentElement.scrollTop
-      setShowFab(y > 48)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  // フローティングボタン関連のスクロール監視は不要になったため削除
+  // useEffect(() => {
+  //   const onScroll = () => {
+  //     const y = window.scrollY || document.documentElement.scrollTop
+  //     setShowFab(y > 48)
+  //   }
+  //   onScroll()
+  //   window.addEventListener('scroll', onScroll, { passive: true })
+  //   return () => window.removeEventListener('scroll', onScroll)
+  // }, [])
 
-  function FloatingAsideButton({ onClick, visible }: { onClick: () => void, visible: boolean }) {
-    const [mounted, setMounted] = useState(false)
-    useEffect(() => { setMounted(true) }, [])
-    if (!mounted || typeof document === 'undefined') return null
-    return createPortal(
-      <div className="md:hidden fixed inset-0 z-50 pointer-events-none">
-        <button
-          type="button"
-          onClick={onClick}
-          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 text-lg sm:text-base shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
-          aria-label="備考と管理を開く"
-          data-visible={visible}
-          
-        >
-          備考/管理
-        </button>
-      </div>,
-      document.body
-    )
-  }
+  // 削除: FloatingAsideButton コンポーネント
+  // function FloatingAsideButton({ onClick, visible }: { onClick: () => void, visible: boolean }) {
+  //   const [mounted, setMounted] = useState(false)
+  //   useEffect(() => { setMounted(true) }, [])
+  //   if (!mounted || typeof document === 'undefined') return null
+  //   return createPortal(
+  //     <div className="md:hidden fixed inset-0 z-50 pointer-events-none">
+  //       <button
+  //         type="button"
+  //         onClick={onClick}
+  //         className="absolute rounded-full bg-blue-600 text-white px-4 py-3 text-lg sm:text-base shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
+  //         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
+  //         aria-label="備考と管理を開く"
+  //         data-visible={visible}
+  //       >
+  //         備考/管理
+  //       </button>
+  //     </div>,
+  //     document.body
+  //   )
+  // }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
@@ -826,8 +826,8 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {/* モバイル用 フローティングボタン（常に画面右下） */}
-      <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} />
+      {/* 削除: モバイル用 フローティングボタン */}
+      {/* <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} /> */}
 
       {/* 上段メモ 閲覧/編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from './ui/button';
 import { Menu, Save, MessageSquare, X } from 'lucide-react';
@@ -12,7 +12,6 @@ const BottomBar: React.FC = () => {
   const [isVisible, setIsVisible] = useState(true);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [hasData, setHasData] = useState(false); // 仮のデータ有無フラグ、後で実装時に調整
-  const [lastScrollY, setLastScrollY] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
   // モバイル判定
@@ -26,37 +25,64 @@ const BottomBar: React.FC = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, [checkMobile]);
 
-  // /scheduleでのみ表示
+  // /scheduleでのみ表示（モバイル限定）
   const shouldShowBar = pathname === '/schedule' && isMobile;
 
-  // スクロール方向で表示/非表示を切り替え
+  // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 60) {
-        setIsVisible(false); // 下スクロールで隠す
-      } else {
-        setIsVisible(true); // 上スクロールで表示
+    if (!shouldShowBar) return;
+
+    const lastYRef = { current: window.scrollY || 0 } as { current: number };
+    const tickingRef = { current: false } as { current: boolean };
+    const DELTA = 10; // しきい値（小さなスクロールでは反応しない）
+
+    const onScroll = () => {
+      const run = () => {
+        const y = window.scrollY || document.documentElement.scrollTop || 0;
+        const prev = lastYRef.current;
+        const diff = y - prev;
+
+        // 上端付近 or ほとんど動いていない → 表示
+        if (y <= 60 || Math.abs(diff) < DELTA) {
+          setIsVisible(true);
+        } else if (diff > 0) {
+          // 下にスクロール → 隠す
+          setIsVisible(false);
+        } else {
+          // 上にスクロール → 表示
+          setIsVisible(true);
+        }
+        lastYRef.current = y;
+        tickingRef.current = false;
+      };
+
+      if (!tickingRef.current) {
+        tickingRef.current = true;
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(run);
+        } else {
+          setTimeout(run, 16);
+        }
       }
-      setLastScrollY(currentScrollY);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [shouldShowBar]);
 
   // 入力フォーカス検知 (仮実装、後でフォーム状態と連動)
   useEffect(() => {
     const handleFocus = () => setIsInputFocused(true);
     const handleBlur = () => setIsInputFocused(false);
     
-    document.querySelectorAll('input, textarea').forEach(el => {
+    const nodes = Array.from(document.querySelectorAll('input, textarea')) as HTMLElement[];
+    nodes.forEach(el => {
       el.addEventListener('focus', handleFocus);
       el.addEventListener('blur', handleBlur);
     });
     
     return () => {
-      document.querySelectorAll('input, textarea').forEach(el => {
+      nodes.forEach(el => {
         el.removeEventListener('focus', handleFocus);
         el.removeEventListener('blur', handleBlur);
       });
@@ -84,13 +110,11 @@ const BottomBar: React.FC = () => {
 
   // 入力フォーカス時のアクション
   const handleCancel = () => {
-    // キャンセル、後でフォームリセットと連動
     setIsInputFocused(false);
     console.log('Cancel clicked - Placeholder for form reset');
   };
 
   const handleDelete = () => {
-    // 削除、後でデータ有無と連動
     console.log('Delete clicked - Placeholder for delete action');
   };
 
