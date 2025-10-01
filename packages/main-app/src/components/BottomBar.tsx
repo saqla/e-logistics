@@ -28,6 +28,16 @@ const BottomBar: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [vw, setVw] = useState(0);
   const isPortrait = useIsPortrait();
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const onSaving = (e: Event) => {
+      const ce = e as CustomEvent<{ saving: boolean }>
+      setIsSaving(!!ce.detail?.saving)
+    }
+    window.addEventListener('scheduleSavingState', onSaving as EventListener)
+    return () => window.removeEventListener('scheduleSavingState', onSaving as EventListener)
+  }, [])
 
   // モバイル判定 + 幅の記録
   const onResize = useCallback(() => {
@@ -149,9 +159,14 @@ const BottomBar: React.FC = () => {
               size="icon"
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleSave}
+              disabled={isSaving}
             >
-              <Save className={iconSizeCls} />
-              <span className={labelSizeCls}>保存</span>
+              {isSaving ? (
+                <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
+              ) : (
+                <Save className={iconSizeCls} />
+              )}
+              <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
             </Button>
             <Button
               variant="ghost"
@@ -190,9 +205,14 @@ const BottomBar: React.FC = () => {
               size="icon"
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleSave}
+              disabled={isSaving}
             >
-              <Save className={iconSizeCls} />
-              <span className={labelSizeCls}>保存</span>
+              {isSaving ? (
+                <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
+              ) : (
+                <Save className={iconSizeCls} />
+              )}
+              <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
             </Button>
             <Button
               variant="ghost"

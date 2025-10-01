@@ -538,6 +538,13 @@ export default function SchedulePage() {
   const handleSaveRef = useRef(handleSave)
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
 
+  // saving状態をBottomBarへ通知
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const ev = new CustomEvent('scheduleSavingState', { detail: { saving } })
+    window.dispatchEvent(ev)
+  }, [saving])
+
   // BottomBarからの保存リクエストを処理
   useEffect(() => {
     const handleSaveRequest = (event: Event) => {
@@ -990,7 +997,7 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className="md:hidden max-w-md bg-white">
+        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md bg-white`}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
