@@ -6,6 +6,19 @@ import { Button } from './ui/button';
 import { Menu, Save, MessageSquare, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+function useIsPortrait(): boolean {
+  const [isPortrait, setIsPortrait] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches)
+    mq.addEventListener?.('change', handler)
+    setIsPortrait(mq.matches)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
+  return isPortrait
+}
+
 const BottomBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -13,6 +26,7 @@ const BottomBar: React.FC = () => {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [hasData, setHasData] = useState(false); // 仮のデータ有無フラグ、後で実装時に調整
   const [isMobile, setIsMobile] = useState(false);
+  const isPortrait = useIsPortrait();
 
   // モバイル判定
   const checkMobile = useCallback(() => {
@@ -25,8 +39,8 @@ const BottomBar: React.FC = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, [checkMobile]);
 
-  // /scheduleでのみ表示（モバイル限定）
-  const shouldShowBar = pathname === '/schedule' && isMobile;
+  // /scheduleでのみ表示（スマホ or タブレット縦）
+  const shouldShowBar = pathname === '/schedule' && (isMobile || isPortrait);
 
   // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
@@ -42,14 +56,11 @@ const BottomBar: React.FC = () => {
         const prev = lastYRef.current;
         const diff = y - prev;
 
-        // 上端付近 or ほとんど動いていない → 表示
         if (y <= 60 || Math.abs(diff) < DELTA) {
           setIsVisible(true);
         } else if (diff > 0) {
-          // 下にスクロール → 隠す
           setIsVisible(false);
         } else {
-          // 上にスクロール → 表示
           setIsVisible(true);
         }
         lastYRef.current = y;
@@ -89,33 +100,26 @@ const BottomBar: React.FC = () => {
     };
   }, []);
 
-  // 通常時のメニューアクション
   const handleMenu = () => {
-    router.push('/'); // ダッシュボードに戻る
+    router.push('/');
   };
 
   const handleSave = () => {
-    // 保存リクエストをスケジュールページに送信するカスタムイベントを発火
     const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
-    console.log('Save clicked - Triggered requestScheduleSave event');
   };
 
   const handleRemarks = () => {
-    // 備考ダイアログを開くためのカスタムイベントを発火
     const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
-    console.log('Remarks clicked - Triggered openRemarksDialog event');
   };
 
-  // 入力フォーカス時のアクション
   const handleCancel = () => {
     setIsInputFocused(false);
-    console.log('Cancel clicked - Placeholder for form reset');
   };
 
   const handleDelete = () => {
-    console.log('Delete clicked - Placeholder for delete action');
+    // placeholder
   };
 
   if (!shouldShowBar) return null;
