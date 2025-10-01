@@ -446,17 +446,17 @@ export default function SchedulePage() {
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      // lgは20日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 20)
-      perDay = Math.max(24, Math.min(perDay, 56))
+      // lgは15日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 15)
+      perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 768) { // md以上（タブレット想定）
       const aside = 240
       const availableForDays = w - sidePadding - gap - aside - left
-      // mdも20日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 20)
-      perDay = Math.max(22, Math.min(perDay, 48))
+      // mdも15日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 15)
+      perDay = Math.max(24, Math.min(perDay, 50))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else {
