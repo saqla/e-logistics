@@ -13,10 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 // 画面の向きを監視してportraitを検知
 function useIsPortrait() {
-  const [isPortrait, setIsPortrait] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-    return window.matchMedia('(orientation: portrait)').matches
-  })
+  const [isPortrait, setIsPortrait] = useState<boolean>(false)
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
     const mq = window.matchMedia('(orientation: portrait)')
@@ -538,15 +535,18 @@ export default function SchedulePage() {
     lowers
   }), [ym, notes, routes, lowers]);
 
+  const handleSaveRef = useRef(handleSave)
+  useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
+
   // BottomBarからの保存リクエストを処理
   useEffect(() => {
     const handleSaveRequest = (event: Event) => {
       console.log('Received save request from BottomBar', event);
-      handleSave();
+      handleSaveRef.current();
     };
     window.addEventListener('requestScheduleSave', handleSaveRequest);
     return () => window.removeEventListener('requestScheduleSave', handleSaveRequest);
-  }, [handleSave]);
+  }, [])
 
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
   const scrollToDay = (day: number) => {
