@@ -313,6 +313,8 @@ export default function SchedulePage() {
         alert(e.error || '保存に失敗しました')
         return false
       }
+      const data = await res.json().catch(() => ({}))
+      if (data?.timings) console.log('schedule save timings', data.timings)
       alert('保存しました')
       setIsDirty(false)
       return true
