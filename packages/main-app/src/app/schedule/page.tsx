@@ -349,7 +349,7 @@ export default function SchedulePage() {
     const dow = getDow(ym.year, ym.month, day)
     const isHol = isHoliday(ym.year, ym.month, day)
     const color = isHol ? 'text-red-600' : (dow === 6 ? 'text-blue-600' : 'text-gray-900')
-    return <div className={`flex items-center justify-center text-base font-semibold tabular-nums ${color}`}>{day}</div>
+    return <div className={`flex items-center justify-center text-base md:text-lg font-semibold tabular-nums ${color}`}>{day}</div>
   }
 
   // Note dialog state
@@ -456,7 +456,7 @@ export default function SchedulePage() {
       const availableForDays = w - sidePadding - gap - aside - left
       // mdも20日表示に固定（横スクロールあり）
       let perDay = Math.floor(availableForDays / 20)
-      perDay = Math.max(18, Math.min(perDay, 40))
+      perDay = Math.max(22, Math.min(perDay, 48))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else {
@@ -645,7 +645,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -655,7 +655,7 @@ export default function SchedulePage() {
             <TooltipProvider>
               {Array.from({ length: 4 }).map((_, slotIdx) => (
                 <div key={`memo-row-${slotIdx}`} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 font-semibold ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
+                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 md:h-12 flex items-center justify-center text-center z-10 font-semibold ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
                     {slotIdx === 0 ? 'メモ' : ''}
                   </div>
                   {Array.from({ length: 31 }).map((_, i) => {
@@ -667,10 +667,10 @@ export default function SchedulePage() {
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm md:text-base px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
@@ -705,7 +705,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm md:text-base font-medium">
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
@@ -721,7 +721,7 @@ export default function SchedulePage() {
                           })()}
                         </div>
                         <select
-                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm max-sm:text-lg"
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={r?.special ? r.special : (r?.staffId || '')}
                           onChange={(e)=>{
                             const v = e.target.value
@@ -752,7 +752,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
@@ -773,7 +773,7 @@ export default function SchedulePage() {
                   <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base">
                           {(() => {
                             if (!staffId) return ''
                             const m = new Map(staffs.map(s => [s.id, s.name]))
@@ -781,7 +781,7 @@ export default function SchedulePage() {
                           })()}
                         </div>
                         <select
-                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm max-sm:text-lg"
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={staffId || ''}
                           onChange={(e)=>{
                             const v = e.target.value
