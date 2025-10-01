@@ -863,7 +863,7 @@ export default function SchedulePage() {
 
       {/* 上段メモ 閲覧/編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent className="text-lg">
+        <DialogContent className="text-lg bg-white">
           <DialogHeader>
             <DialogTitle>上段メモ入力（{noteDay}日／{noteSlot}）</DialogTitle>
           </DialogHeader>
