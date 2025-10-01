@@ -48,7 +48,7 @@ const BottomBar: React.FC = () => {
   const barHeightPx = isTabletPortrait ? 80 : 60;
   const iconSizeCls = isTabletPortrait ? 'h-6 w-6 mb-1' : 'h-5 w-5 mb-1';
   const labelSizeCls = isTabletPortrait ? 'text-[12px]' : 'text-[10px]';
-  const containerGapCls = isTabletPortrait ? 'gap-8' : 'gap-6';
+  const containerGapCls = isTabletPortrait ? 'gap-12' : 'gap-10';
 
   // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
