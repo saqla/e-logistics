@@ -11,6 +11,24 @@ import { daysInMonth, getDow, isHoliday } from '@/lib/utils'
 import { AlertTriangle } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
+// 画面の向きを監視してportraitを検知
+function useIsPortrait() {
+  const [isPortrait, setIsPortrait] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+    return window.matchMedia('(orientation: portrait)').matches
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches)
+    mq.addEventListener?.('change', handler)
+    // 初期同期
+    setIsPortrait(mq.matches)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
+  return isPortrait
+}
+
 type Staff = { id: string; name: string; kind: 'ALL'|'UNIC'|'HAKO'|'JIMU'; lowerCount: number }
 
 type Note = { day: number; slot: number; text: string }
@@ -28,6 +46,7 @@ const ROUTE_LABEL: Record<RouteKind, string> = {
 export default function SchedulePage() {
   const { status } = useSession()
   const router = useRouter()
+  const isPortrait = useIsPortrait()
 
   // 認証ガード
   useEffect(() => {
@@ -435,6 +454,17 @@ export default function SchedulePage() {
     const sidePadding = isMobile ? 16 : 32
     const gap = 16
     const left = 56
+    // portraitのmd（タブレット縦）はモバイル相当に扱う
+    if (!isMobile && w >= 768 && w < 1200 && isPortrait) {
+      const leftMobile = 48
+      const visibleDays = 10 // タブレット縦では10日程度を目安に
+      const availableForDays = w - sidePadding - leftMobile
+      let perDay = Math.floor(availableForDays / visibleDays)
+      perDay = Math.max(16, Math.min(perDay, 56))
+      setLeftColPx(leftMobile)
+      setDayColPx(perDay)
+      return
+    }
     if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
@@ -470,7 +500,7 @@ export default function SchedulePage() {
       setLeftColPx(leftMobile)
       setDayColPx(perDay)
     }
-  }, [])
+  }, [isPortrait])
 
   useEffect(() => {
     computeGridCols()
@@ -705,7 +735,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm md:text-base font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm md:text-base font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
@@ -773,7 +803,7 @@ export default function SchedulePage() {
                   <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">
                           {(() => {
                             if (!staffId) return ''
                             const m = new Map(staffs.map(s => [s.id, s.name]))
@@ -817,12 +847,14 @@ export default function SchedulePage() {
           </div>
 
           {/* 右サイド：備考パネル + 管理ボタン */}
-          <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
-            <RightSideContent />
-            <div className="border rounded-md p-3 w-full break-words mt-4">
-              <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
-            </div>
-          </aside>
+          {!isPortrait && (
+            <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
+              <RightSideContent />
+              <div className="border rounded-md p-3 w-full break-words mt-4">
+                <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
+              </div>
+            </aside>
+          )}
         </div>
       </div>
 
