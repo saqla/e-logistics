@@ -26,21 +26,26 @@ const BottomBar: React.FC = () => {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [hasData, setHasData] = useState(false); // 仮のデータ有無フラグ、後で実装時に調整
   const [isMobile, setIsMobile] = useState(false);
+  const [vw, setVw] = useState(0);
   const isPortrait = useIsPortrait();
 
-  // モバイル判定
-  const checkMobile = useCallback(() => {
-    setIsMobile(window.innerWidth < 768);
+  // モバイル判定 + 幅の記録
+  const onResize = useCallback(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 0
+    setIsMobile(w < 768);
+    setVw(w);
   }, []);
 
   useEffect(() => {
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [checkMobile]);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [onResize]);
 
   // /scheduleでのみ表示（スマホ or タブレット縦）
   const shouldShowBar = pathname === '/schedule' && (isMobile || isPortrait);
+  const isTabletPortrait = !isMobile && isPortrait && vw >= 768 && vw < 1200;
+  const barHeightPx = isTabletPortrait ? 80 : 60;
 
   // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
@@ -131,7 +136,7 @@ const BottomBar: React.FC = () => {
         isVisible ? 'translate-y-0' : 'translate-y-full',
         'pb-[env(safe-area-inset-bottom)]'
       )}
-      style={{ height: '60px' }}
+      style={{ height: `${barHeightPx}px` }}
     >
       <div className="flex justify-between items-center h-full px-4 max-w-5xl mx-auto">
         {isInputFocused ? (
