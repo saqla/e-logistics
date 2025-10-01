@@ -1147,7 +1147,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>{mode==='create' ? '備考を追加' : '備考を編集'}</DialogTitle>
           </DialogHeader>
