@@ -46,6 +46,8 @@ const BottomBar: React.FC = () => {
   const shouldShowBar = pathname === '/schedule' && (isMobile || isPortrait);
   const isTabletPortrait = !isMobile && isPortrait && vw >= 768 && vw < 1200;
   const barHeightPx = isTabletPortrait ? 80 : 60;
+  const iconSizeCls = isTabletPortrait ? 'h-6 w-6 mb-1' : 'h-5 w-5 mb-1';
+  const labelSizeCls = isTabletPortrait ? 'text-[12px]' : 'text-[10px]';
 
   // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
@@ -147,8 +149,8 @@ const BottomBar: React.FC = () => {
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleSave}
             >
-              <Save className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">保存</span>
+              <Save className={iconSizeCls} />
+              <span className={labelSizeCls}>保存</span>
             </Button>
             <Button
               variant="ghost"
@@ -156,8 +158,8 @@ const BottomBar: React.FC = () => {
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleCancel}
             >
-              <X className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">キャンセル</span>
+              <X className={iconSizeCls} />
+              <span className={labelSizeCls}>キャンセル</span>
             </Button>
             {hasData && (
               <Button
@@ -166,8 +168,8 @@ const BottomBar: React.FC = () => {
                 className="flex flex-col h-11 w-16 text-destructive/80 hover:text-destructive"
                 onClick={handleDelete}
               >
-                <X className="h-5 w-5 mb-1" />
-                <span className="text-[10px]">削除</span>
+                <X className={iconSizeCls} />
+                <span className={labelSizeCls}>削除</span>
               </Button>
             )}
           </>
@@ -179,8 +181,8 @@ const BottomBar: React.FC = () => {
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleMenu}
             >
-              <Menu className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">アプリ選択</span>
+              <Menu className={iconSizeCls} />
+              <span className={labelSizeCls}>アプリ選択</span>
             </Button>
             <Button
               variant="ghost"
@@ -188,8 +190,8 @@ const BottomBar: React.FC = () => {
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleSave}
             >
-              <Save className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">保存</span>
+              <Save className={iconSizeCls} />
+              <span className={labelSizeCls}>保存</span>
             </Button>
             <Button
               variant="ghost"
@@ -197,8 +199,8 @@ const BottomBar: React.FC = () => {
               className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
               onClick={handleRemarks}
             >
-              <MessageSquare className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">備考/管理</span>
+              <MessageSquare className={iconSizeCls} />
+              <span className={labelSizeCls}>備考/管理</span>
             </Button>
           </>
         )}
