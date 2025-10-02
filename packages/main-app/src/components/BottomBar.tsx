@@ -75,13 +75,13 @@ const BottomBar: React.FC = () => {
         const prev = lastYRef.current;
         const diff = y - prev;
 
-        if (y <= 60 || Math.abs(diff) < DELTA) {
+        if (y <= 60) {
           setIsVisible(true);
-        } else if (diff > 0) {
+        } else if (diff > DELTA) {
           setIsVisible(false);
-        } else {
+        } else if (diff < -DELTA) {
           setIsVisible(true);
-        }
+        } // 差分がしきい値未満の場合は状態維持（何もしない）
         lastYRef.current = y;
         tickingRef.current = false;
       };
@@ -121,8 +121,8 @@ const BottomBar: React.FC = () => {
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-40 bg-gray-100/90 backdrop-blur-sm transition-transform duration-300',
-        isVisible ? 'translate-y-0' : 'translate-y-full',
+        'fixed bottom-0 left-0 right-0 z-40 bg-gray-100/90 backdrop-blur-sm transform-gpu will-change-transform transition-transform duration-300 ease-out',
+        isVisible ? 'translate-y-0 pointer-events-auto' : 'translate-y-[calc(100%+env(safe-area-inset-bottom))] pointer-events-none',
         'pb-[env(safe-area-inset-bottom)]'
       )}
       style={{ height: `${barHeightPx}px` }}

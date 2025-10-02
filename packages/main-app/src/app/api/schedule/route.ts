@@ -20,6 +20,7 @@ export async function GET(req: Request) {
 // { year, month, notes: DayNote[], routes: RouteAssignment[], lowers: LowerAssignment[] }
 export async function POST(req: Request) {
   try {
+    const t0 = Date.now()
     const body = await req.json()
     const year: number = body?.year
     const month: number = body?.month
@@ -72,9 +73,18 @@ export async function POST(req: Request) {
       )
     }
 
+    const tDbStart = Date.now()
     await prisma.$transaction(ops)
+    const tDbEnd = Date.now()
 
-    return NextResponse.json({ ok: true })
+    const totalMs = Date.now() - t0
+    const dbMs = tDbEnd - tDbStart
+    const serverTiming = `db;dur=${dbMs}, total;dur=${totalMs}`
+    const headers = new Headers({ 'Server-Timing': serverTiming })
+    if (process.env.VERCEL_ENV === 'preview') {
+      return NextResponse.json({ ok: true, timings: { totalMs, dbMs, opsCount: ops.length } }, { headers })
+    }
+    return NextResponse.json({ ok: true }, { headers })
   } catch (e: any) {
     console.error('POST /api/schedule error:', e)
     const message = e?.message || 'Internal Error'

@@ -749,8 +749,7 @@ export default function SchedulePage() {
                             }
                             if (r?.special === 'OFF') return <span className="text-xl font-semibold text-red-700">×</span>
                             if (r?.staffId) {
-                              const m = new Map(staffs.map(s => [s.id, s.name]))
-                              return m.get(r.staffId) || ''
+                              return idToName.get(r.staffId) || ''
                             }
                             return ''
                           })()}
@@ -811,8 +810,7 @@ export default function SchedulePage() {
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">
                           {(() => {
                             if (!staffId) return ''
-                            const m = new Map(staffs.map(s => [s.id, s.name]))
-                            return m.get(staffId) || ''
+                            return idToName.get(staffId) || ''
                           })()}
                         </div>
                         <select
