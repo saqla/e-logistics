@@ -1,6 +1,6 @@
 "use client"
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+// import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -54,7 +54,7 @@ export default function SchedulePage() {
 
   const today = new Date()
   const [ym, setYm] = useState<{year:number, month:number}>({ year: today.getFullYear(), month: today.getMonth()+1 })
-  const days = 31
+  // const days = 31
 
   const [staffs, setStaffs] = useState<Staff[]>([])
   const [notes, setNotes] = useState<Note[]>([])
@@ -67,6 +67,7 @@ export default function SchedulePage() {
   // 入力順トラッキング（セルごとにシーケンス番号を付与）
   const [lowerSeqCounter, setLowerSeqCounter] = useState(0)
   const [cellSeq, setCellSeq] = useState<Record<string, number>>({})
+  // BottomBar連携は廃止（備考起動のみ維持）
 
   // スクロール同期用参照と状態
   const mainScrollRef = useRef<HTMLDivElement>(null)
@@ -215,6 +216,8 @@ export default function SchedulePage() {
     setIsDirty(true)
   }
 
+  
+
   // duplicate prevention in lowers (same day must be unique)
   const canSelectLower = (day: number, staffId: string | null, rowIndex: number) => {
     if (!staffId) return true
@@ -225,15 +228,14 @@ export default function SchedulePage() {
   // ピンク強調の閾値（この回数以上で強調）。必要に応じて変更してください。
   const LOWER_PINK_THRESHOLD = 9
 
-  // 現在選択されているセル全体の「通し順位」（1始まり）を算出
-  const lowerKeyRankMap = useMemo(() => {
-    const entries = Object.entries(cellSeq)
-    // 通し番号の小さい順に並べ、現在残っているものだけで順位を再計算
-    entries.sort((a, b) => a[1] - b[1])
-    const map: Record<string, number> = {}
-    entries.forEach(([k], idx) => { map[k] = idx + 1 })
-    return map
-  }, [cellSeq])
+  // 未使用: 全セルの通し順位マップ（必要になったら復元）
+  // const lowerKeyRankMap = useMemo(() => {
+  //   const entries = Object.entries(cellSeq)
+  //   entries.sort((a, b) => a[1] - b[1])
+  //   const map: Record<string, number> = {}
+  //   entries.forEach(([k], idx) => { map[k] = idx + 1 })
+  //   return map
+  // }, [cellSeq])
 
   // スタッフごとの「選択順（通し）」を算出（cellSeqベース）。欠番は除外。
   const perStaffSelectionRankMap = useMemo(() => {
@@ -258,38 +260,39 @@ export default function SchedulePage() {
     return rankByStaff
   }, [lowers, cellSeq])
 
-  const lowerMonthlyCount = (staffId: string | null) => {
-    if (!staffId) return 0
-    return lowers.filter(l => l.staffId === staffId).length
-  }
+  // 未使用: 月内選択回数（必要になったら復元）
+  // const lowerMonthlyCount = (staffId: string | null) => {
+  //   if (!staffId) return 0
+  //   return lowers.filter(l => l.staffId === staffId).length
+  // }
 
-  // 指定セルまでの同スタッフの選択回数（同日内は rowIndex で順序付け）
-  const lowerCountUpToCell = (staffId: string | null, day: number, rowIndex: number) => {
-    if (!staffId) return 0
-    return lowers.filter(l =>
-      l.staffId === staffId && (
-        l.day < day || (l.day === day && l.rowIndex <= rowIndex)
-      )
-    ).length
-  }
+  // 未使用: 指定セルまでの選択回数（必要になったら復元）
+  // const lowerCountUpToCell = (staffId: string | null, day: number, rowIndex: number) => {
+  //   if (!staffId) return 0
+  //   return lowers.filter(l =>
+  //     l.staffId === staffId && (
+  //       l.day < day || (l.day === day && l.rowIndex <= rowIndex)
+  //     )
+  //   ).length
+  // }
 
-  // 各スタッフごとの並び順を事前計算（day→rowIndex）
-  const lowerOrderMap = useMemo(() => {
-    const byStaff: Record<string, LowerAssignment[]> = {}
-    for (const l of lowers) {
-      if (!l.staffId) continue
-      if (!byStaff[l.staffId]) byStaff[l.staffId] = []
-      byStaff[l.staffId].push(l)
-    }
-    const map = new Map<string, Map<string, number>>()
-    for (const [sid, arr] of Object.entries(byStaff)) {
-      arr.sort((a, b) => (a.day - b.day) || (a.rowIndex - b.rowIndex))
-      const inner = new Map<string, number>()
-      arr.forEach((l, idx) => inner.set(`${l.day}-${l.rowIndex}`, idx + 1))
-      map.set(sid, inner)
-    }
-    return map
-  }, [lowers])
+  // 未使用: 各スタッフの並び順マップ（必要になったら復元）
+  // const lowerOrderMap = useMemo(() => {
+  //   const byStaff: Record<string, LowerAssignment[]> = {}
+  //   for (const l of lowers) {
+  //     if (!l.staffId) continue
+  //     if (!byStaff[l.staffId]) byStaff[l.staffId] = []
+  //     byStaff[l.staffId].push(l)
+  //   }
+  //   const map = new Map<string, Map<string, number>>()
+  //   for (const [sid, arr] of Object.entries(byStaff)) {
+  //     arr.sort((a, b) => (a.day - b.day) || (a.rowIndex - b.rowIndex))
+  //     const inner = new Map<string, number>()
+  //     arr.forEach((l, idx) => inner.set(`${l.day}-${l.rowIndex}`, idx + 1))
+  //     map.set(sid, inner)
+  //   }
+  //   return map
+  // }, [lowers])
 
   const clearAllNotes = () => {
     if (!confirm('上段メモを全てクリアします。よろしいですか？')) return
@@ -398,6 +401,10 @@ export default function SchedulePage() {
       if (typeof t === 'string') { setNoteText(t); setIsDirty(true) }
     } catch {}
   }
+
+  // BottomBar連携のステート通知は撤去
+
+  // BottomBarからのキャンセル/削除要求の受信は撤去
 
   const monthDays = daysInMonth(ym.year, ym.month)
   const todayCol = useMemo(() => {
@@ -528,17 +535,14 @@ export default function SchedulePage() {
     return () => window.removeEventListener('openRemarksDialog', handleOpenRemarks);
   }, []);
 
-  // 保存機能のためのデータ準備（BottomBarと共有するデータ）
-  const scheduleData = useMemo(() => ({
-    year: ym.year,
-    month: ym.month,
-    notes,
-    routes,
-    lowers
-  }), [ym, notes, routes, lowers]);
-
+  // BottomBar との保存イベント連携を復帰
   const handleSaveRef = useRef(handleSave)
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
+  useEffect(() => {
+    const onReq = (_e: Event) => { handleSaveRef.current() }
+    window.addEventListener('requestScheduleSave', onReq)
+    return () => window.removeEventListener('requestScheduleSave', onReq)
+  }, [])
 
   // saving状態をBottomBarへ通知
   useEffect(() => {
@@ -546,16 +550,6 @@ export default function SchedulePage() {
     const ev = new CustomEvent('scheduleSavingState', { detail: { saving } })
     window.dispatchEvent(ev)
   }, [saving])
-
-  // BottomBarからの保存リクエストを処理
-  useEffect(() => {
-    const handleSaveRequest = (event: Event) => {
-      console.log('Received save request from BottomBar', event);
-      handleSaveRef.current();
-    };
-    window.addEventListener('requestScheduleSave', handleSaveRequest);
-    return () => window.removeEventListener('requestScheduleSave', handleSaveRequest);
-  }, [])
 
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
   const scrollToDay = (day: number) => {
@@ -643,16 +637,18 @@ export default function SchedulePage() {
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
-                  保存中...
-                </span>
-              ) : (
-                '保存'
-              )}
-            </Button>
+            {!isPortrait && (
+              <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
+                    保存中...
+                  </span>
+                ) : (
+                  '保存'
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>

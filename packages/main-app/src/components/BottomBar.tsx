@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from './ui/button';
-import { Menu, Save, MessageSquare, X } from 'lucide-react';
+import { Menu, MessageSquare, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function useIsPortrait(): boolean {
@@ -24,12 +24,12 @@ const BottomBar: React.FC = () => {
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [hasData, setHasData] = useState(false); // 仮のデータ有無フラグ、後で実装時に調整
   const [isMobile, setIsMobile] = useState(false);
   const [vw, setVw] = useState(0);
   const isPortrait = useIsPortrait();
   const [isSaving, setIsSaving] = useState(false);
 
+  // schedule側のsaving状態を同期
   useEffect(() => {
     const onSaving = (e: Event) => {
       const ce = e as CustomEvent<{ saving: boolean }>
@@ -38,6 +38,7 @@ const BottomBar: React.FC = () => {
     window.addEventListener('scheduleSavingState', onSaving as EventListener)
     return () => window.removeEventListener('scheduleSavingState', onSaving as EventListener)
   }, [])
+  
 
   // モバイル判定 + 幅の記録
   const onResize = useCallback(() => {
@@ -99,46 +100,21 @@ const BottomBar: React.FC = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, [shouldShowBar]);
 
-  // 入力フォーカス検知 (仮実装、後でフォーム状態と連動)
-  useEffect(() => {
-    const handleFocus = () => setIsInputFocused(true);
-    const handleBlur = () => setIsInputFocused(false);
-    
-    const nodes = Array.from(document.querySelectorAll('input, textarea')) as HTMLElement[];
-    nodes.forEach(el => {
-      el.addEventListener('focus', handleFocus);
-      el.addEventListener('blur', handleBlur);
-    });
-    
-    return () => {
-      nodes.forEach(el => {
-        el.removeEventListener('focus', handleFocus);
-        el.removeEventListener('blur', handleBlur);
-      });
-    };
-  }, []);
+  // 入力時表示は当面行わないため、フォーカス検知は無効化
 
   const handleMenu = () => {
     router.push('/');
-  };
-
-  const handleSave = () => {
-    const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
-    window.dispatchEvent(event);
   };
 
   const handleRemarks = () => {
     const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
   };
-
-  const handleCancel = () => {
-    setIsInputFocused(false);
+  const handleSave = () => {
+    const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
+    window.dispatchEvent(event);
   };
-
-  const handleDelete = () => {
-    // placeholder
-  };
+  
 
   if (!shouldShowBar) return null;
 
@@ -152,79 +128,38 @@ const BottomBar: React.FC = () => {
       style={{ height: `${barHeightPx}px` }}
     >
       <div className={cn('flex items-center h-full px-4 max-w-5xl mx-auto justify-center', containerGapCls)}>
-        {isInputFocused ? (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
-              ) : (
-                <Save className={iconSizeCls} />
-              )}
-              <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleCancel}
-            >
-              <X className={iconSizeCls} />
-              <span className={labelSizeCls}>キャンセル</span>
-            </Button>
-            {hasData && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex flex-col h-11 w-16 text-destructive/80 hover:text-destructive"
-                onClick={handleDelete}
-              >
-                <X className={iconSizeCls} />
-                <span className={labelSizeCls}>削除</span>
-              </Button>
-            )}
-          </>
-        ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleMenu}
-            >
-              <Menu className={iconSizeCls} />
-              <span className={labelSizeCls}>アプリ選択</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
-              ) : (
-                <Save className={iconSizeCls} />
-              )}
-              <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleRemarks}
-            >
-              <MessageSquare className={iconSizeCls} />
-              <span className={labelSizeCls}>備考/管理</span>
-            </Button>
-          </>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleMenu}
+        >
+          <Menu className={iconSizeCls} />
+          <span className={labelSizeCls}>アプリ選択</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
+          ) : (
+            <Save className={iconSizeCls} />
+          )}
+          <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleRemarks}
+        >
+          <MessageSquare className={iconSizeCls} />
+          <span className={labelSizeCls}>備考/管理</span>
+        </Button>
       </div>
     </div>
   );
