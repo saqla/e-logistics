@@ -1,6 +1,6 @@
 "use client"
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+// import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,21 @@ import { Label } from '@/components/ui/label'
 import { daysInMonth, getDow, isHoliday } from '@/lib/utils'
 import { AlertTriangle } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+// 画面の向きを監視してportraitを検知
+function useIsPortrait() {
+  const [isPortrait, setIsPortrait] = useState<boolean>(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches)
+    mq.addEventListener?.('change', handler)
+    // 初期同期
+    setIsPortrait(mq.matches)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
+  return isPortrait
+}
 
 type Staff = { id: string; name: string; kind: 'ALL'|'UNIC'|'HAKO'|'JIMU'; lowerCount: number }
 
@@ -28,6 +43,7 @@ const ROUTE_LABEL: Record<RouteKind, string> = {
 export default function SchedulePage() {
   const { status } = useSession()
   const router = useRouter()
+  const isPortrait = useIsPortrait()
 
   // 認証ガード
   useEffect(() => {
@@ -38,7 +54,7 @@ export default function SchedulePage() {
 
   const today = new Date()
   const [ym, setYm] = useState<{year:number, month:number}>({ year: today.getFullYear(), month: today.getMonth()+1 })
-  const days = 31
+  // const days = 31
 
   const [staffs, setStaffs] = useState<Staff[]>([])
   const [notes, setNotes] = useState<Note[]>([])
@@ -51,6 +67,7 @@ export default function SchedulePage() {
   // 入力順トラッキング（セルごとにシーケンス番号を付与）
   const [lowerSeqCounter, setLowerSeqCounter] = useState(0)
   const [cellSeq, setCellSeq] = useState<Record<string, number>>({})
+  // BottomBar連携は廃止（備考起動のみ維持）
 
   // スクロール同期用参照と状態
   const mainScrollRef = useRef<HTMLDivElement>(null)
@@ -199,6 +216,8 @@ export default function SchedulePage() {
     setIsDirty(true)
   }
 
+  
+
   // duplicate prevention in lowers (same day must be unique)
   const canSelectLower = (day: number, staffId: string | null, rowIndex: number) => {
     if (!staffId) return true
@@ -209,15 +228,14 @@ export default function SchedulePage() {
   // ピンク強調の閾値（この回数以上で強調）。必要に応じて変更してください。
   const LOWER_PINK_THRESHOLD = 9
 
-  // 現在選択されているセル全体の「通し順位」（1始まり）を算出
-  const lowerKeyRankMap = useMemo(() => {
-    const entries = Object.entries(cellSeq)
-    // 通し番号の小さい順に並べ、現在残っているものだけで順位を再計算
-    entries.sort((a, b) => a[1] - b[1])
-    const map: Record<string, number> = {}
-    entries.forEach(([k], idx) => { map[k] = idx + 1 })
-    return map
-  }, [cellSeq])
+  // 未使用: 全セルの通し順位マップ（必要になったら復元）
+  // const lowerKeyRankMap = useMemo(() => {
+  //   const entries = Object.entries(cellSeq)
+  //   entries.sort((a, b) => a[1] - b[1])
+  //   const map: Record<string, number> = {}
+  //   entries.forEach(([k], idx) => { map[k] = idx + 1 })
+  //   return map
+  // }, [cellSeq])
 
   // スタッフごとの「選択順（通し）」を算出（cellSeqベース）。欠番は除外。
   const perStaffSelectionRankMap = useMemo(() => {
@@ -242,38 +260,39 @@ export default function SchedulePage() {
     return rankByStaff
   }, [lowers, cellSeq])
 
-  const lowerMonthlyCount = (staffId: string | null) => {
-    if (!staffId) return 0
-    return lowers.filter(l => l.staffId === staffId).length
-  }
+  // 未使用: 月内選択回数（必要になったら復元）
+  // const lowerMonthlyCount = (staffId: string | null) => {
+  //   if (!staffId) return 0
+  //   return lowers.filter(l => l.staffId === staffId).length
+  // }
 
-  // 指定セルまでの同スタッフの選択回数（同日内は rowIndex で順序付け）
-  const lowerCountUpToCell = (staffId: string | null, day: number, rowIndex: number) => {
-    if (!staffId) return 0
-    return lowers.filter(l =>
-      l.staffId === staffId && (
-        l.day < day || (l.day === day && l.rowIndex <= rowIndex)
-      )
-    ).length
-  }
+  // 未使用: 指定セルまでの選択回数（必要になったら復元）
+  // const lowerCountUpToCell = (staffId: string | null, day: number, rowIndex: number) => {
+  //   if (!staffId) return 0
+  //   return lowers.filter(l =>
+  //     l.staffId === staffId && (
+  //       l.day < day || (l.day === day && l.rowIndex <= rowIndex)
+  //     )
+  //   ).length
+  // }
 
-  // 各スタッフごとの並び順を事前計算（day→rowIndex）
-  const lowerOrderMap = useMemo(() => {
-    const byStaff: Record<string, LowerAssignment[]> = {}
-    for (const l of lowers) {
-      if (!l.staffId) continue
-      if (!byStaff[l.staffId]) byStaff[l.staffId] = []
-      byStaff[l.staffId].push(l)
-    }
-    const map = new Map<string, Map<string, number>>()
-    for (const [sid, arr] of Object.entries(byStaff)) {
-      arr.sort((a, b) => (a.day - b.day) || (a.rowIndex - b.rowIndex))
-      const inner = new Map<string, number>()
-      arr.forEach((l, idx) => inner.set(`${l.day}-${l.rowIndex}`, idx + 1))
-      map.set(sid, inner)
-    }
-    return map
-  }, [lowers])
+  // 未使用: 各スタッフの並び順マップ（必要になったら復元）
+  // const lowerOrderMap = useMemo(() => {
+  //   const byStaff: Record<string, LowerAssignment[]> = {}
+  //   for (const l of lowers) {
+  //     if (!l.staffId) continue
+  //     if (!byStaff[l.staffId]) byStaff[l.staffId] = []
+  //     byStaff[l.staffId].push(l)
+  //   }
+  //   const map = new Map<string, Map<string, number>>()
+  //   for (const [sid, arr] of Object.entries(byStaff)) {
+  //     arr.sort((a, b) => (a.day - b.day) || (a.rowIndex - b.rowIndex))
+  //     const inner = new Map<string, number>()
+  //     arr.forEach((l, idx) => inner.set(`${l.day}-${l.rowIndex}`, idx + 1))
+  //     map.set(sid, inner)
+  //   }
+  //   return map
+  // }, [lowers])
 
   const clearAllNotes = () => {
     if (!confirm('上段メモを全てクリアします。よろしいですか？')) return
@@ -297,6 +316,8 @@ export default function SchedulePage() {
         alert(e.error || '保存に失敗しました')
         return false
       }
+      const data = await res.json().catch(() => ({}))
+      if (data?.timings) console.log('schedule save timings', data.timings)
       alert('保存しました')
       setIsDirty(false)
       return true
@@ -349,7 +370,7 @@ export default function SchedulePage() {
     const dow = getDow(ym.year, ym.month, day)
     const isHol = isHoliday(ym.year, ym.month, day)
     const color = isHol ? 'text-red-600' : (dow === 6 ? 'text-blue-600' : 'text-gray-900')
-    return <div className={`flex items-center justify-center text-base font-semibold tabular-nums ${color}`}>{day}</div>
+    return <div className={`flex items-center justify-center text-base md:text-lg font-semibold tabular-nums ${color}`}>{day}</div>
   }
 
   // Note dialog state
@@ -380,6 +401,10 @@ export default function SchedulePage() {
       if (typeof t === 'string') { setNoteText(t); setIsDirty(true) }
     } catch {}
   }
+
+  // BottomBar連携のステート通知は撤去
+
+  // BottomBarからのキャンセル/削除要求の受信は撤去
 
   const monthDays = daysInMonth(ym.year, ym.month)
   const todayCol = useMemo(() => {
@@ -435,6 +460,17 @@ export default function SchedulePage() {
     const sidePadding = isMobile ? 16 : 32
     const gap = 16
     const left = 56
+    // portraitのmd（タブレット縦）はモバイル相当に扱う
+    if (!isMobile && w >= 768 && w < 1200 && isPortrait) {
+      const leftMobile = 48
+      const visibleDays = 10 // タブレット縦では10日程度を目安に
+      const availableForDays = w - sidePadding - leftMobile
+      let perDay = Math.floor(availableForDays / visibleDays)
+      perDay = Math.max(16, Math.min(perDay, 56))
+      setLeftColPx(leftMobile)
+      setDayColPx(perDay)
+      return
+    }
     if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
@@ -446,17 +482,17 @@ export default function SchedulePage() {
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      // lgは20日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 20)
-      perDay = Math.max(24, Math.min(perDay, 56))
+      // lgは15日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 15)
+      perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 768) { // md以上（タブレット想定）
       const aside = 240
       const availableForDays = w - sidePadding - gap - aside - left
-      // mdも20日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 20)
-      perDay = Math.max(18, Math.min(perDay, 40))
+      // mdも15日表示に固定（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 15)
+      perDay = Math.max(24, Math.min(perDay, 50))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else {
@@ -470,7 +506,7 @@ export default function SchedulePage() {
       setLeftColPx(leftMobile)
       setDayColPx(perDay)
     }
-  }, [])
+  }, [isPortrait])
 
   useEffect(() => {
     computeGridCols()
@@ -482,7 +518,6 @@ export default function SchedulePage() {
 
   // モバイルで右サイドを開くボタン/ダイアログ
   const [asideOpen, setAsideOpen] = useState(false)
-  const [showFab, setShowFab] = useState(false)
   // 検索モーダル
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -500,24 +535,21 @@ export default function SchedulePage() {
     return () => window.removeEventListener('openRemarksDialog', handleOpenRemarks);
   }, []);
 
-  // 保存機能のためのデータ準備（BottomBarと共有するデータ）
-  const scheduleData = useMemo(() => ({
-    year: ym.year,
-    month: ym.month,
-    notes,
-    routes,
-    lowers
-  }), [ym, notes, routes, lowers]);
-
-  // BottomBarからの保存リクエストを処理
+  // BottomBar との保存イベント連携を復帰
+  const handleSaveRef = useRef(handleSave)
+  useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
   useEffect(() => {
-    const handleSaveRequest = (event: Event) => {
-      console.log('Received save request from BottomBar', event);
-      handleSave();
-    };
-    window.addEventListener('requestScheduleSave', handleSaveRequest);
-    return () => window.removeEventListener('requestScheduleSave', handleSaveRequest);
-  }, [handleSave]);
+    const onReq = (_e: Event) => { handleSaveRef.current() }
+    window.addEventListener('requestScheduleSave', onReq)
+    return () => window.removeEventListener('requestScheduleSave', onReq)
+  }, [])
+
+  // saving状態をBottomBarへ通知
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const ev = new CustomEvent('scheduleSavingState', { detail: { saving } })
+    window.dispatchEvent(ev)
+  }, [saving])
 
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
   const scrollToDay = (day: number) => {
@@ -563,37 +595,38 @@ export default function SchedulePage() {
       setSearchOpen(false)
     }
   }
-  useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY || document.documentElement.scrollTop
-      setShowFab(y > 48)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  // フローティングボタン関連のスクロール監視は不要になったため削除
+  // useEffect(() => {
+  //   const onScroll = () => {
+  //     const y = window.scrollY || document.documentElement.scrollTop
+  //     setShowFab(y > 48)
+  //   }
+  //   onScroll()
+  //   window.addEventListener('scroll', onScroll, { passive: true })
+  //   return () => window.removeEventListener('scroll', onScroll)
+  // }, [])
 
-  function FloatingAsideButton({ onClick, visible }: { onClick: () => void, visible: boolean }) {
-    const [mounted, setMounted] = useState(false)
-    useEffect(() => { setMounted(true) }, [])
-    if (!mounted || typeof document === 'undefined') return null
-    return createPortal(
-      <div className="md:hidden fixed inset-0 z-50 pointer-events-none">
-        <button
-          type="button"
-          onClick={onClick}
-          className="absolute rounded-full bg-blue-600 text-white px-4 py-3 text-lg sm:text-base shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
-          aria-label="備考と管理を開く"
-          data-visible={visible}
-          
-        >
-          備考/管理
-        </button>
-      </div>,
-      document.body
-    )
-  }
+  // 削除: FloatingAsideButton コンポーネント
+  // function FloatingAsideButton({ onClick, visible }: { onClick: () => void, visible: boolean }) {
+  //   const [mounted, setMounted] = useState(false)
+  //   useEffect(() => { setMounted(true) }, [])
+  //   if (!mounted || typeof document === 'undefined') return null
+  //   return createPortal(
+  //     <div className="md:hidden fixed inset-0 z-50 pointer-events-none">
+  //       <button
+  //         type="button"
+  //         onClick={onClick}
+  //         className="absolute rounded-full bg-blue-600 text-white px-4 py-3 text-lg sm:text-base shadow-xl hover:bg-blue-700 pointer-events-auto transition-transform duration-300"
+  //         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
+  //         aria-label="備考と管理を開く"
+  //         data-visible={visible}
+  //       >
+  //         備考/管理
+  //       </button>
+  //     </div>,
+  //     document.body
+  //   )
+  // }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
@@ -604,16 +637,18 @@ export default function SchedulePage() {
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
-                  保存中...
-                </span>
-              ) : (
-                '保存'
-              )}
-            </Button>
+            {!isPortrait && (
+              <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
+                    保存中...
+                  </span>
+                ) : (
+                  '保存'
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -645,7 +680,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -655,7 +690,7 @@ export default function SchedulePage() {
             <TooltipProvider>
               {Array.from({ length: 4 }).map((_, slotIdx) => (
                 <div key={`memo-row-${slotIdx}`} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 flex items-center justify-center text-center z-10 font-semibold ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
+                  <div className={`sticky left-0 bg-white border-r border-gray-300 px-1 h-10 md:h-12 flex items-center justify-center text-center z-10 font-semibold ${slotIdx === 0 || slotIdx === 3 ? 'border-b' : 'border-b-0'}`}>
                     {slotIdx === 0 ? 'メモ' : ''}
                   </div>
                   {Array.from({ length: 31 }).map((_, i) => {
@@ -667,10 +702,10 @@ export default function SchedulePage() {
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm md:text-base px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
@@ -705,7 +740,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm md:text-base font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
@@ -721,7 +756,7 @@ export default function SchedulePage() {
                           })()}
                         </div>
                         <select
-                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm max-sm:text-lg"
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={r?.special ? r.special : (r?.staffId || '')}
                           onChange={(e)=>{
                             const v = e.target.value
@@ -752,7 +787,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
@@ -773,7 +808,7 @@ export default function SchedulePage() {
                   <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">
                           {(() => {
                             if (!staffId) return ''
                             const m = new Map(staffs.map(s => [s.id, s.name]))
@@ -781,7 +816,7 @@ export default function SchedulePage() {
                           })()}
                         </div>
                         <select
-                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm max-sm:text-lg"
+                          className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={staffId || ''}
                           onChange={(e)=>{
                             const v = e.target.value
@@ -817,21 +852,23 @@ export default function SchedulePage() {
           </div>
 
           {/* 右サイド：備考パネル + 管理ボタン */}
-          <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
-            <RightSideContent />
-            <div className="border rounded-md p-3 w-full break-words mt-4">
-              <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
-            </div>
-          </aside>
+          {!isPortrait && (
+            <aside className="hidden md:block flex-none space-y-4 w-[240px] lg:w-[260px] xl:w-[300px]">
+              <RightSideContent />
+              <div className="border rounded-md p-3 w-full break-words mt-4">
+                <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
+              </div>
+            </aside>
+          )}
         </div>
       </div>
 
-      {/* モバイル用 フローティングボタン（常に画面右下） */}
-      <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} />
+      {/* 削除: モバイル用 フローティングボタン */}
+      {/* <FloatingAsideButton onClick={() => setAsideOpen(true)} visible={showFab} /> */}
 
       {/* 上段メモ 閲覧/編集ダイアログ */}
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent className="text-lg">
+        <DialogContent className="text-lg bg-white">
           <DialogHeader>
             <DialogTitle>上段メモ入力（{noteDay}日／{noteSlot}）</DialogTitle>
           </DialogHeader>
@@ -958,7 +995,7 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className="md:hidden max-w-md bg-white">
+        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md bg-white`}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
@@ -1108,7 +1145,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>{mode==='create' ? '備考を追加' : '備考を編集'}</DialogTitle>
           </DialogHeader>

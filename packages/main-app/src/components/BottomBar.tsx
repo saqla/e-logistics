@@ -3,96 +3,118 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from './ui/button';
-import { Menu, Save, MessageSquare, X } from 'lucide-react';
+import { Menu, MessageSquare, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+function useIsPortrait(): boolean {
+  const [isPortrait, setIsPortrait] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches)
+    mq.addEventListener?.('change', handler)
+    setIsPortrait(mq.matches)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
+  return isPortrait
+}
 
 const BottomBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [hasData, setHasData] = useState(false); // 仮のデータ有無フラグ、後で実装時に調整
-  const [lastScrollY, setLastScrollY] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [vw, setVw] = useState(0);
+  const isPortrait = useIsPortrait();
+  const [isSaving, setIsSaving] = useState(false);
 
-  // モバイル判定
-  const checkMobile = useCallback(() => {
-    setIsMobile(window.innerWidth < 768);
+  // schedule側のsaving状態を同期
+  useEffect(() => {
+    const onSaving = (e: Event) => {
+      const ce = e as CustomEvent<{ saving: boolean }>
+      setIsSaving(!!ce.detail?.saving)
+    }
+    window.addEventListener('scheduleSavingState', onSaving as EventListener)
+    return () => window.removeEventListener('scheduleSavingState', onSaving as EventListener)
+  }, [])
+  
+
+  // モバイル判定 + 幅の記録
+  const onResize = useCallback(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 0
+    setIsMobile(w < 768);
+    setVw(w);
   }, []);
 
   useEffect(() => {
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [checkMobile]);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [onResize]);
 
-  // /scheduleでのみ表示
-  const shouldShowBar = pathname === '/schedule' && isMobile;
+  // /scheduleでのみ表示（スマホ or タブレット縦）
+  const shouldShowBar = pathname === '/schedule' && (isMobile || isPortrait);
+  const isTabletPortrait = !isMobile && isPortrait && vw >= 768 && vw < 1200;
+  const barHeightPx = isTabletPortrait ? 80 : 60;
+  const iconSizeCls = isTabletPortrait ? 'h-6 w-6 mb-1' : 'h-5 w-5 mb-1';
+  const labelSizeCls = isTabletPortrait ? 'text-[12px]' : 'text-[10px]';
+  const containerGapCls = isTabletPortrait ? 'gap-12' : 'gap-10';
 
-  // スクロール方向で表示/非表示を切り替え
+  // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 60) {
-        setIsVisible(false); // 下スクロールで隠す
-      } else {
-        setIsVisible(true); // 上スクロールで表示
+    if (!shouldShowBar) return;
+
+    const lastYRef = { current: window.scrollY || 0 } as { current: number };
+    const tickingRef = { current: false } as { current: boolean };
+    const DELTA = 10; // しきい値（小さなスクロールでは反応しない）
+
+    const onScroll = () => {
+      const run = () => {
+        const y = window.scrollY || document.documentElement.scrollTop || 0;
+        const prev = lastYRef.current;
+        const diff = y - prev;
+
+        if (y <= 60 || Math.abs(diff) < DELTA) {
+          setIsVisible(true);
+        } else if (diff > 0) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        lastYRef.current = y;
+        tickingRef.current = false;
+      };
+
+      if (!tickingRef.current) {
+        tickingRef.current = true;
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(run);
+        } else {
+          setTimeout(run, 16);
+        }
       }
-      setLastScrollY(currentScrollY);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [shouldShowBar]);
 
-  // 入力フォーカス検知 (仮実装、後でフォーム状態と連動)
-  useEffect(() => {
-    const handleFocus = () => setIsInputFocused(true);
-    const handleBlur = () => setIsInputFocused(false);
-    
-    document.querySelectorAll('input, textarea').forEach(el => {
-      el.addEventListener('focus', handleFocus);
-      el.addEventListener('blur', handleBlur);
-    });
-    
-    return () => {
-      document.querySelectorAll('input, textarea').forEach(el => {
-        el.removeEventListener('focus', handleFocus);
-        el.removeEventListener('blur', handleBlur);
-      });
-    };
-  }, []);
+  // 入力時表示は当面行わないため、フォーカス検知は無効化
 
-  // 通常時のメニューアクション
   const handleMenu = () => {
-    router.push('/'); // ダッシュボードに戻る
-  };
-
-  const handleSave = () => {
-    // 保存リクエストをスケジュールページに送信するカスタムイベントを発火
-    const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
-    window.dispatchEvent(event);
-    console.log('Save clicked - Triggered requestScheduleSave event');
+    router.push('/');
   };
 
   const handleRemarks = () => {
-    // 備考ダイアログを開くためのカスタムイベントを発火
     const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
-    console.log('Remarks clicked - Triggered openRemarksDialog event');
   };
-
-  // 入力フォーカス時のアクション
-  const handleCancel = () => {
-    // キャンセル、後でフォームリセットと連動
-    setIsInputFocused(false);
-    console.log('Cancel clicked - Placeholder for form reset');
+  const handleSave = () => {
+    const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
+    window.dispatchEvent(event);
   };
-
-  const handleDelete = () => {
-    // 削除、後でデータ有無と連動
-    console.log('Delete clicked - Placeholder for delete action');
-  };
+  
 
   if (!shouldShowBar) return null;
 
@@ -103,72 +125,41 @@ const BottomBar: React.FC = () => {
         isVisible ? 'translate-y-0' : 'translate-y-full',
         'pb-[env(safe-area-inset-bottom)]'
       )}
-      style={{ height: '60px' }}
+      style={{ height: `${barHeightPx}px` }}
     >
-      <div className="flex justify-between items-center h-full px-4 max-w-5xl mx-auto">
-        {isInputFocused ? (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleSave}
-            >
-              <Save className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">保存</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleCancel}
-            >
-              <X className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">キャンセル</span>
-            </Button>
-            {hasData && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex flex-col h-11 w-16 text-destructive/80 hover:text-destructive"
-                onClick={handleDelete}
-              >
-                <X className="h-5 w-5 mb-1" />
-                <span className="text-[10px]">削除</span>
-              </Button>
-            )}
-          </>
-        ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleMenu}
-            >
-              <Menu className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">Menu</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleSave}
-            >
-              <Save className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">保存</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-              onClick={handleRemarks}
-            >
-              <MessageSquare className="h-5 w-5 mb-1" />
-              <span className="text-[10px]">備考</span>
-            </Button>
-          </>
-        )}
+      <div className={cn('flex items-center h-full px-4 max-w-5xl mx-auto justify-center', containerGapCls)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleMenu}
+        >
+          <Menu className={iconSizeCls} />
+          <span className={labelSizeCls}>アプリ選択</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
+          ) : (
+            <Save className={iconSizeCls} />
+          )}
+          <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleRemarks}
+        >
+          <MessageSquare className={iconSizeCls} />
+          <span className={labelSizeCls}>備考/管理</span>
+        </Button>
       </div>
     </div>
   );
