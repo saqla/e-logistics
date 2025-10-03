@@ -53,6 +53,20 @@ export default function SchedulePage() {
   }, [])
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
 
+  // Note color utility: encode color marker at the start of text
+  type NoteColor = 'white' | 'yellow' | 'blue'
+  const colorToMarker: Record<NoteColor, string> = { white: '[[w]]', yellow: '[[y]]', blue: '[[b]]' }
+  const markerToColor: Record<string, NoteColor> = { '[[w]]': 'white', '[[y]]': 'yellow', '[[b]]': 'blue' }
+  function parseNoteColor(raw: string | undefined): { color: NoteColor; content: string } {
+    if (!raw) return { color: 'white', content: '' }
+    for (const m of Object.keys(markerToColor)) {
+      if (raw.startsWith(m)) {
+        return { color: markerToColor[m], content: raw.slice(m.length) }
+      }
+    }
+    return { color: 'white', content: raw }
+  }
+
   // 認証ガード
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -389,15 +403,36 @@ export default function SchedulePage() {
   const [noteText, setNoteText] = useState('')
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
   const [noteMode, setNoteMode] = useState<'view'|'edit'>('edit')
+  // color picker state
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerDay, setPickerDay] = useState<number | null>(null)
+  const [pickerSlot, setPickerSlot] = useState<number>(1)
+  const applyColor = (color: NoteColor) => {
+    if (!pickerDay) return
+    const prev = getNote(pickerDay, pickerSlot)
+    const parsed = parseNoteColor(prev)
+    const composed = `${colorToMarker[color]}${parsed.content}`
+    setNote(pickerDay, pickerSlot, composed)
+    setPickerOpen(false)
+  }
   const openNote = (day: number, slot: number) => {
     setNoteDay(day)
     setNoteSlot(slot)
     const t = getNote(day, slot)
-    setNoteText(t)
+    const parsed = parseNoteColor(t)
+    setNoteText(parsed.content)
     setNoteMode(t ? 'view' : 'edit')
     setNoteOpen(true)
   }
-  const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
+  const saveNote = () => {
+    if (!noteDay) return
+    // keep current color marker if any
+    const prev = getNote(noteDay, noteSlot)
+    const { color } = parseNoteColor(prev)
+    const composed = `${colorToMarker[color]}${noteText}`
+    setNote(noteDay, noteSlot, composed)
+    setNoteOpen(false)
+  }
   const copyNoteText = async (text: string) => {
     if (!text) return
     setNoteClipboard(text)
@@ -705,16 +740,37 @@ export default function SchedulePage() {
                   {Array.from({ length: 31 }).map((_, i) => {
                     const d = i + 1
                     const slot = slotIdx + 1
-                    const text = getNote(d, slot)
+                    const rawText = getNote(d, slot)
+                    const parsed = parseNoteColor(rawText)
+                    const text = parsed.content
+                    const badgeCls = parsed.color === 'white'
+                      ? 'bg-white text-gray-900 border border-gray-300'
+                      : parsed.color === 'yellow'
+                        ? 'bg-yellow-200 text-yellow-900'
+                        : 'bg-blue-200 text-blue-900'
+                    // long-press handlers
+                    let pressTimer: any
+                    const startPress = () => {
+                      clearTimeout(pressTimer)
+                      pressTimer = setTimeout(() => {
+                        setPickerDay(d); setPickerSlot(slot); setPickerOpen(true)
+                      }, 500)
+                    }
+                    const endPress = () => clearTimeout(pressTimer)
                     return (
                       <Tooltip key={`memo-${slot}-${d}`}>
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
+                            onMouseDown={startPress}
+                            onMouseUp={endPress}
+                            onMouseLeave={endPress}
+                            onTouchStart={startPress}
+                            onTouchEnd={endPress}
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className={`inline-block max-w-full bg-yellow-200 text-yellow-900 ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
@@ -942,6 +998,20 @@ export default function SchedulePage() {
               <Button className="text-base" onClick={saveNote}>保存</Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* メモ色ピッカー */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">メモの背景色を選択</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-2">
+            <button className="border rounded p-2 bg-white text-gray-800" onClick={()=>applyColor('white')}>白</button>
+            <button className="border rounded p-2 bg-yellow-200 text-yellow-900" onClick={()=>applyColor('yellow')}>黄</button>
+            <button className="border rounded p-2 bg-blue-200 text-blue-900" onClick={()=>applyColor('blue')}>青</button>
+          </div>
         </DialogContent>
       </Dialog>
 
