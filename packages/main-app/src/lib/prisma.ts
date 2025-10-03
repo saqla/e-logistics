@@ -10,11 +10,11 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
     : ['error']
 })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 
 // Preview/Dev でのNeon接続設定の軽いヘルスチェック（ログのみ）
-(() => {
+;(() => {
   try {
     const url = process.env.DATABASE_URL || ''
     const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV !== 'production'
