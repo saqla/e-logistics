@@ -20,6 +20,7 @@ export async function GET(req: Request) {
 // { year, month, notes: DayNote[], routes: RouteAssignment[], lowers: LowerAssignment[] }
 export async function POST(req: Request) {
   try {
+    const t0 = Date.now()
     const body = await req.json()
     const year: number = body?.year
     const month: number = body?.month
@@ -29,33 +30,61 @@ export async function POST(req: Request) {
     const routes = Array.isArray(body?.routes) ? body.routes : []
     const lowers = Array.isArray(body?.lowers) ? body.lowers : []
 
-    // 非インタラクティブトランザクション（serverless/接続切替でも安全）
+    // 非インタラクティブトランザクション（元の挙動へロールバック）
     const ops: any[] = []
-    // DayNote 置換
+
+    // DayNote 置換（当月分を削除→非空のものだけ作成）
     ops.push(prisma.dayNote.deleteMany({ where: { year, month } }))
     const filteredNotes = (notes as any[]).filter(n => (n?.text ?? '').toString().trim() !== '')
     for (const n of filteredNotes) {
-      ops.push(prisma.dayNote.create({ data: { year, month, day: n.day, slot: n.slot, text: n.text } }))
+      ops.push(
+        prisma.dayNote.create({
+          data: { year, month, day: Number(n.day), slot: Number(n.slot), text: String(n.text) },
+        })
+      )
     }
-    // RouteAssignment upsert
-    for (const r of routes) {
-      ops.push(prisma.routeAssignment.upsert({
-        where: { year_month_day_route: { year, month, day: r.day, route: r.route } },
-        update: { staffId: r.staffId ?? null, special: r.special ?? null },
-        create: { year, month, day: r.day, route: r.route, staffId: r.staffId ?? null, special: r.special ?? null }
-      }))
+
+    // RouteAssignment はupsertで更新/作成（全削除はしない）
+    for (const r of routes as any[]) {
+      ops.push(
+        prisma.routeAssignment.upsert({
+          where: { year_month_day_route: { year, month, day: Number(r.day), route: r.route } },
+          update: { staffId: r.staffId ?? null, special: r.special ?? null },
+          create: {
+            year,
+            month,
+            day: Number(r.day),
+            route: r.route,
+            staffId: r.staffId ?? null,
+            special: r.special ?? null,
+          },
+        })
+      )
     }
-    // LowerAssignment 置換
+
+    // LowerAssignment 置換（当月分を削除→非空のみ作成）
     ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
     for (const l of lowers as any[]) {
       if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
-      ops.push(prisma.lowerAssignment.create({
-        data: { year, month, day: l.day, rowIndex: l.rowIndex, staffId: l.staffId }
-      }))
+      ops.push(
+        prisma.lowerAssignment.create({
+          data: { year, month, day: Number(l.day), rowIndex: Number(l.rowIndex), staffId: String(l.staffId) },
+        })
+      )
     }
-    await prisma.$transaction(ops)
 
-    return NextResponse.json({ ok: true })
+    const tDbStart = Date.now()
+    await prisma.$transaction(ops)
+    const tDbEnd = Date.now()
+
+    const totalMs = Date.now() - t0
+    const dbMs = tDbEnd - tDbStart
+    const serverTiming = `db;dur=${dbMs}, total;dur=${totalMs}`
+    const headers = new Headers({ 'Server-Timing': serverTiming })
+    if (process.env.VERCEL_ENV === 'preview') {
+      return NextResponse.json({ ok: true, timings: { totalMs, dbMs, opsCount: ops.length } }, { headers })
+    }
+    return NextResponse.json({ ok: true }, { headers })
   } catch (e: any) {
     console.error('POST /api/schedule error:', e)
     const message = e?.message || 'Internal Error'
