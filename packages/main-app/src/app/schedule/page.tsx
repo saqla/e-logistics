@@ -1068,7 +1068,6 @@ export default function SchedulePage() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* 月変更 確認ダイアログ */}
       <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
         <DialogContent className="bg-amber-50 text-amber-900 border border-amber-200 shadow-lg">
