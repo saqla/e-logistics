@@ -32,7 +32,7 @@ type Note = { day: number; slot: number; text: string }
 type RouteKind = 'EZAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
 type RouteSpecial = 'CONTINUE' | 'OFF' | null
 type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; special: RouteSpecial }
-type LowerAssignment = { day: number; rowIndex: number; staffId: string | null }
+type LowerAssignment = { day: number; rowIndex: number; staffId: string | null; color?: 'WHITE' | 'PINK' }
 
 const ROUTE_LABEL: Record<RouteKind, string> = {
   EZAKI_DONKI: '江D',
@@ -133,7 +133,7 @@ export default function SchedulePage() {
       if (schedRes.ok && !sched.__nonJson && !sched.__parseError) {
         setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
         setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
-        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId, color: l.color })))
       } else {
         setNotes([])
         setRoutes([])
@@ -212,10 +212,13 @@ export default function SchedulePage() {
   }
 
   const getLower = (day: number, rowIndex: number) => lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.staffId || null
+  const getLowerColor = (day: number, rowIndex: number): 'WHITE' | 'PINK' => {
+    return lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.color || 'WHITE'
+  }
   const setLower = (day: number, rowIndex: number, staffId: string | null) => {
     setLowers(prev => {
       const idx = prev.findIndex(p => p.day === day && p.rowIndex === rowIndex)
-      const value = { day, rowIndex, staffId }
+      const value = { day, rowIndex, staffId, color: idx>=0 ? (prev[idx].color || 'WHITE') : 'WHITE' }
       if (idx >= 0) { const next = [...prev]; next[idx] = value; return next }
       return [...prev, value]
     })
@@ -247,8 +250,27 @@ export default function SchedulePage() {
     return !exists
   }
 
-  // ピンク強調の閾値（この回数以上で強調）。必要に応じて変更してください。
-  const LOWER_PINK_THRESHOLD = 9
+  // 下段セルの色（ユーザー選択）: key `${day}-${rowIndex}` -> 'white' | 'pink'
+  type LowerColor = 'white' | 'pink'
+  const [lowerColorMap, setLowerColorMap] = useState<Record<string, LowerColor>>({})
+  const [lowerPickerOpen, setLowerPickerOpen] = useState(false)
+  const [lowerPickerKey, setLowerPickerKey] = useState<string | null>(null)
+  const applyLowerColor = (color: LowerColor) => {
+    if (!lowerPickerKey) return
+    setLowerColorMap(prev => ({ ...prev, [lowerPickerKey]: color }))
+    // 即時保存のためにlowersにも反映（次の保存APIでDBへ）
+    const [dStr, rStr] = lowerPickerKey.split('-')
+    const d = Number(dStr), r = Number(rStr)
+    setLowers(prev => {
+      const idx = prev.findIndex(p => p.day === d && p.rowIndex === r)
+      if (idx < 0) return prev
+      const next = [...prev]
+      next[idx] = { ...next[idx], color: color === 'pink' ? 'PINK' : 'WHITE' }
+      return next
+    })
+    setIsDirty(true)
+    setLowerPickerOpen(false)
+  }
 
   // 未使用: 全セルの通し順位マップ（必要になったら復元）
   // const lowerKeyRankMap = useMemo(() => {
@@ -867,12 +889,31 @@ export default function SchedulePage() {
                 const staffId = getLower(d, rowIdx+1)
                 const key = `${d}-${rowIdx+1}`
                 const selRank = staffId ? (perStaffSelectionRankMap.get(staffId)?.get(key) || 0) : 0
-                const bg = selRank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
+                const chosen = lowerColorMap[key]
+                const persisted = getLowerColor(d, rowIdx+1) === 'PINK' ? 'pink' : 'white'
+                const effective = chosen || persisted
+                const bg = effective === 'pink' ? 'bg-pink-100' : ''
+                const textColorCls = effective === 'pink' ? 'text-pink-900' : 'text-gray-900'
+                let lpTimer: any
+                const startLP = () => {
+                  clearTimeout(lpTimer)
+                  lpTimer = setTimeout(() => { setLowerPickerKey(key); setLowerPickerOpen(true) }, 500)
+                }
+                const endLP = () => clearTimeout(lpTimer)
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
+                  <div
+                    key={`l-${rowIdx+1}-${d}`}
+                    onMouseDown={startLP}
+                    onMouseUp={endLP}
+                    onMouseLeave={endLP}
+                    onTouchStart={startLP}
+                    onTouchEnd={endLP}
+                    className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                    title={`${staffId ?? ''}#${selRank}`}
+                  >
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis`}>
+                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis ${textColorCls}`}>
                           {(() => {
                             if (!staffId) return ''
                             return idToName.get(staffId) || ''
@@ -1015,6 +1056,18 @@ export default function SchedulePage() {
         </DialogContent>
       </Dialog>
 
+      {/* 下段 色ピッカー（白/ピンク） */}
+      <Dialog open={lowerPickerOpen} onOpenChange={setLowerPickerOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">セル背景色を選択</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="border rounded p-2 bg-white text-gray-800" onClick={()=>applyLowerColor('white')}>白</button>
+            <button className="border rounded p-2 bg-pink-100 text-pink-900" onClick={()=>applyLowerColor('pink')}>ピンク</button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* 月変更 確認ダイアログ */}
       <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
         <DialogContent className="bg-amber-50 text-amber-900 border border-amber-200 shadow-lg">
