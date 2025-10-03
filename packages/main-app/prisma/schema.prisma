@@ -94,6 +94,12 @@ enum RouteSpecialValue {
   OFF       // ×
 }
 
+// 下段セルの色
+enum LowerCellColor {
+  WHITE
+  PINK
+}
+
 // 上段最下部3行：1日×3行の担当
 model RouteAssignment {
   id        String    @id @default(cuid())
@@ -121,6 +127,7 @@ model LowerAssignment {
   day       Int
   rowIndex  Int      // 1..13
   staffId   String?
+  color     LowerCellColor @default(WHITE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -32,7 +32,7 @@ type Note = { day: number; slot: number; text: string }
 type RouteKind = 'EZAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
 type RouteSpecial = 'CONTINUE' | 'OFF' | null
 type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; special: RouteSpecial }
-type LowerAssignment = { day: number; rowIndex: number; staffId: string | null }
+type LowerAssignment = { day: number; rowIndex: number; staffId: string | null; color?: 'WHITE' | 'PINK' }
 
 const ROUTE_LABEL: Record<RouteKind, string> = {
   EZAKI_DONKI: '江D',
@@ -133,7 +133,7 @@ export default function SchedulePage() {
       if (schedRes.ok && !sched.__nonJson && !sched.__parseError) {
         setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
         setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
-        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId, color: l.color })))
       } else {
         setNotes([])
         setRoutes([])
@@ -212,10 +212,13 @@ export default function SchedulePage() {
   }
 
   const getLower = (day: number, rowIndex: number) => lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.staffId || null
+  const getLowerColor = (day: number, rowIndex: number): 'WHITE' | 'PINK' => {
+    return lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.color || 'WHITE'
+  }
   const setLower = (day: number, rowIndex: number, staffId: string | null) => {
     setLowers(prev => {
       const idx = prev.findIndex(p => p.day === day && p.rowIndex === rowIndex)
-      const value = { day, rowIndex, staffId }
+      const value = { day, rowIndex, staffId, color: idx>=0 ? (prev[idx].color || 'WHITE') : 'WHITE' }
       if (idx >= 0) { const next = [...prev]; next[idx] = value; return next }
       return [...prev, value]
     })
@@ -255,6 +258,17 @@ export default function SchedulePage() {
   const applyLowerColor = (color: LowerColor) => {
     if (!lowerPickerKey) return
     setLowerColorMap(prev => ({ ...prev, [lowerPickerKey]: color }))
+    // 即時保存のためにlowersにも反映（次の保存APIでDBへ）
+    const [dStr, rStr] = lowerPickerKey.split('-')
+    const d = Number(dStr), r = Number(rStr)
+    setLowers(prev => {
+      const idx = prev.findIndex(p => p.day === d && p.rowIndex === r)
+      if (idx < 0) return prev
+      const next = [...prev]
+      next[idx] = { ...next[idx], color: color === 'pink' ? 'PINK' : 'WHITE' }
+      return next
+    })
+    setIsDirty(true)
     setLowerPickerOpen(false)
   }
 
@@ -875,9 +889,11 @@ export default function SchedulePage() {
                 const staffId = getLower(d, rowIdx+1)
                 const key = `${d}-${rowIdx+1}`
                 const selRank = staffId ? (perStaffSelectionRankMap.get(staffId)?.get(key) || 0) : 0
-                const lowerColor = lowerColorMap[key] || 'white'
-                const bg = lowerColor === 'pink' ? 'bg-pink-100' : ''
-                const textColorCls = lowerColor === 'pink' ? 'text-pink-900' : 'text-gray-900'
+                const chosen = lowerColorMap[key]
+                const persisted = getLowerColor(d, rowIdx+1) === 'PINK' ? 'pink' : 'white'
+                const effective = chosen || persisted
+                const bg = effective === 'pink' ? 'bg-pink-100' : ''
+                const textColorCls = effective === 'pink' ? 'text-pink-900' : 'text-gray-900'
                 let lpTimer: any
                 const startLP = () => {
                   clearTimeout(lpTimer)

@@ -9,9 +9,19 @@ export async function GET(req: Request) {
   if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
   const [notes, routes, lowers] = await Promise.all([
-    prisma.dayNote.findMany({ where: { year, month }, orderBy: [{ day: 'asc' }, { slot: 'asc' }] }),
-    prisma.routeAssignment.findMany({ where: { year, month } }),
-    prisma.lowerAssignment.findMany({ where: { year, month } }),
+    prisma.dayNote.findMany({
+      where: { year, month },
+      orderBy: [{ day: 'asc' }, { slot: 'asc' }],
+      select: { day: true, slot: true, text: true },
+    }),
+    prisma.routeAssignment.findMany({
+      where: { year, month },
+      select: { day: true, route: true, staffId: true, special: true },
+    }),
+    prisma.lowerAssignment.findMany({
+      where: { year, month },
+      select: { day: true, rowIndex: true, staffId: true, color: true },
+    }),
   ])
   return NextResponse.json({ notes, routes, lowers })
 }
@@ -68,7 +78,14 @@ export async function POST(req: Request) {
       if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
       ops.push(
         prisma.lowerAssignment.create({
-          data: { year, month, day: Number(l.day), rowIndex: Number(l.rowIndex), staffId: String(l.staffId) },
+          data: {
+            year,
+            month,
+            day: Number(l.day),
+            rowIndex: Number(l.rowIndex),
+            staffId: String(l.staffId),
+            color: l.color === 'PINK' ? 'PINK' : 'WHITE',
+          },
         })
       )
     }
