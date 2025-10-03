@@ -44,6 +44,14 @@ export default function SchedulePage() {
   const { status } = useSession()
   const router = useRouter()
   const isPortrait = useIsPortrait()
+  const [vw, setVw] = useState(0)
+  useEffect(() => {
+    const onResize = () => setVw(typeof window !== 'undefined' ? window.innerWidth : 0)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const isPhonePortrait = isPortrait && vw > 0 && vw < 768
 
   // 認証ガード
   useEffect(() => {
@@ -370,7 +378,8 @@ export default function SchedulePage() {
     const dow = getDow(ym.year, ym.month, day)
     const isHol = isHoliday(ym.year, ym.month, day)
     const color = isHol ? 'text-red-600' : (dow === 6 ? 'text-blue-600' : 'text-gray-900')
-    return <div className={`flex items-center justify-center text-base md:text-lg font-semibold tabular-nums ${color}`}>{day}</div>
+    const sizeCls = isPhonePortrait ? 'text-lg' : 'text-base md:text-lg'
+    return <div className={`flex items-center justify-center ${sizeCls} font-semibold tabular-nums ${color}`}>{day}</div>
   }
 
   // Note dialog state
@@ -496,13 +505,13 @@ export default function SchedulePage() {
       setLeftColPx(left)
       setDayColPx(perDay)
     } else {
-      // スマホ：1画面に7日分が収まるように計算（asideは非表示）
+      // スマホ：1画面に5日分が収まるように計算（asideは非表示）
       const leftMobile = 48
-      const visibleDays = 7
+      const visibleDays = 5
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
       // 下限/上限（上限は広めにして1週間表示の変化を確実に反映）
-      perDay = Math.max(12, Math.min(perDay, 56))
+      perDay = Math.max(14, Math.min(perDay, 56))
       setLeftColPx(leftMobile)
       setDayColPx(perDay)
     }
@@ -705,7 +714,7 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm md:text-base px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                              <span className={`inline-block max-w-full bg-yellow-200 text-yellow-900 ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
@@ -740,7 +749,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm md:text-base font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
@@ -807,7 +816,7 @@ export default function SchedulePage() {
                   <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
                     {d<=monthDays && (
                       <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">
+                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {(() => {
                             if (!staffId) return ''
                             return idToName.get(staffId) || ''
