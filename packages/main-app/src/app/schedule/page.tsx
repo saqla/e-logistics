@@ -773,7 +773,7 @@ export default function SchedulePage() {
           <h1 className="text-lg sm:text-xl font-bold">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
+            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap -ml-1 sm:-ml-2">{title}</span>
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             {!isPortrait && (
               <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
