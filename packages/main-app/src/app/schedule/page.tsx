@@ -819,11 +819,9 @@ export default function SchedulePage() {
         <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
           <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
-            <div className="flex items-center gap-1 sm:gap-2 transform -translate-x-8 sm:-translate-x-8">
-              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-              <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
-              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            </div>
+            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
+            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
+            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             {!isPortrait && (
               <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
                 {saving ? (
@@ -871,7 +869,6 @@ export default function SchedulePage() {
                 <div
                   key={i}
                   className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
-                  
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>

@@ -29,9 +29,11 @@ export async function GET(req: Request) {
 // POST /api/schedule  保存一括
 // { year, month, notes: DayNote[], routes: RouteAssignment[], lowers: LowerAssignment[] }
 export async function POST(req: Request) {
+  const isPreview = process.env.VERCEL_ENV !== 'production'
+  const t0 = Date.now()
   try {
-    const t0 = Date.now()
     const body = await req.json()
+    const tParsed = Date.now()
     const year: number = body?.year
     const month: number = body?.month
     if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
     const routes = Array.isArray(body?.routes) ? body.routes : []
     const lowers = Array.isArray(body?.lowers) ? body.lowers : []
 
-    // 非インタラクティブトランザクション（元の挙動へロールバック）
+    // 非インタラクティブトランザクション（ロールバック版：アップサート中心）
     const ops: any[] = []
 
     // DayNote 置換（当月分を削除→非空のものだけ作成）
@@ -72,7 +74,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // LowerAssignment 置換（当月分を削除→非空のみ作成）
+    // LowerAssignment 置換（当月分を削除→非空のみ作成、色も保存）
     ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
     for (const l of lowers as any[]) {
       if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
@@ -98,8 +100,8 @@ export async function POST(req: Request) {
     const dbMs = tDbEnd - tDbStart
     const serverTiming = `db;dur=${dbMs}, total;dur=${totalMs}`
     const headers = new Headers({ 'Server-Timing': serverTiming })
-    if (process.env.VERCEL_ENV === 'preview') {
-      return NextResponse.json({ ok: true, timings: { totalMs, dbMs, opsCount: ops.length } }, { headers })
+    if (isPreview) {
+      return NextResponse.json({ ok: true, timings: { parseMs: tParsed - t0, totalMs, dbMs, opsCount: ops.length } }, { headers })
     }
     return NextResponse.json({ ok: true }, { headers })
   } catch (e: any) {
