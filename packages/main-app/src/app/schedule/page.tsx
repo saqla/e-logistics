@@ -57,8 +57,9 @@ export default function SchedulePage() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
+  const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
-  const cellPadX = (isPhonePortrait || isPhoneLandscape) ? 'px-1' : 'px-2'
+  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape) ? 'px-1' : 'px-2'
   const headerPadY = isPhoneLandscape ? 'py-1.5 md:py-3' : 'py-2 md:py-3'
   const headerBarPad = isPhoneLandscape ? 'px-2 py-1.5 sm:px-4 sm:py-3' : 'px-3 py-2 sm:px-4 sm:py-3'
 
@@ -606,7 +607,7 @@ export default function SchedulePage() {
     // portraitのmd（タブレット縦）はモバイル相当に扱う
     if (!isMobile && w >= 768 && w < 1200 && isPortrait) {
       const leftMobile = 48
-      const visibleDays = 10 // タブレット縦では10日程度を目安に
+      const visibleDays = 5 // iPad縦もスマホ縦と同等の5日表示に
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
       perDay = Math.max(16, Math.min(perDay, 56))
@@ -787,7 +788,7 @@ export default function SchedulePage() {
   // }
 
   return (
-    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${(isPhonePortrait || isPhoneLandscape) ? 'pb-24' : ''}`}>
+    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${(isPhonePortrait || isTabletPortrait || isPhoneLandscape) ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
         <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
           <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
