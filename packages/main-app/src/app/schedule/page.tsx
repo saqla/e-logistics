@@ -654,10 +654,10 @@ export default function SchedulePage() {
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1440) {
-      // xlは17日表示（視認性重視）
+      // xlは15日表示（視認性重視）
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 17)
+      let perDay = Math.floor(availableForDays / 15)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
