@@ -62,6 +62,7 @@ export default function SchedulePage() {
   const isLg = vw >= 1200 && vw < 1440
   const isXl = vw >= 1440 && vw < 1536
   const is2xl = vw >= 1536
+  const isLgUp = isLg || isXl || is2xl
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
   const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape)
     ? 'px-1'
@@ -903,7 +904,11 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              isLgUp ? (
+                                <span className={`${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              ) : (
+                                <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              )
                             ) : null}
                           </button>
                         </TooltipTrigger>
