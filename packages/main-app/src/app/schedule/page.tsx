@@ -45,14 +45,22 @@ export default function SchedulePage() {
   const router = useRouter()
   const isPortrait = useIsPortrait()
   const [vw, setVw] = useState(0)
+  const [vh, setVh] = useState(0)
   useEffect(() => {
-    const onResize = () => setVw(typeof window !== 'undefined' ? window.innerWidth : 0)
+    const onResize = () => {
+      if (typeof window === 'undefined') return
+      setVw(window.innerWidth)
+      setVh(window.innerHeight)
+    }
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
-  const cellPadX = isPhonePortrait ? 'px-1' : 'px-2'
+  const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
+  const cellPadX = (isPhonePortrait || isPhoneLandscape) ? 'px-1' : 'px-2'
+  const headerPadY = isPhoneLandscape ? 'py-1.5 md:py-3' : 'py-2 md:py-3'
+  const headerBarPad = isPhoneLandscape ? 'px-2 py-1.5 sm:px-4 sm:py-3' : 'px-3 py-2 sm:px-4 sm:py-3'
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
@@ -589,6 +597,7 @@ export default function SchedulePage() {
   const [dayColPx, setDayColPx] = useState(56)
   const computeGridCols = useCallback(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 0
+    const h = typeof window !== 'undefined' ? window.innerHeight : 0
     // 余白見積り：モバイルは左右パディング(px-2)=16, それ以外は32。main-aside gap=16
     const isMobile = w < 768
     const sidePadding = isMobile ? 16 : 32
@@ -598,6 +607,17 @@ export default function SchedulePage() {
     if (!isMobile && w >= 768 && w < 1200 && isPortrait) {
       const leftMobile = 48
       const visibleDays = 10 // タブレット縦では10日程度を目安に
+      const availableForDays = w - sidePadding - leftMobile
+      let perDay = Math.floor(availableForDays / visibleDays)
+      perDay = Math.max(16, Math.min(perDay, 56))
+      setLeftColPx(leftMobile)
+      setDayColPx(perDay)
+      return
+    }
+    // スマホ横（landscape）は高さで判定（~500px未満を目安）し、7日表示
+    if (!isPortrait && h > 0 && h < 500) {
+      const leftMobile = 48
+      const visibleDays = 7
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
       perDay = Math.max(16, Math.min(perDay, 56))
@@ -767,14 +787,14 @@ export default function SchedulePage() {
   // }
 
   return (
-    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${isPhonePortrait ? 'pb-24' : ''}`}>
+    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${(isPhonePortrait || isPhoneLandscape) ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
-        <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
-          <h1 className="text-2xl sm:text-3xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
+        <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
+          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
             <div className="flex items-center gap-1 sm:gap-2 transform -translate-x-8 sm:-translate-x-8">
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-              <span className="text-2xl sm:text-3xl font-semibold text-center whitespace-nowrap">{title}</span>
+              <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             </div>
             {!isPortrait && (
@@ -788,6 +808,9 @@ export default function SchedulePage() {
                   '保存'
                 )}
               </Button>
+            )}
+            {!isPortrait && vw < 1200 && (
+              <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
             )}
           </div>
         </div>
@@ -820,7 +843,8 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -882,7 +906,7 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-1 text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
@@ -936,7 +960,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} ${cellPadX} py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
