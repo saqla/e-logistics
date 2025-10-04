@@ -626,7 +626,15 @@ export default function SchedulePage() {
       setDayColPx(perDay)
       return
     }
-    if (w >= 1440) {
+    if (!isMobile && w >= 768 && w < 1200 && !isPortrait) {
+      // iPad横は12日表示
+      const aside = 240
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 12)
+      perDay = Math.max(24, Math.min(perDay, 56))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
       // xlは31日表示（従来どおり）
