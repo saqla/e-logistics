@@ -32,7 +32,7 @@ type Note = { day: number; slot: number; text: string }
 type RouteKind = 'EZAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
 type RouteSpecial = 'CONTINUE' | 'OFF' | null
 type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; special: RouteSpecial }
-type LowerAssignment = { day: number; rowIndex: number; staffId: string | null }
+type LowerAssignment = { day: number; rowIndex: number; staffId: string | null; color?: 'WHITE' | 'PINK' }
 
 const ROUTE_LABEL: Record<RouteKind, string> = {
   EZAKI_DONKI: '江D',
@@ -44,6 +44,48 @@ export default function SchedulePage() {
   const { status } = useSession()
   const router = useRouter()
   const isPortrait = useIsPortrait()
+  const [vw, setVw] = useState(0)
+  const [vh, setVh] = useState(0)
+  useEffect(() => {
+    const onResize = () => {
+      if (typeof window === 'undefined') return
+      setVw(window.innerWidth)
+      setVh(window.innerHeight)
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const isPhonePortrait = isPortrait && vw > 0 && vw < 768
+  const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
+  const isTabletLandscape = !isPortrait && vw >= 768 && vw < 1200
+  const isLg = vw >= 1200 && vw < 1440
+  const isXl = vw >= 1440 && vw < 1536
+  const is2xl = vw >= 1536
+  const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
+  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape)
+    ? 'px-1'
+    : (is2xl ? 'px-5' : (isXl ? 'px-4' : (isLg ? 'px-3' : 'px-2')))
+  const headerPadY = (isPhoneLandscape || isTabletLandscape)
+    ? 'py-1.5 md:py-3'
+    : (is2xl ? 'py-4' : (isXl ? 'py-3.5' : (isLg ? 'py-3' : 'py-2 md:py-3')))
+  const headerBarPad = (isPhoneLandscape || isTabletLandscape)
+    ? 'px-2 py-1.5 sm:px-4 sm:py-3'
+    : (is2xl ? 'px-8 py-4' : (isXl ? 'px-6 py-3.5' : (isLg ? 'px-5 py-3' : 'px-3 py-2 sm:px-4 sm:py-3')))
+
+  // Note color utility: encode color marker at the start of text
+  type NoteColor = 'white' | 'yellow' | 'blue'
+  const colorToMarker: Record<NoteColor, string> = { white: '[[w]]', yellow: '[[y]]', blue: '[[b]]' }
+  const markerToColor: Record<string, NoteColor> = { '[[w]]': 'white', '[[y]]': 'yellow', '[[b]]': 'blue' }
+  function parseNoteColor(raw: string | undefined): { color: NoteColor; content: string } {
+    if (!raw) return { color: 'white', content: '' }
+    for (const m of Object.keys(markerToColor)) {
+      if (raw.startsWith(m)) {
+        return { color: markerToColor[m], content: raw.slice(m.length) }
+      }
+    }
+    return { color: 'white', content: raw }
+  }
 
   // 認証ガード
   useEffect(() => {
@@ -75,6 +117,66 @@ export default function SchedulePage() {
   const contentRef = useRef<HTMLDivElement>(null)
   const [scrollContentWidth, setScrollContentWidth] = useState(0)
   const syncingFrom = useRef<"top"|"main"|null>(null)
+
+  // Long-press config and helper
+  const LONG_PRESS_MS = 500
+  const LONG_PRESS_MOVE_CANCEL_PX = 12
+  const makeLongPressHandlers = (onTrigger: () => void) => {
+    let timer: any = null
+    let startX = 0
+    let startY = 0
+    let cancelled = false
+    const cancel = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      cancelled = true
+      detachScroll()
+    }
+    const getPoint = (e: any) => {
+      if (e.touches && e.touches[0]) { return { x: e.touches[0].clientX, y: e.touches[0].clientY } }
+      if (e.changedTouches && e.changedTouches[0]) { return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY } }
+      return { x: e.clientX ?? 0, y: e.clientY ?? 0 }
+    }
+    const onStart = (e: any) => {
+      cancelled = false
+      const p = getPoint(e)
+      startX = p.x
+      startY = p.y
+      attachScroll()
+      timer = setTimeout(() => { if (!cancelled) onTrigger() }, LONG_PRESS_MS)
+    }
+    const onMove = (e: any) => {
+      if (!timer) return
+      const p = getPoint(e)
+      const dx = p.x - startX
+      const dy = p.y - startY
+      if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+        cancel()
+      }
+    }
+    const onEnd = () => cancel()
+    const onLeave = () => cancel()
+    const onCancel = () => cancel()
+    const onScroll = () => cancel()
+    const attachScroll = () => {
+      mainScrollRef.current?.addEventListener('scroll', onScroll, { passive: true })
+      topScrollRef.current?.addEventListener('scroll', onScroll, { passive: true })
+      window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    }
+    const detachScroll = () => {
+      mainScrollRef.current?.removeEventListener('scroll', onScroll as any)
+      topScrollRef.current?.removeEventListener('scroll', onScroll as any)
+      window.removeEventListener('scroll', onScroll as any, true)
+    }
+    return {
+      onMouseDown: onStart,
+      onMouseUp: onEnd,
+      onMouseLeave: onLeave,
+      onTouchStart: onStart,
+      onTouchMove: onMove,
+      onTouchEnd: onEnd,
+      onTouchCancel: onCancel,
+    } as const
+  }
 
   // data load
   const loadAll = async () => {
@@ -111,7 +213,7 @@ export default function SchedulePage() {
       if (schedRes.ok && !sched.__nonJson && !sched.__parseError) {
         setNotes((sched.notes || []).map((n: any) => ({ day: n.day, slot: n.slot, text: n.text || '' })))
         setRoutes((sched.routes || []).map((r: any) => ({ day: r.day, route: r.route, staffId: r.staffId, special: r.special })))
-        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId })))
+        setLowers((sched.lowers || []).map((l: any) => ({ day: l.day, rowIndex: l.rowIndex, staffId: l.staffId, color: l.color })))
       } else {
         setNotes([])
         setRoutes([])
@@ -190,10 +292,13 @@ export default function SchedulePage() {
   }
 
   const getLower = (day: number, rowIndex: number) => lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.staffId || null
+  const getLowerColor = (day: number, rowIndex: number): 'WHITE' | 'PINK' => {
+    return lowers.find(l => l.day === day && l.rowIndex === rowIndex)?.color || 'WHITE'
+  }
   const setLower = (day: number, rowIndex: number, staffId: string | null) => {
     setLowers(prev => {
       const idx = prev.findIndex(p => p.day === day && p.rowIndex === rowIndex)
-      const value = { day, rowIndex, staffId }
+      const value = { day, rowIndex, staffId, color: idx>=0 ? (prev[idx].color || 'WHITE') : 'WHITE' }
       if (idx >= 0) { const next = [...prev]; next[idx] = value; return next }
       return [...prev, value]
     })
@@ -225,8 +330,27 @@ export default function SchedulePage() {
     return !exists
   }
 
-  // ピンク強調の閾値（この回数以上で強調）。必要に応じて変更してください。
-  const LOWER_PINK_THRESHOLD = 9
+  // 下段セルの色（ユーザー選択）: key `${day}-${rowIndex}` -> 'white' | 'pink'
+  type LowerColor = 'white' | 'pink'
+  const [lowerColorMap, setLowerColorMap] = useState<Record<string, LowerColor>>({})
+  const [lowerPickerOpen, setLowerPickerOpen] = useState(false)
+  const [lowerPickerKey, setLowerPickerKey] = useState<string | null>(null)
+  const applyLowerColor = (color: LowerColor) => {
+    if (!lowerPickerKey) return
+    setLowerColorMap(prev => ({ ...prev, [lowerPickerKey]: color }))
+    // 即時保存のためにlowersにも反映（次の保存APIでDBへ）
+    const [dStr, rStr] = lowerPickerKey.split('-')
+    const d = Number(dStr), r = Number(rStr)
+    setLowers(prev => {
+      const idx = prev.findIndex(p => p.day === d && p.rowIndex === r)
+      if (idx < 0) return prev
+      const next = [...prev]
+      next[idx] = { ...next[idx], color: color === 'pink' ? 'PINK' : 'WHITE' }
+      return next
+    })
+    setIsDirty(true)
+    setLowerPickerOpen(false)
+  }
 
   // 未使用: 全セルの通し順位マップ（必要になったら復元）
   // const lowerKeyRankMap = useMemo(() => {
@@ -370,7 +494,8 @@ export default function SchedulePage() {
     const dow = getDow(ym.year, ym.month, day)
     const isHol = isHoliday(ym.year, ym.month, day)
     const color = isHol ? 'text-red-600' : (dow === 6 ? 'text-blue-600' : 'text-gray-900')
-    return <div className={`flex items-center justify-center text-base md:text-lg font-semibold tabular-nums ${color}`}>{day}</div>
+    const sizeCls = isPhonePortrait ? 'text-lg' : 'text-base md:text-lg'
+    return <div className={`flex items-center justify-center ${sizeCls} font-semibold tabular-nums ${color}`}>{day}</div>
   }
 
   // Note dialog state
@@ -380,15 +505,43 @@ export default function SchedulePage() {
   const [noteText, setNoteText] = useState('')
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
   const [noteMode, setNoteMode] = useState<'view'|'edit'>('edit')
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
+  // color picker state
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerDay, setPickerDay] = useState<number | null>(null)
+  const [pickerSlot, setPickerSlot] = useState<number>(1)
+  const applyColor = (color: NoteColor) => {
+    if (!pickerDay) return
+    const prev = getNote(pickerDay, pickerSlot)
+    const parsed = parseNoteColor(prev)
+    const composed = `${colorToMarker[color]}${parsed.content}`
+    setNote(pickerDay, pickerSlot, composed)
+    setPickerOpen(false)
+  }
   const openNote = (day: number, slot: number) => {
     setNoteDay(day)
     setNoteSlot(slot)
     const t = getNote(day, slot)
-    setNoteText(t)
+    const parsed = parseNoteColor(t)
+    setNoteText(parsed.content)
     setNoteMode(t ? 'view' : 'edit')
     setNoteOpen(true)
   }
-  const saveNote = () => { if (noteDay) setNote(noteDay, noteSlot, noteText); setNoteOpen(false) }
+  const saveNote = () => {
+    if (!noteDay) return
+    // keep current color marker if any
+    const prev = getNote(noteDay, noteSlot)
+    const { color } = parseNoteColor(prev)
+    const composed = `${colorToMarker[color]}${noteText}`
+    setNote(noteDay, noteSlot, composed)
+    setNoteOpen(false)
+  }
+  useEffect(() => {
+    if (noteOpen && noteMode === 'edit') {
+      // 次フレームでフォーカス
+      setTimeout(() => noteTextareaRef.current?.focus(), 0)
+    }
+  }, [noteOpen, noteMode])
   const copyNoteText = async (text: string) => {
     if (!text) return
     setNoteClipboard(text)
@@ -455,6 +608,7 @@ export default function SchedulePage() {
   const [dayColPx, setDayColPx] = useState(56)
   const computeGridCols = useCallback(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 0
+    const h = typeof window !== 'undefined' ? window.innerHeight : 0
     // 余白見積り：モバイルは左右パディング(px-2)=16, それ以外は32。main-aside gap=16
     const isMobile = w < 768
     const sidePadding = isMobile ? 16 : 32
@@ -463,7 +617,7 @@ export default function SchedulePage() {
     // portraitのmd（タブレット縦）はモバイル相当に扱う
     if (!isMobile && w >= 768 && w < 1200 && isPortrait) {
       const leftMobile = 48
-      const visibleDays = 10 // タブレット縦では10日程度を目安に
+      const visibleDays = 5 // iPad縦もスマホ縦と同等の5日表示に
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
       perDay = Math.max(16, Math.min(perDay, 56))
@@ -471,19 +625,46 @@ export default function SchedulePage() {
       setDayColPx(perDay)
       return
     }
-    if (w >= 1440) {
+    // スマホ横（landscape）は高さで判定（~500px未満を目安）し、7日表示
+    if (!isPortrait && h > 0 && h < 500) {
+      const leftMobile = 48
+      const visibleDays = 7
+      const availableForDays = w - sidePadding - leftMobile
+      let perDay = Math.floor(availableForDays / visibleDays)
+      perDay = Math.max(16, Math.min(perDay, 56))
+      setLeftColPx(leftMobile)
+      setDayColPx(perDay)
+      return
+    }
+    if (!isMobile && w >= 768 && w < 1200 && !isPortrait) {
+      // iPad横は12日表示
+      const aside = 240
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 12)
+      perDay = Math.max(24, Math.min(perDay, 56))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else if (w >= 1536) {
+      // 2xlは25日表示
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      // xlは31日表示（従来どおり）
-      let perDay = Math.floor(availableForDays / 31)
-      perDay = Math.max(30, Math.min(perDay, 56))
+      let perDay = Math.floor(availableForDays / 25)
+      perDay = Math.max(24, Math.min(perDay, 56))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else if (w >= 1440) {
+      // xlは20日表示（視認性重視）
+      const aside = 300
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 20)
+      perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      // lgは15日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 15)
+      // lgは12日表示（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 12)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
@@ -496,13 +677,13 @@ export default function SchedulePage() {
       setLeftColPx(left)
       setDayColPx(perDay)
     } else {
-      // スマホ：1画面に7日分が収まるように計算（asideは非表示）
+      // スマホ：1画面に5日分が収まるように計算（asideは非表示）
       const leftMobile = 48
-      const visibleDays = 7
+      const visibleDays = 5
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
       // 下限/上限（上限は広めにして1週間表示の変化を確実に反映）
-      perDay = Math.max(12, Math.min(perDay, 56))
+      perDay = Math.max(14, Math.min(perDay, 56))
       setLeftColPx(leftMobile)
       setDayColPx(perDay)
     }
@@ -524,6 +705,10 @@ export default function SchedulePage() {
   const [searchScope, setSearchScope] = useState<'month'|'jump'>('month')
   const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
   const [searchResults, setSearchResults] = useState<{ day: number; where: 'note'|'lower'; snippet: string }[]>([])
+
+  // 入力デバイスがタッチかどうか
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => { setIsTouch(typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) }, [])
 
   // 備考ダイアログをBottomBarから開くためのイベントリスナー
   useEffect(() => {
@@ -629,10 +814,10 @@ export default function SchedulePage() {
   // }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${(isPhonePortrait || isTabletPortrait || isPhoneLandscape) ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
-        <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
-          <h1 className="text-lg sm:text-xl font-bold">月予定表</h1>
+        <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
+          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
@@ -648,6 +833,9 @@ export default function SchedulePage() {
                   '保存'
                 )}
               </Button>
+            )}
+            {!isPortrait && vw < 1200 && (
+              <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
             )}
           </div>
         </div>
@@ -680,7 +868,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -696,20 +884,30 @@ export default function SchedulePage() {
                   {Array.from({ length: 31 }).map((_, i) => {
                     const d = i + 1
                     const slot = slotIdx + 1
-                    const text = getNote(d, slot)
+                    const rawText = getNote(d, slot)
+                    const parsed = parseNoteColor(rawText)
+                    const text = parsed.content
+                    const badgeCls = parsed.color === 'white'
+                      ? 'bg-white text-gray-900 border border-gray-300'
+                      : parsed.color === 'yellow'
+                        ? 'bg-yellow-200 text-yellow-900'
+                        : 'bg-blue-200 text-blue-900'
+                    // long-press handlers with movement/scroll cancellation
+                    const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
                       <Tooltip key={`memo-${slot}-${d}`}>
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                            {...lpHandlers}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className="inline-block max-w-full bg-yellow-200 text-yellow-900 text-sm md:text-base px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center">{text}</span>
+                              <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
-                        {text ? (
+                        {!isTouch && text ? (
                           <TooltipContent
                             side={slotIdx >= 2 ? 'top' : 'bottom'}
                             align="center"
@@ -732,15 +930,15 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 py-1 text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
-                      <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[13px] sm:text-sm md:text-base font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                      <div className="relative h-full">
+                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
@@ -749,8 +947,7 @@ export default function SchedulePage() {
                             }
                             if (r?.special === 'OFF') return <span className="text-xl font-semibold text-red-700">×</span>
                             if (r?.staffId) {
-                              const m = new Map(staffs.map(s => [s.id, s.name]))
-                              return m.get(r.staffId) || ''
+                              return idToName.get(r.staffId) || ''
                             }
                             return ''
                           })()}
@@ -787,7 +984,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
@@ -803,16 +1000,25 @@ export default function SchedulePage() {
                 const staffId = getLower(d, rowIdx+1)
                 const key = `${d}-${rowIdx+1}`
                 const selRank = staffId ? (perStaffSelectionRankMap.get(staffId)?.get(key) || 0) : 0
-                const bg = selRank >= LOWER_PINK_THRESHOLD ? 'bg-pink-100' : ''
+                const chosen = lowerColorMap[key]
+                const persisted = getLowerColor(d, rowIdx+1) === 'PINK' ? 'pink' : 'white'
+                const effective = chosen || persisted
+                const bg = effective === 'pink' ? 'bg-pink-100' : ''
+                const textColorCls = effective === 'pink' ? 'text-pink-900' : 'text-gray-900'
+                const lpHandlersLower = makeLongPressHandlers(() => { setLowerPickerKey(key); setLowerPickerOpen(true) })
                 return (
-                  <div key={`l-${rowIdx+1}-${d}`} className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`} title={`${staffId ?? ''}#${selRank}`}>
+                  <div
+                    key={`l-${rowIdx+1}-${d}`}
+                    {...lpHandlersLower}
+                    className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                    title={`${staffId ?? ''}#${selRank}`}
+                  >
                     {d<=monthDays && (
-                      <div className="relative h-5">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">
+                      <div className="relative h-full">
+                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis ${textColorCls}`}>
                           {(() => {
                             if (!staffId) return ''
-                            const m = new Map(staffs.map(s => [s.id, s.name]))
-                            return m.get(staffId) || ''
+                            return idToName.get(staffId) || ''
                           })()}
                         </div>
                         <select
@@ -902,9 +1108,18 @@ export default function SchedulePage() {
 
           {/* 本文（閲覧 or 編集） */}
           {noteMode === 'view' ? (
-            <div className="w-full min-h-[10rem] border rounded-md p-2 bg-gray-50 whitespace-pre-wrap mt-2">{noteText}</div>
+            <button
+              type="button"
+              className="w-full min-h-[10rem] border rounded-md p-3 bg-gray-50 whitespace-pre-wrap mt-2 text-left relative"
+              onClick={() => setNoteMode('edit')}
+              title="タップで編集"
+            >
+              <span className="absolute right-2 top-2 text-xs text-gray-500">タップで編集</span>
+              {noteText || <span className="text-gray-400">（内容なし）</span>}
+            </button>
           ) : (
             <textarea
+              ref={noteTextareaRef}
               className="w-full h-40 border rounded-md p-2 mt-2 text-sm max-sm:text-lg"
               value={noteText}
               onChange={(e)=>setNoteText(e.target.value)}
@@ -915,7 +1130,6 @@ export default function SchedulePage() {
           {noteMode === 'view' ? (
             <div className="flex items-center justify-end gap-2 mt-2">
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
-              <Button className="text-base" onClick={()=>setNoteMode('edit')}>編集</Button>
               <Button className="text-base"
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
@@ -938,6 +1152,32 @@ export default function SchedulePage() {
         </DialogContent>
       </Dialog>
 
+      {/* メモ色ピッカー */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">メモの背景色を選択</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-2">
+            <button className="border rounded p-2 bg-white text-gray-800" onClick={()=>applyColor('white')}>白</button>
+            <button className="border rounded p-2 bg-yellow-200 text-yellow-900" onClick={()=>applyColor('yellow')}>黄</button>
+            <button className="border rounded p-2 bg-blue-200 text-blue-900" onClick={()=>applyColor('blue')}>青</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 下段 色ピッカー（白/ピンク） */}
+      <Dialog open={lowerPickerOpen} onOpenChange={setLowerPickerOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">セル背景色を選択</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="border rounded p-2 bg-white text-gray-800" onClick={()=>applyLowerColor('white')}>白</button>
+            <button className="border rounded p-2 bg-pink-100 text-pink-900" onClick={()=>applyLowerColor('pink')}>ピンク</button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* 月変更 確認ダイアログ */}
       <Dialog open={monthChangeOpen} onOpenChange={setMonthChangeOpen}>
         <DialogContent className="bg-amber-50 text-amber-900 border border-amber-200 shadow-lg">
@@ -999,6 +1239,7 @@ export default function SchedulePage() {
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
+          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
           <RightSideContent compact />
           <div className="mt-3">
             <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>

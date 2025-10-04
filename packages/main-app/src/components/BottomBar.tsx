@@ -121,9 +121,9 @@ const BottomBar: React.FC = () => {
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-40 bg-gray-100/90 backdrop-blur-sm transition-transform duration-300',
-        isVisible ? 'translate-y-0' : 'translate-y-full',
-        'pb-[env(safe-area-inset-bottom)]'
+        'fixed bottom-0 left-0 right-0 z-40 bg-gray-100/90 backdrop-blur-sm transform-gpu will-change-transform transition-transform duration-300 ease-out',
+        isVisible ? 'translate-y-0 pointer-events-auto' : 'translate-y-full pointer-events-none',
+        isVisible ? 'pb-[env(safe-area-inset-bottom)]' : 'pb-0'
       )}
       style={{ height: `${barHeightPx}px` }}
     >

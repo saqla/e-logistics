@@ -9,9 +9,19 @@ export async function GET(req: Request) {
   if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
   const [notes, routes, lowers] = await Promise.all([
-    prisma.dayNote.findMany({ where: { year, month }, orderBy: [{ day: 'asc' }, { slot: 'asc' }] }),
-    prisma.routeAssignment.findMany({ where: { year, month } }),
-    prisma.lowerAssignment.findMany({ where: { year, month } }),
+    prisma.dayNote.findMany({
+      where: { year, month },
+      orderBy: [{ day: 'asc' }, { slot: 'asc' }],
+      select: { day: true, slot: true, text: true },
+    }),
+    prisma.routeAssignment.findMany({
+      where: { year, month },
+      select: { day: true, route: true, staffId: true, special: true },
+    }),
+    prisma.lowerAssignment.findMany({
+      where: { year, month },
+      select: { day: true, rowIndex: true, staffId: true, color: true },
+    }),
   ])
   return NextResponse.json({ notes, routes, lowers })
 }
@@ -32,45 +42,68 @@ export async function POST(req: Request) {
     const routes = Array.isArray(body?.routes) ? body.routes : []
     const lowers = Array.isArray(body?.lowers) ? body.lowers : []
 
-    // データ整形（空値は除外）
-    const notesData = (notes as any[])
-      .filter(n => (n?.text ?? '').toString().trim() !== '')
-      .map(n => ({ year, month, day: Number(n.day), slot: Number(n.slot), text: String(n.text) }))
+    // 非インタラクティブトランザクション（ロールバック版：アップサート中心）
+    const ops: any[] = []
 
-    const routesData = (routes as any[]).map(r => ({
-      year,
-      month,
-      day: Number(r.day),
-      route: r.route, // Prisma enum
-      staffId: r.staffId ?? null,
-      special: r.special ?? null,
-    }))
-
-    const lowersData = (lowers as any[])
-      .filter(l => l && l.staffId != null && `${l.staffId}`.trim() !== '')
-      .map(l => ({ year, month, day: Number(l.day), rowIndex: Number(l.rowIndex), staffId: String(l.staffId) }))
-
-    // バルク最適化（deleteMany + createMany）
-    await prisma.$transaction([
-      prisma.dayNote.deleteMany({ where: { year, month } }),
-      prisma.routeAssignment.deleteMany({ where: { year, month } }),
-      prisma.lowerAssignment.deleteMany({ where: { year, month } }),
-      ...(notesData.length > 0 ? [prisma.dayNote.createMany({ data: notesData })] : []),
-      ...(routesData.length > 0 ? [prisma.routeAssignment.createMany({ data: routesData })] : []),
-      ...(lowersData.length > 0 ? [prisma.lowerAssignment.createMany({ data: lowersData })] : []),
-    ])
-    const tDone = Date.now()
-
-    const timings = {
-      parseMs: tParsed - t0,
-      totalMs: tDone - t0,
-      counts: { notes: notesData.length, routes: routesData.length, lowers: lowersData.length },
+    // DayNote 置換（当月分を削除→非空のものだけ作成）
+    ops.push(prisma.dayNote.deleteMany({ where: { year, month } }))
+    const filteredNotes = (notes as any[]).filter(n => (n?.text ?? '').toString().trim() !== '')
+    for (const n of filteredNotes) {
+      ops.push(
+        prisma.dayNote.create({
+          data: { year, month, day: Number(n.day), slot: Number(n.slot), text: String(n.text) },
+        })
+      )
     }
 
+    // RouteAssignment はupsertで更新/作成（全削除はしない）
+    for (const r of routes as any[]) {
+      ops.push(
+        prisma.routeAssignment.upsert({
+          where: { year_month_day_route: { year, month, day: Number(r.day), route: r.route } },
+          update: { staffId: r.staffId ?? null, special: r.special ?? null },
+          create: {
+            year,
+            month,
+            day: Number(r.day),
+            route: r.route,
+            staffId: r.staffId ?? null,
+            special: r.special ?? null,
+          },
+        })
+      )
+    }
+
+    // LowerAssignment 置換（当月分を削除→非空のみ作成、色も保存）
+    ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
+    for (const l of lowers as any[]) {
+      if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
+      ops.push(
+        prisma.lowerAssignment.create({
+          data: {
+            year,
+            month,
+            day: Number(l.day),
+            rowIndex: Number(l.rowIndex),
+            staffId: String(l.staffId),
+            color: l.color === 'PINK' ? 'PINK' : 'WHITE',
+          },
+        })
+      )
+    }
+
+    const tDbStart = Date.now()
+    await prisma.$transaction(ops)
+    const tDbEnd = Date.now()
+
+    const totalMs = Date.now() - t0
+    const dbMs = tDbEnd - tDbStart
+    const serverTiming = `db;dur=${dbMs}, total;dur=${totalMs}`
+    const headers = new Headers({ 'Server-Timing': serverTiming })
     if (isPreview) {
-      return NextResponse.json({ ok: true, timings })
+      return NextResponse.json({ ok: true, timings: { parseMs: tParsed - t0, totalMs, dbMs, opsCount: ops.length } }, { headers })
     }
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true }, { headers })
   } catch (e: any) {
     console.error('POST /api/schedule error:', e)
     const message = e?.message || 'Internal Error'
