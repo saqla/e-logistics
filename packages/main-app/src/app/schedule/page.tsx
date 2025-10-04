@@ -774,7 +774,7 @@ export default function SchedulePage() {
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
             <div className="flex items-center gap-1 sm:gap-2 transform -translate-x-8 sm:-translate-x-8">
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-              <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
+              <span className="text-2xl sm:text-3xl font-semibold text-center whitespace-nowrap">{title}</span>
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             </div>
             {!isPortrait && (
