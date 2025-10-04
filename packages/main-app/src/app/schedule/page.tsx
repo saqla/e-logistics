@@ -62,16 +62,17 @@ export default function SchedulePage() {
   const isLg = vw >= 1200 && vw < 1440
   const isXl = vw >= 1440 && vw < 1536
   const is2xl = vw >= 1536
+  const isLgUp = isLg || isXl || is2xl
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
   const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape)
     ? 'px-1'
-    : (is2xl ? 'px-5' : (isXl ? 'px-4' : (isLg ? 'px-3' : 'px-2')))
+    : (is2xl ? 'px-1.5' : (isXl ? 'px-3' : (isLg ? 'px-3' : 'px-2')))
   const headerPadY = (isPhoneLandscape || isTabletLandscape)
     ? 'py-1.5 md:py-3'
-    : (is2xl ? 'py-4' : (isXl ? 'py-3.5' : (isLg ? 'py-3' : 'py-2 md:py-3')))
+    : (is2xl ? 'py-2' : (isXl ? 'py-3' : (isLg ? 'py-3' : 'py-2 md:py-3')))
   const headerBarPad = (isPhoneLandscape || isTabletLandscape)
     ? 'px-2 py-1.5 sm:px-4 sm:py-3'
-    : (is2xl ? 'px-8 py-4' : (isXl ? 'px-6 py-3.5' : (isLg ? 'px-5 py-3' : 'px-3 py-2 sm:px-4 sm:py-3')))
+    : (is2xl ? 'px-4 py-2' : (isXl ? 'px-5 py-3' : (isLg ? 'px-5 py-3' : 'px-3 py-2 sm:px-4 sm:py-3')))
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
@@ -645,18 +646,18 @@ export default function SchedulePage() {
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1536) {
-      // 2xlは25日表示
+      // 2xlは20日表示
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 25)
+      let perDay = Math.floor(availableForDays / 20)
       perDay = Math.max(24, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1440) {
-      // xlは20日表示（視認性重視）
+      // xlは15日表示（視認性重視）
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 20)
+      let perDay = Math.floor(availableForDays / 15)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
@@ -892,6 +893,11 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
+                    const plainNoteCls = parsed.color === 'white'
+                      ? ''
+                      : parsed.color === 'yellow'
+                        ? 'bg-yellow-200 text-yellow-900'
+                        : 'bg-blue-200 text-blue-900'
                     // long-press handlers with movement/scroll cancellation
                     const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
@@ -903,7 +909,11 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              isLgUp ? (
+                                <span className={`${plainNoteCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              ) : (
+                                <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              )
                             ) : null}
                           </button>
                         </TooltipTrigger>
