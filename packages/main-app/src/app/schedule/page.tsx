@@ -605,6 +605,17 @@ export default function SchedulePage() {
       setDayColPx(perDay)
       return
     }
+    // スマホ横（landscape）はモバイル扱いだが、横幅が広いため12日表示を目安に
+    if (isMobile && !isPortrait && w > 0) {
+      const leftMobile = 48
+      const visibleDays = 12
+      const availableForDays = w - sidePadding - leftMobile
+      let perDay = Math.floor(availableForDays / visibleDays)
+      perDay = Math.max(16, Math.min(perDay, 56))
+      setLeftColPx(leftMobile)
+      setDayColPx(perDay)
+      return
+    }
     if (w >= 1440) {
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
@@ -767,7 +778,7 @@ export default function SchedulePage() {
   // }
 
   return (
-    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${isPhonePortrait ? 'pb-24' : ''}`}>
+    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${isPhonePortrait || (!isPortrait && vw < 768) ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
         <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
           <h1 className="text-2xl sm:text-3xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
