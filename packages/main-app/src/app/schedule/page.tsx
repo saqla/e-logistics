@@ -781,11 +781,11 @@ export default function SchedulePage() {
     <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${isPhonePortrait || (!isPortrait && vw < 768) ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
         <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
-          <h1 className="text-2xl sm:text-3xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
+          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
             <div className="flex items-center gap-1 sm:gap-2 transform -translate-x-8 sm:-translate-x-8">
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-              <span className="text-2xl sm:text-3xl font-semibold text-center whitespace-nowrap">{title}</span>
+              <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             </div>
             {!isPortrait && (
