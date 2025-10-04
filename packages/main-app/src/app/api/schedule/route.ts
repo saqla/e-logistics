@@ -32,6 +32,7 @@ export async function POST(req: Request) {
   const isPreview = process.env.VERCEL_ENV !== 'production'
   const t0 = Date.now()
   try {
+    const t0 = Date.now()
     const body = await req.json()
     const tParsed = Date.now()
     const year: number = body?.year
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
     const dbMs = tDbEnd - tDbStart
     const serverTiming = `db;dur=${dbMs}, total;dur=${totalMs}`
     const headers = new Headers({ 'Server-Timing': serverTiming })
+
     if (isPreview) {
       return NextResponse.json({ ok: true, timings: { parseMs: tParsed - t0, totalMs, dbMs, opsCount: ops.length } }, { headers })
     }

@@ -870,6 +870,7 @@ export default function SchedulePage() {
                 <div
                   key={i}
                   className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -893,6 +894,7 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
+
                     const plainNoteCls = parsed.color === 'white'
                       ? ''
                       : parsed.color === 'yellow'
@@ -909,6 +911,7 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
+
                               isLgUp ? (
                                 <span className={`${plainNoteCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                               ) : (
