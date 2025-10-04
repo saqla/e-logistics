@@ -52,6 +52,7 @@ export default function SchedulePage() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
+  const cellPadX = isPhonePortrait ? 'px-1' : 'px-2'
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
@@ -651,6 +652,10 @@ export default function SchedulePage() {
   const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
   const [searchResults, setSearchResults] = useState<{ day: number; where: 'note'|'lower'; snippet: string }[]>([])
 
+  // 入力デバイスがタッチかどうか
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => { setIsTouch(typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) }, [])
+
   // 備考ダイアログをBottomBarから開くためのイベントリスナー
   useEffect(() => {
     const handleOpenRemarks = (event: Event) => {
@@ -755,7 +760,7 @@ export default function SchedulePage() {
   // }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${isPhonePortrait ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
         <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
           <h1 className="text-lg sm:text-xl font-bold">月予定表</h1>
@@ -806,7 +811,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -838,14 +843,14 @@ export default function SchedulePage() {
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
                             {...lpHandlers}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
                               <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
-                        {text ? (
+                        {!isTouch && text ? (
                           <TooltipContent
                             side={slotIdx >= 2 ? 'top' : 'bottom'}
                             align="center"
@@ -873,9 +878,9 @@ export default function SchedulePage() {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
-                      <div className="relative h-5">
+                      <div className="relative h-full">
                         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {(() => {
                             if (r?.special === 'CONTINUE') {
@@ -922,7 +927,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} ${cellPadX} py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
@@ -948,11 +953,11 @@ export default function SchedulePage() {
                   <div
                     key={`l-${rowIdx+1}-${d}`}
                     {...lpHandlersLower}
-                    className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                    className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                     title={`${staffId ?? ''}#${selRank}`}
                   >
                     {d<=monthDays && (
-                      <div className="relative h-5">
+                      <div className="relative h-full">
                         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis ${textColorCls}`}>
                           {(() => {
                             if (!staffId) return ''
