@@ -663,8 +663,8 @@ export default function SchedulePage() {
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      // lgは13日表示（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 13)
+      // lgは12日表示（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 12)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
