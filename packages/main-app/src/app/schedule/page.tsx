@@ -65,13 +65,13 @@ export default function SchedulePage() {
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
   const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape)
     ? 'px-1'
-    : (is2xl ? 'px-4' : (isXl ? 'px-3' : (isLg ? 'px-2.5' : 'px-2')))
+    : (is2xl ? 'px-5' : (isXl ? 'px-4' : (isLg ? 'px-3' : 'px-2')))
   const headerPadY = (isPhoneLandscape || isTabletLandscape)
     ? 'py-1.5 md:py-3'
-    : (is2xl ? 'py-3.5' : (isXl ? 'py-3' : (isLg ? 'py-2.5' : 'py-2 md:py-3')))
+    : (is2xl ? 'py-4' : (isXl ? 'py-3.5' : (isLg ? 'py-3' : 'py-2 md:py-3')))
   const headerBarPad = (isPhoneLandscape || isTabletLandscape)
     ? 'px-2 py-1.5 sm:px-4 sm:py-3'
-    : (is2xl ? 'px-6 py-3' : (isXl ? 'px-5 py-3' : (isLg ? 'px-4 py-2.5' : 'px-3 py-2 sm:px-4 sm:py-3')))
+    : (is2xl ? 'px-8 py-4' : (isXl ? 'px-6 py-3.5' : (isLg ? 'px-5 py-3' : 'px-3 py-2 sm:px-4 sm:py-3')))
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
