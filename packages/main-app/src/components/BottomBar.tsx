@@ -61,43 +61,36 @@ const BottomBar: React.FC = () => {
   const labelSizeCls = isTabletPortrait ? 'text-[12px]' : 'text-[10px]';
   const containerGapCls = isTabletPortrait ? 'gap-12' : 'gap-10';
 
-  // スクロール方向で表示/非表示を切り替え（安定版）
+  // スクロール方向で表示/非表示を切り替え（ヒステリシス付きでチラつき防止）
   useEffect(() => {
     if (!shouldShowBar) return;
 
-    const lastYRef = { current: window.scrollY || 0 } as { current: number };
-    const tickingRef = { current: false } as { current: boolean };
-    const DELTA = 10; // しきい値（小さなスクロールでは反応しない）
+    let lastY = window.scrollY || 0;
+    let timer: any = null;
+    const THRESH = 30; // 30px以上の移動で判定
+    const IDLE_MS = 120; // スクロール停止後に確定
 
     const onScroll = () => {
-      const run = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
         const y = window.scrollY || document.documentElement.scrollTop || 0;
-        const prev = lastYRef.current;
-        const diff = y - prev;
-
+        const diff = y - lastY;
         if (y <= 60) {
           setIsVisible(true);
-        } else if (diff > DELTA) {
+        } else if (diff > THRESH) {
           setIsVisible(false);
-        } else if (diff < -DELTA) {
+        } else if (diff < -THRESH) {
           setIsVisible(true);
-        } // 差分がしきい値未満の場合は状態維持（何もしない）
-        lastYRef.current = y;
-        tickingRef.current = false;
-      };
-
-      if (!tickingRef.current) {
-        tickingRef.current = true;
-        if (typeof window.requestAnimationFrame === 'function') {
-          window.requestAnimationFrame(run);
-        } else {
-          setTimeout(run, 16);
         }
-      }
+        lastY = y;
+      }, IDLE_MS);
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, [shouldShowBar]);
 
   // 入力時表示は当面行わないため、フォーカス検知は無効化
@@ -122,8 +115,8 @@ const BottomBar: React.FC = () => {
     <div
       className={cn(
         'fixed bottom-0 left-0 right-0 z-40 bg-gray-100/90 backdrop-blur-sm transform-gpu will-change-transform transition-transform duration-300 ease-out',
-        isVisible ? 'translate-y-0 pointer-events-auto' : 'translate-y-[calc(100%+env(safe-area-inset-bottom))] pointer-events-none',
-        'pb-[env(safe-area-inset-bottom)]'
+        isVisible ? 'translate-y-0 pointer-events-auto' : 'translate-y-full pointer-events-none',
+        isVisible ? 'pb-[env(safe-area-inset-bottom)]' : 'pb-0'
       )}
       style={{ height: `${barHeightPx}px` }}
     >

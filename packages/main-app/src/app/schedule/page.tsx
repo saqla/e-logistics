@@ -52,6 +52,7 @@ export default function SchedulePage() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
+  const cellPadX = isPhonePortrait ? 'px-1' : 'px-2'
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
@@ -97,6 +98,66 @@ export default function SchedulePage() {
   const contentRef = useRef<HTMLDivElement>(null)
   const [scrollContentWidth, setScrollContentWidth] = useState(0)
   const syncingFrom = useRef<"top"|"main"|null>(null)
+
+  // Long-press config and helper
+  const LONG_PRESS_MS = 500
+  const LONG_PRESS_MOVE_CANCEL_PX = 12
+  const makeLongPressHandlers = (onTrigger: () => void) => {
+    let timer: any = null
+    let startX = 0
+    let startY = 0
+    let cancelled = false
+    const cancel = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      cancelled = true
+      detachScroll()
+    }
+    const getPoint = (e: any) => {
+      if (e.touches && e.touches[0]) { return { x: e.touches[0].clientX, y: e.touches[0].clientY } }
+      if (e.changedTouches && e.changedTouches[0]) { return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY } }
+      return { x: e.clientX ?? 0, y: e.clientY ?? 0 }
+    }
+    const onStart = (e: any) => {
+      cancelled = false
+      const p = getPoint(e)
+      startX = p.x
+      startY = p.y
+      attachScroll()
+      timer = setTimeout(() => { if (!cancelled) onTrigger() }, LONG_PRESS_MS)
+    }
+    const onMove = (e: any) => {
+      if (!timer) return
+      const p = getPoint(e)
+      const dx = p.x - startX
+      const dy = p.y - startY
+      if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+        cancel()
+      }
+    }
+    const onEnd = () => cancel()
+    const onLeave = () => cancel()
+    const onCancel = () => cancel()
+    const onScroll = () => cancel()
+    const attachScroll = () => {
+      mainScrollRef.current?.addEventListener('scroll', onScroll, { passive: true })
+      topScrollRef.current?.addEventListener('scroll', onScroll, { passive: true })
+      window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    }
+    const detachScroll = () => {
+      mainScrollRef.current?.removeEventListener('scroll', onScroll as any)
+      topScrollRef.current?.removeEventListener('scroll', onScroll as any)
+      window.removeEventListener('scroll', onScroll as any, true)
+    }
+    return {
+      onMouseDown: onStart,
+      onMouseUp: onEnd,
+      onMouseLeave: onLeave,
+      onTouchStart: onStart,
+      onTouchMove: onMove,
+      onTouchEnd: onEnd,
+      onTouchCancel: onCancel,
+    } as const
+  }
 
   // data load
   const loadAll = async () => {
@@ -425,6 +486,7 @@ export default function SchedulePage() {
   const [noteText, setNoteText] = useState('')
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
   const [noteMode, setNoteMode] = useState<'view'|'edit'>('edit')
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
   // color picker state
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerDay, setPickerDay] = useState<number | null>(null)
@@ -455,6 +517,12 @@ export default function SchedulePage() {
     setNote(noteDay, noteSlot, composed)
     setNoteOpen(false)
   }
+  useEffect(() => {
+    if (noteOpen && noteMode === 'edit') {
+      // 次フレームでフォーカス
+      setTimeout(() => noteTextareaRef.current?.focus(), 0)
+    }
+  }, [noteOpen, noteMode])
   const copyNoteText = async (text: string) => {
     if (!text) return
     setNoteClipboard(text)
@@ -591,6 +659,10 @@ export default function SchedulePage() {
   const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
   const [searchResults, setSearchResults] = useState<{ day: number; where: 'note'|'lower'; snippet: string }[]>([])
 
+  // 入力デバイスがタッチかどうか
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => { setIsTouch(typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) }, [])
+
   // 備考ダイアログをBottomBarから開くためのイベントリスナー
   useEffect(() => {
     const handleOpenRemarks = (event: Event) => {
@@ -695,14 +767,16 @@ export default function SchedulePage() {
   // }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+    <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${isPhonePortrait ? 'pb-24' : ''}`}>
       <div className="sticky top-0 bg-white border-b z-20">
         <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
-          <h1 className="text-lg sm:text-xl font-bold">月予定表</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
-            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
-            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
+            <div className="flex items-center gap-1 sm:gap-2 transform -translate-x-8 sm:-translate-x-8">
+              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
+              <span className="text-2xl sm:text-3xl font-semibold text-center whitespace-nowrap">{title}</span>
+              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
+            </div>
             {!isPortrait && (
               <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
                 {saving ? (
@@ -746,7 +820,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -770,33 +844,22 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
-                    // long-press handlers
-                    let pressTimer: any
-                    const startPress = () => {
-                      clearTimeout(pressTimer)
-                      pressTimer = setTimeout(() => {
-                        setPickerDay(d); setPickerSlot(slot); setPickerOpen(true)
-                      }, 500)
-                    }
-                    const endPress = () => clearTimeout(pressTimer)
+                    // long-press handlers with movement/scroll cancellation
+                    const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
                       <Tooltip key={`memo-${slot}-${d}`}>
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            onMouseDown={startPress}
-                            onMouseUp={endPress}
-                            onMouseLeave={endPress}
-                            onTouchStart={startPress}
-                            onTouchEnd={endPress}
-                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                            {...lpHandlers}
+                            className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
                               <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                             ) : null}
                           </button>
                         </TooltipTrigger>
-                        {text ? (
+                        {!isTouch && text ? (
                           <TooltipContent
                             side={slotIdx >= 2 ? 'top' : 'bottom'}
                             align="center"
@@ -824,9 +887,9 @@ export default function SchedulePage() {
                 const d=i+1
                 const r=getRoute(d, rk)
                 return (
-                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
+                  <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
-                      <div className="relative h-5">
+                      <div className="relative h-full">
                         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {(() => {
                             if (r?.special === 'CONTINUE') {
@@ -873,7 +936,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_,i) => (
               <div
                 key={`lower-h-${i}`}
-                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} px-2 py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
+                className={`border-b border-gray-300 ${i===0 ? 'border-l border-gray-300' : ''} ${i===30 ? 'border-r border-gray-300' : ''} ${cellPadX} py-2 md:py-3 ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
               >
                 {i+1 <= monthDays ? headerCell(i+1) : null}
               </div>
@@ -894,25 +957,16 @@ export default function SchedulePage() {
                 const effective = chosen || persisted
                 const bg = effective === 'pink' ? 'bg-pink-100' : ''
                 const textColorCls = effective === 'pink' ? 'text-pink-900' : 'text-gray-900'
-                let lpTimer: any
-                const startLP = () => {
-                  clearTimeout(lpTimer)
-                  lpTimer = setTimeout(() => { setLowerPickerKey(key); setLowerPickerOpen(true) }, 500)
-                }
-                const endLP = () => clearTimeout(lpTimer)
+                const lpHandlersLower = makeLongPressHandlers(() => { setLowerPickerKey(key); setLowerPickerOpen(true) })
                 return (
                   <div
                     key={`l-${rowIdx+1}-${d}`}
-                    onMouseDown={startLP}
-                    onMouseUp={endLP}
-                    onMouseLeave={endLP}
-                    onTouchStart={startLP}
-                    onTouchEnd={endLP}
-                    className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
+                    {...lpHandlersLower}
+                    className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                     title={`${staffId ?? ''}#${selRank}`}
                   >
                     {d<=monthDays && (
-                      <div className="relative h-5">
+                      <div className="relative h-full">
                         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis ${textColorCls}`}>
                           {(() => {
                             if (!staffId) return ''
@@ -1006,9 +1060,18 @@ export default function SchedulePage() {
 
           {/* 本文（閲覧 or 編集） */}
           {noteMode === 'view' ? (
-            <div className="w-full min-h-[10rem] border rounded-md p-2 bg-gray-50 whitespace-pre-wrap mt-2">{noteText}</div>
+            <button
+              type="button"
+              className="w-full min-h-[10rem] border rounded-md p-3 bg-gray-50 whitespace-pre-wrap mt-2 text-left relative"
+              onClick={() => setNoteMode('edit')}
+              title="タップで編集"
+            >
+              <span className="absolute right-2 top-2 text-xs text-gray-500">タップで編集</span>
+              {noteText || <span className="text-gray-400">（内容なし）</span>}
+            </button>
           ) : (
             <textarea
+              ref={noteTextareaRef}
               className="w-full h-40 border rounded-md p-2 mt-2 text-sm max-sm:text-lg"
               value={noteText}
               onChange={(e)=>setNoteText(e.target.value)}
@@ -1019,7 +1082,6 @@ export default function SchedulePage() {
           {noteMode === 'view' ? (
             <div className="flex items-center justify-end gap-2 mt-2">
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
-              <Button className="text-base" onClick={()=>setNoteMode('edit')}>編集</Button>
               <Button className="text-base"
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
@@ -1129,6 +1191,7 @@ export default function SchedulePage() {
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
+          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
           <RightSideContent compact />
           <div className="mt-3">
             <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
