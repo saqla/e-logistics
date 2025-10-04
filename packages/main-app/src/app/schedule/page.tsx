@@ -98,6 +98,66 @@ export default function SchedulePage() {
   const [scrollContentWidth, setScrollContentWidth] = useState(0)
   const syncingFrom = useRef<"top"|"main"|null>(null)
 
+  // Long-press config and helper
+  const LONG_PRESS_MS = 500
+  const LONG_PRESS_MOVE_CANCEL_PX = 12
+  const makeLongPressHandlers = (onTrigger: () => void) => {
+    let timer: any = null
+    let startX = 0
+    let startY = 0
+    let cancelled = false
+    const cancel = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      cancelled = true
+      detachScroll()
+    }
+    const getPoint = (e: any) => {
+      if (e.touches && e.touches[0]) { return { x: e.touches[0].clientX, y: e.touches[0].clientY } }
+      if (e.changedTouches && e.changedTouches[0]) { return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY } }
+      return { x: e.clientX ?? 0, y: e.clientY ?? 0 }
+    }
+    const onStart = (e: any) => {
+      cancelled = false
+      const p = getPoint(e)
+      startX = p.x
+      startY = p.y
+      attachScroll()
+      timer = setTimeout(() => { if (!cancelled) onTrigger() }, LONG_PRESS_MS)
+    }
+    const onMove = (e: any) => {
+      if (!timer) return
+      const p = getPoint(e)
+      const dx = p.x - startX
+      const dy = p.y - startY
+      if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+        cancel()
+      }
+    }
+    const onEnd = () => cancel()
+    const onLeave = () => cancel()
+    const onCancel = () => cancel()
+    const onScroll = () => cancel()
+    const attachScroll = () => {
+      mainScrollRef.current?.addEventListener('scroll', onScroll, { passive: true })
+      topScrollRef.current?.addEventListener('scroll', onScroll, { passive: true })
+      window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    }
+    const detachScroll = () => {
+      mainScrollRef.current?.removeEventListener('scroll', onScroll as any)
+      topScrollRef.current?.removeEventListener('scroll', onScroll as any)
+      window.removeEventListener('scroll', onScroll as any, true)
+    }
+    return {
+      onMouseDown: onStart,
+      onMouseUp: onEnd,
+      onMouseLeave: onLeave,
+      onTouchStart: onStart,
+      onTouchMove: onMove,
+      onTouchEnd: onEnd,
+      onTouchCancel: onCancel,
+    } as const
+  }
+
   // data load
   const loadAll = async () => {
     // JSON以外（HTMLエラー等）でも落ちないように安全に読み取る
@@ -770,25 +830,14 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
-                    // long-press handlers
-                    let pressTimer: any
-                    const startPress = () => {
-                      clearTimeout(pressTimer)
-                      pressTimer = setTimeout(() => {
-                        setPickerDay(d); setPickerSlot(slot); setPickerOpen(true)
-                      }, 500)
-                    }
-                    const endPress = () => clearTimeout(pressTimer)
+                    // long-press handlers with movement/scroll cancellation
+                    const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
                       <Tooltip key={`memo-${slot}-${d}`}>
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => d <= monthDays && openNote(d, slot)}
-                            onMouseDown={startPress}
-                            onMouseUp={endPress}
-                            onMouseLeave={endPress}
-                            onTouchStart={startPress}
-                            onTouchEnd={endPress}
+                            {...lpHandlers}
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-2 h-10 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
@@ -894,20 +943,11 @@ export default function SchedulePage() {
                 const effective = chosen || persisted
                 const bg = effective === 'pink' ? 'bg-pink-100' : ''
                 const textColorCls = effective === 'pink' ? 'text-pink-900' : 'text-gray-900'
-                let lpTimer: any
-                const startLP = () => {
-                  clearTimeout(lpTimer)
-                  lpTimer = setTimeout(() => { setLowerPickerKey(key); setLowerPickerOpen(true) }, 500)
-                }
-                const endLP = () => clearTimeout(lpTimer)
+                const lpHandlersLower = makeLongPressHandlers(() => { setLowerPickerKey(key); setLowerPickerOpen(true) })
                 return (
                   <div
                     key={`l-${rowIdx+1}-${d}`}
-                    onMouseDown={startLP}
-                    onMouseUp={endLP}
-                    onMouseLeave={endLP}
-                    onTouchStart={startLP}
-                    onTouchEnd={endLP}
+                    {...lpHandlersLower}
                     className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} px-1 py-2 ${bg} ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                     title={`${staffId ?? ''}#${selRank}`}
                   >
