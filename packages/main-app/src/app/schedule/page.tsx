@@ -59,10 +59,19 @@ export default function SchedulePage() {
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
   const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
   const isTabletLandscape = !isPortrait && vw >= 768 && vw < 1200
+  const isLg = vw >= 1200 && vw < 1440
+  const isXl = vw >= 1440 && vw < 1536
+  const is2xl = vw >= 1536
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
-  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape) ? 'px-1' : 'px-2'
-  const headerPadY = (isPhoneLandscape || isTabletLandscape) ? 'py-1.5 md:py-3' : 'py-2 md:py-3'
-  const headerBarPad = (isPhoneLandscape || isTabletLandscape) ? 'px-2 py-1.5 sm:px-4 sm:py-3' : 'px-3 py-2 sm:px-4 sm:py-3'
+  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape)
+    ? 'px-1'
+    : (is2xl ? 'px-4' : (isXl ? 'px-3' : (isLg ? 'px-2.5' : 'px-2')))
+  const headerPadY = (isPhoneLandscape || isTabletLandscape)
+    ? 'py-1.5 md:py-3'
+    : (is2xl ? 'py-3.5' : (isXl ? 'py-3' : (isLg ? 'py-2.5' : 'py-2 md:py-3')))
+  const headerBarPad = (isPhoneLandscape || isTabletLandscape)
+    ? 'px-2 py-1.5 sm:px-4 sm:py-3'
+    : (is2xl ? 'px-6 py-3' : (isXl ? 'px-5 py-3' : (isLg ? 'px-4 py-2.5' : 'px-3 py-2 sm:px-4 sm:py-3')))
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
@@ -644,11 +653,11 @@ export default function SchedulePage() {
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1440) {
-      // xlは24日表示（視認性重視）
+      // xlは22日表示（視認性重視）
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 24)
-      perDay = Math.max(26, Math.min(perDay, 56))
+      let perDay = Math.floor(availableForDays / 22)
+      perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1200) { // lg以上
