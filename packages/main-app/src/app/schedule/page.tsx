@@ -58,10 +58,11 @@ export default function SchedulePage() {
   }, [])
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
   const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
+  const isTabletLandscape = !isPortrait && vw >= 768 && vw < 1200
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
-  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape) ? 'px-1' : 'px-2'
-  const headerPadY = isPhoneLandscape ? 'py-1.5 md:py-3' : 'py-2 md:py-3'
-  const headerBarPad = isPhoneLandscape ? 'px-2 py-1.5 sm:px-4 sm:py-3' : 'px-3 py-2 sm:px-4 sm:py-3'
+  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape) ? 'px-1' : 'px-2'
+  const headerPadY = (isPhoneLandscape || isTabletLandscape) ? 'py-1.5 md:py-3' : 'py-2 md:py-3'
+  const headerBarPad = (isPhoneLandscape || isTabletLandscape) ? 'px-2 py-1.5 sm:px-4 sm:py-3' : 'px-3 py-2 sm:px-4 sm:py-3'
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
