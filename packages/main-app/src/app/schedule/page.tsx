@@ -608,7 +608,7 @@ export default function SchedulePage() {
     // スマホ横（landscape）はモバイル扱いだが、横幅が広いため12日表示を目安に
     if (isMobile && !isPortrait && w > 0) {
       const leftMobile = 48
-      const visibleDays = 12
+      const visibleDays = 10
       const availableForDays = w - sidePadding - leftMobile
       let perDay = Math.floor(availableForDays / visibleDays)
       perDay = Math.max(16, Math.min(perDay, 56))
