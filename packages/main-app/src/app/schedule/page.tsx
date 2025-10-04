@@ -893,6 +893,11 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
+                    const plainNoteCls = parsed.color === 'white'
+                      ? ''
+                      : parsed.color === 'yellow'
+                        ? 'bg-yellow-200 text-yellow-900'
+                        : 'bg-blue-200 text-blue-900'
                     // long-press handlers with movement/scroll cancellation
                     const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
@@ -905,7 +910,7 @@ export default function SchedulePage() {
                           >
                             {text ? (
                               isLgUp ? (
-                                <span className={`${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                                <span className={`${plainNoteCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                               ) : (
                                 <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                               )
