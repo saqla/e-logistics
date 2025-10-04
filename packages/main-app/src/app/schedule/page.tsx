@@ -645,26 +645,26 @@ export default function SchedulePage() {
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1536) {
-      // 2xlは31日表示
+      // 2xlは25日表示
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 31)
-      perDay = Math.max(30, Math.min(perDay, 56))
+      let perDay = Math.floor(availableForDays / 25)
+      perDay = Math.max(24, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1440) {
-      // xlは22日表示（視認性重視）
+      // xlは20日表示（視認性重視）
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      let perDay = Math.floor(availableForDays / 22)
+      let perDay = Math.floor(availableForDays / 20)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      // lgは15日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 15)
+      // lgは14日表示（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 14)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
