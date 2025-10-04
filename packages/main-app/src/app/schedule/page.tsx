@@ -486,6 +486,7 @@ export default function SchedulePage() {
   const [noteText, setNoteText] = useState('')
   const [noteClipboard, setNoteClipboard] = useState<string | null>(null)
   const [noteMode, setNoteMode] = useState<'view'|'edit'>('edit')
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
   // color picker state
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerDay, setPickerDay] = useState<number | null>(null)
@@ -516,6 +517,12 @@ export default function SchedulePage() {
     setNote(noteDay, noteSlot, composed)
     setNoteOpen(false)
   }
+  useEffect(() => {
+    if (noteOpen && noteMode === 'edit') {
+      // 次フレームでフォーカス
+      setTimeout(() => noteTextareaRef.current?.focus(), 0)
+    }
+  }, [noteOpen, noteMode])
   const copyNoteText = async (text: string) => {
     if (!text) return
     setNoteClipboard(text)
@@ -1051,9 +1058,18 @@ export default function SchedulePage() {
 
           {/* 本文（閲覧 or 編集） */}
           {noteMode === 'view' ? (
-            <div className="w-full min-h-[10rem] border rounded-md p-2 bg-gray-50 whitespace-pre-wrap mt-2">{noteText}</div>
+            <button
+              type="button"
+              className="w-full min-h-[10rem] border rounded-md p-3 bg-gray-50 whitespace-pre-wrap mt-2 text-left relative"
+              onClick={() => setNoteMode('edit')}
+              title="タップで編集"
+            >
+              <span className="absolute right-2 top-2 text-xs text-gray-500">タップで編集</span>
+              {noteText || <span className="text-gray-400">（内容なし）</span>}
+            </button>
           ) : (
             <textarea
+              ref={noteTextareaRef}
               className="w-full h-40 border rounded-md p-2 mt-2 text-sm max-sm:text-lg"
               value={noteText}
               onChange={(e)=>setNoteText(e.target.value)}
@@ -1064,7 +1080,6 @@ export default function SchedulePage() {
           {noteMode === 'view' ? (
             <div className="flex items-center justify-end gap-2 mt-2">
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
-              <Button className="text-base" onClick={()=>setNoteMode('edit')}>編集</Button>
               <Button className="text-base"
                 variant="destructive"
                 onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
@@ -1174,6 +1189,7 @@ export default function SchedulePage() {
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
+          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
           <RightSideContent compact />
           <div className="mt-3">
             <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>

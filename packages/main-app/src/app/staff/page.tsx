@@ -165,7 +165,24 @@ export default function StaffPage() {
             <DialogHeader>
               <DialogTitle>{isEdit ? 'スタッフ編集' : 'スタッフ追加'}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            {isEdit ? (
+              <button
+                type="button"
+                className="w-full border rounded-md p-3 bg-gray-50 text-left"
+                onClick={() => {
+                  const nameEl = document.getElementById('name') as HTMLInputElement | null
+                  nameEl?.focus()
+                }}
+                title="タップで編集"
+              >
+                <div className="text-sm text-gray-500 mb-1">タップで編集</div>
+                <div className="space-y-2">
+                  <div><span className="text-gray-500 mr-2">名前</span>{name}</div>
+                  <div><span className="text-gray-500 mr-2">種別</span>{KIND_LABEL[kind]}</div>
+                </div>
+              </button>
+            ) : null}
+            <div className="space-y-4 mt-3">
               <div>
                 <Label htmlFor="name">名前</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
