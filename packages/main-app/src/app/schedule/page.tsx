@@ -772,9 +772,11 @@ export default function SchedulePage() {
         <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14">
           <h1 className="text-lg sm:text-xl font-bold">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
-            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap -ml-8 sm:-ml-8">{title}</span>
-            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
+            <div className="-ml-8 sm:-ml-8 flex items-center gap-1 sm:gap-2">
+              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
+              <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
+              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
+            </div>
             {!isPortrait && (
               <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
                 {saving ? (
