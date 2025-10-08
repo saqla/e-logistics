@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // lower_assignments テーブルに color 列が存在するかをキャッシュ付きで確認
 let hasLowerColorColumnCache: boolean | null = null
@@ -137,10 +138,13 @@ export async function POST(req: Request) {
         )
       }
     } else {
-      // color列が存在しない古いDBに対してはraw insertで回避
+      // color列が存在しない古いDBに対してはraw insertで回避（id/createdAt/updatedAtも明示指定）
       for (const l of dedupedLowers) {
+        const id = randomUUID()
+        const createdAt = new Date()
+        const updatedAt = createdAt
         ops.push(
-          prisma.$executeRaw`INSERT INTO "lower_assignments" ("year","month","day","rowIndex","staffId") VALUES (${year}, ${month}, ${l.day}, ${l.rowIndex}, ${l.staffId})`
+          prisma.$executeRaw`INSERT INTO "lower_assignments" ("id","year","month","day","rowIndex","staffId","createdAt","updatedAt") VALUES (${id}, ${year}, ${month}, ${l.day}, ${l.rowIndex}, ${l.staffId}, ${createdAt}, ${updatedAt})`
         )
       }
     }
