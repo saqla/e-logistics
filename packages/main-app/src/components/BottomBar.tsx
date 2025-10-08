@@ -75,8 +75,10 @@ const BottomBar: React.FC = () => {
         const prev = lastYRef.current;
         const diff = y - prev;
 
-        if (y <= 60 || Math.abs(diff) < DELTA) {
+        if (y <= 60) {
           setIsVisible(true);
+        } else if (Math.abs(diff) < DELTA) {
+          // 小さなスクロールでは前回状態を維持（何もしない）
         } else if (diff > 0) {
           setIsVisible(false);
         } else {
