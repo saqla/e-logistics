@@ -60,37 +60,44 @@ const BottomBar: React.FC = () => {
   const iconSizeCls = isTabletPortrait ? 'h-6 w-6 mb-1' : 'h-5 w-5 mb-1';
   const labelSizeCls = isTabletPortrait ? 'text-[12px]' : 'text-[10px]';
   const containerGapCls = isTabletPortrait ? 'gap-12' : 'gap-10';
-
-  // スクロール方向で表示/非表示を切り替え（ヒステリシス付きでチラつき防止）
+  
+  // スクロール方向で表示/非表示を切り替え（安定版）
   useEffect(() => {
     if (!shouldShowBar) return;
 
-    let lastY = window.scrollY || 0;
-    let timer: any = null;
-    const THRESH = 30; // 30px以上の移動で判定
-    const IDLE_MS = 120; // スクロール停止後に確定
+    const lastYRef = { current: window.scrollY || 0 } as { current: number };
+    const tickingRef = { current: false } as { current: boolean };
+    const DELTA = 10; // しきい値（小さなスクロールでは反応しない）
 
     const onScroll = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
+      const run = () => {
         const y = window.scrollY || document.documentElement.scrollTop || 0;
-        const diff = y - lastY;
-        if (y <= 60) {
+        const prev = lastYRef.current;
+        const diff = y - prev;
+
+        if (y <= 60 || Math.abs(diff) < DELTA) {
           setIsVisible(true);
-        } else if (diff > THRESH) {
+        } else if (diff > 0) {
           setIsVisible(false);
-        } else if (diff < -THRESH) {
+        } else {
           setIsVisible(true);
         }
-        lastY = y;
-      }, IDLE_MS);
+        lastYRef.current = y;
+        tickingRef.current = false;
+      };
+
+      if (!tickingRef.current) {
+        tickingRef.current = true;
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(run);
+        } else {
+          setTimeout(run, 16);
+        }
+      }
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      if (timer) clearTimeout(timer);
-      window.removeEventListener('scroll', onScroll);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, [shouldShowBar]);
 
   // 入力時表示は当面行わないため、フォーカス検知は無効化

@@ -59,10 +59,20 @@ export default function SchedulePage() {
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
   const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
   const isTabletLandscape = !isPortrait && vw >= 768 && vw < 1200
+  const isLg = vw >= 1200 && vw < 1440
+  const isXl = vw >= 1440 && vw < 1536
+  const is2xl = vw >= 1536
+  const isLgUp = isLg || isXl || is2xl
   const isPhoneLandscape = !isPortrait && vh > 0 && vh < 500
-  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape) ? 'px-1' : 'px-2'
-  const headerPadY = (isPhoneLandscape || isTabletLandscape) ? 'py-1.5 md:py-3' : 'py-2 md:py-3'
-  const headerBarPad = (isPhoneLandscape || isTabletLandscape) ? 'px-2 py-1.5 sm:px-4 sm:py-3' : 'px-3 py-2 sm:px-4 sm:py-3'
+  const cellPadX = (isPhonePortrait || isTabletPortrait || isPhoneLandscape || isTabletLandscape)
+    ? 'px-1'
+    : (is2xl ? 'px-1.5' : (isXl ? 'px-3' : (isLg ? 'px-3' : 'px-2')))
+  const headerPadY = (isPhoneLandscape || isTabletLandscape)
+    ? 'py-1.5 md:py-3'
+    : (is2xl ? 'py-2' : (isXl ? 'py-3' : (isLg ? 'py-3' : 'py-2 md:py-3')))
+  const headerBarPad = (isPhoneLandscape || isTabletLandscape)
+    ? 'px-2 py-1.5 sm:px-4 sm:py-3'
+    : (is2xl ? 'px-4 py-2' : (isXl ? 'px-5 py-3' : (isLg ? 'px-5 py-3' : 'px-3 py-2 sm:px-4 sm:py-3')))
 
   // Note color utility: encode color marker at the start of text
   type NoteColor = 'white' | 'yellow' | 'blue'
@@ -635,19 +645,27 @@ export default function SchedulePage() {
       perDay = Math.max(24, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
-    } else if (w >= 1440) {
+    } else if (w >= 1536) {
+      // 2xlは20日表示
       const aside = 300
       const availableForDays = w - sidePadding - gap - aside - left
-      // xlは31日表示（従来どおり）
-      let perDay = Math.floor(availableForDays / 31)
-      perDay = Math.max(30, Math.min(perDay, 56))
+      let perDay = Math.floor(availableForDays / 20)
+      perDay = Math.max(24, Math.min(perDay, 56))
+      setLeftColPx(left)
+      setDayColPx(perDay)
+    } else if (w >= 1440) {
+      // xlは15日表示（視認性重視）
+      const aside = 300
+      const availableForDays = w - sidePadding - gap - aside - left
+      let perDay = Math.floor(availableForDays / 15)
+      perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
     } else if (w >= 1200) { // lg以上
       const aside = 260
       const availableForDays = w - sidePadding - gap - aside - left
-      // lgは15日表示に固定（横スクロールあり）
-      let perDay = Math.floor(availableForDays / 15)
+      // lgは12日表示（横スクロールあり）
+      let perDay = Math.floor(availableForDays / 12)
       perDay = Math.max(28, Math.min(perDay, 56))
       setLeftColPx(left)
       setDayColPx(perDay)
@@ -802,11 +820,9 @@ export default function SchedulePage() {
         <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
           <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
-            <div className="flex items-center gap-1 sm:gap-2 transform -translate-x-8 sm:-translate-x-8">
-              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-              <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
-              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            </div>
+            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
+            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
+            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             {!isPortrait && (
               <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
                 {saving ? (
@@ -853,8 +869,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
-                  
+                className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -878,6 +893,11 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
+                    const plainNoteCls = parsed.color === 'white'
+                      ? ''
+                      : parsed.color === 'yellow'
+                        ? 'bg-yellow-200 text-yellow-900'
+                        : 'bg-blue-200 text-blue-900'
                     // long-press handlers with movement/scroll cancellation
                     const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
@@ -889,7 +909,11 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-                              <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              isLgUp ? (
+                                <span className={`${plainNoteCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              ) : (
+                                <span className={`inline-block max-w-full ${badgeCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} px-2 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
+                              )
                             ) : null}
                           </button>
                         </TooltipTrigger>
@@ -1302,6 +1326,8 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const [target, setTarget] = useState<Remark | undefined>(undefined)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const openCreate = () => { setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
   const openEdit = (r: Remark) => { setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
@@ -1320,6 +1346,15 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
     if (!res.ok) { alert('削除に失敗しました'); return }
     setRefresh(v=>v+1)
   }
+
+  // ダイアログ表示時に自動フォーカス（新規=タイトル、編集=本文）
+  useEffect(() => {
+    if (!open) return
+    const focusTarget = mode === 'create' ? titleInputRef.current : bodyTextareaRef.current
+    // モーダルマウント直後のレイアウト確定後にフォーカス
+    const id = setTimeout(() => focusTarget?.focus({ preventScroll: true }), 0)
+    return () => clearTimeout(id)
+  }, [open, mode])
 
   return (
     <div>
@@ -1379,11 +1414,11 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
           <div className="space-y-3">
             <div>
               <Label htmlFor="rtitle">タイトル</Label>
-              <Input id="rtitle" value={title} onChange={(e)=>setTitle(e.target.value)} />
+              <Input id="rtitle" ref={titleInputRef} value={title} onChange={(e)=>setTitle(e.target.value)} autoFocus={mode==='create'} />
             </div>
             <div>
               <Label htmlFor="rbody">本文</Label>
-              <textarea id="rbody" className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} />
+              <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} autoFocus={mode==='edit'} />
             </div>
           </div>
           <div className="flex justify-end gap-2">
