@@ -41,7 +41,7 @@ const ROUTE_LABEL: Record<RouteKind, string> = {
 }
 
 export default function SchedulePage() {
-  const { status } = useSession()
+  const { status, data: session } = useSession()
   const router = useRouter()
   const isPortrait = useIsPortrait()
   const [vw, setVw] = useState(0)
@@ -104,6 +104,7 @@ export default function SchedulePage() {
   const [routes, setRoutes] = useState<RouteAssignment[]>([])
   const [lowers, setLowers] = useState<LowerAssignment[]>([])
   const [saving, setSaving] = useState(false)
+  const editorVerified = (session as any)?.editorVerified === true
   const [isDirty, setIsDirty] = useState(false)
   const [monthChangeOpen, setMonthChangeOpen] = useState(false)
   const [pendingMove, setPendingMove] = useState<number | null>(null)
@@ -824,7 +825,7 @@ export default function SchedulePage() {
             <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
             {!isPortrait && (
-              <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving}>
+              <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving || !editorVerified}>
                 {saving ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
@@ -835,7 +836,7 @@ export default function SchedulePage() {
                 )}
               </Button>
             )}
-            {!isPortrait && vw < 1200 && (
+            {!isPortrait && (
               <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
             )}
           </div>
@@ -1156,7 +1157,7 @@ export default function SchedulePage() {
                 削除
               </Button>
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-              <Button className="text-base" onClick={saveNote}>保存</Button>
+              <Button className="text-base" onClick={saveNote} disabled={!editorVerified}>保存</Button>
             </div>
           )}
         </DialogContent>
@@ -1318,6 +1319,8 @@ function useRemarks() {
 }
 
 function RemarkPanel({ compact = false }: { compact?: boolean }) {
+  const { data: session } = useSession()
+  const editorVerified = (session as any)?.editorVerified === true
   const { items, setRefresh } = useRemarks()
   const first3 = items.slice(0,3)
   const rest = items.slice(3)
@@ -1431,7 +1434,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
               </Button>
             )}
             <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
-            <Button onClick={save}>保存</Button>
+            <Button onClick={save} disabled={!editorVerified}>保存</Button>
           </div>
         </DialogContent>
       </Dialog>

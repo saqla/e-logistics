@@ -1,10 +1,33 @@
 "use client"
 
 import Image from "next/image"
-import { useSession, signOut } from "next-auth/react"
+import { useSession, signOut, signIn } from "next-auth/react"
+import { useEffect, useState } from "react"
+
+function useViewportInfo() {
+  const [vw, setVw] = useState(0)
+  const [vh, setVh] = useState(0)
+  const [isPortrait, setPortrait] = useState(true)
+  useEffect(() => {
+    const onResize = () => {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 0
+      const h = typeof window !== 'undefined' ? window.innerHeight : 0
+      setVw(w); setVh(h); setPortrait(h >= w)
+    }
+    onResize();
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return { vw, vh, isPortrait }
+}
 
 export function SiteHeader() {
   const { data: session, status } = useSession()
+  const { vw, isPortrait } = useViewportInfo()
+  const isPhonePortrait = isPortrait && vw > 0 && vw < 768
+  const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
+  const showCompactHeader = isPhonePortrait || isTabletPortrait
+  const isAuthed = status === 'authenticated'
 
   return (
     <header className="bg-white shadow-sm border-b">
@@ -22,20 +45,33 @@ export function SiteHeader() {
             <span className="text-lg font-semibold text-gray-900">Eロジスティクス</span>
           </div>
           <div className="flex items-center space-x-4">
-            <VersionBadge />
-            {status === "authenticated" ? (
-              <>
-                <span className="text-sm text-gray-600">
+            {showCompactHeader ? (
+              // 縦表示: ヘッダーはロゴ+社名とバージョンのみ
+              <VersionBadge />
+            ) : isAuthed ? (
+              // 非縦かつ認証済み: ヘッダーに集約
+              <div className="flex items-center gap-3">
+                <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{session?.user?.name || session?.user?.email}
                 </span>
                 <button
+                  onClick={() => signIn('google')}
+                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                >
+                  編集ログイン
+                </button>
+                <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="px-4 py-2 bg-red-600 text-white border border-red-600 rounded-md hover:bg-red-700 hover:border-red-700 transition-colors font-medium"
+                  className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
                 >
                   ログアウト
                 </button>
-              </>
-            ) : null}
+                <VersionBadge />
+              </div>
+            ) : (
+              // 非縦かつ未認証: バージョンのみ
+              <VersionBadge />
+            )}
           </div>
         </div>
       </div>

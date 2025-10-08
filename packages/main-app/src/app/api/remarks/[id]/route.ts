@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 async function getPrisma() {
   try {
@@ -12,6 +14,10 @@ async function getPrisma() {
 // PATCH /api/remarks/:id { title?, body? }
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions as any)
+    if (!(session as any)?.editorVerified) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     const prisma = await getPrisma()
     if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
     const id = params.id
@@ -32,6 +38,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 // DELETE /api/remarks/:id
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions as any)
+    if (!(session as any)?.editorVerified) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     const prisma = await getPrisma()
     if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
     const id = params.id
