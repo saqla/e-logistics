@@ -81,6 +81,12 @@ export function SiteHeader() {
                   </button>
                 )}
                 <button
+                  onClick={() => signIn('google')}
+                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                >
+                  編集ログイン
+                </button>
+                <button
                   onClick={() => signOut({ callbackUrl: "/" })}
                   className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
                 >
