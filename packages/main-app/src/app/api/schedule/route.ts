@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// lower_assignments テーブルに color 列が存在するかをキャッシュ付きで確認
+let hasLowerColorColumnCache: boolean | null = null
+async function hasLowerColorColumn(): Promise<boolean> {
+  if (hasLowerColorColumnCache != null) return hasLowerColorColumnCache
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      "select 1 from information_schema.columns where table_name='lower_assignments' and column_name='color' limit 1"
+    )
+    hasLowerColorColumnCache = Array.isArray(rows) && rows.length > 0
+  } catch {
+    hasLowerColorColumnCache = false
+  }
+  return hasLowerColorColumnCache
+}
+
 // GET /api/schedule?year=2025&month=9
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -8,6 +23,7 @@ export async function GET(req: Request) {
   const month = Number(searchParams.get('month'))
   if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
+  const includeColor = await hasLowerColorColumn()
   const [notes, routes, lowers] = await Promise.all([
     prisma.dayNote.findMany({
       where: { year, month },
@@ -18,10 +34,15 @@ export async function GET(req: Request) {
       where: { year, month },
       select: { day: true, route: true, staffId: true, special: true },
     }),
-    prisma.lowerAssignment.findMany({
-      where: { year, month },
-      select: { day: true, rowIndex: true, staffId: true, color: true },
-    }),
+    includeColor
+      ? prisma.lowerAssignment.findMany({
+          where: { year, month },
+          select: { day: true, rowIndex: true, staffId: true, color: true },
+        })
+      : (prisma.lowerAssignment.findMany({
+          where: { year, month },
+          select: { day: true, rowIndex: true, staffId: true },
+        }) as any),
   ])
   return NextResponse.json({ notes, routes, lowers })
 }
@@ -99,19 +120,17 @@ export async function POST(req: Request) {
       dedupedLowers.push(l)
     }
 
+    const includeColorForCreate = await hasLowerColorColumn()
     for (const l of dedupedLowers) {
-      ops.push(
-        prisma.lowerAssignment.create({
-          data: {
-            year,
-            month,
-            day: l.day,
-            rowIndex: l.rowIndex,
-            staffId: l.staffId,
-            color: l.color,
-          },
-        })
-      )
+      const dataBase = {
+        year,
+        month,
+        day: l.day,
+        rowIndex: l.rowIndex,
+        staffId: l.staffId,
+      } as any
+      if (includeColorForCreate) dataBase.color = l.color
+      ops.push(prisma.lowerAssignment.create({ data: dataBase }))
     }
 
     const tDbStart = Date.now()
