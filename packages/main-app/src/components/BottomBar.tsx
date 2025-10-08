@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from './ui/button';
 import { Menu, MessageSquare, Save } from 'lucide-react';
@@ -20,6 +21,7 @@ function useIsPortrait(): boolean {
 }
 
 const BottomBar: React.FC = () => {
+  const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
@@ -119,6 +121,7 @@ const BottomBar: React.FC = () => {
 
   if (!shouldShowBar) return null;
 
+  const editorVerified = (session as any)?.editorVerified === true;
   return (
     <div
       className={cn(
@@ -138,20 +141,22 @@ const BottomBar: React.FC = () => {
           <Menu className={iconSizeCls} />
           <span className={labelSizeCls}>アプリ選択</span>
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
-          ) : (
-            <Save className={iconSizeCls} />
-          )}
-          <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
-        </Button>
+        {editorVerified && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <span className="mb-1 inline-block h-5 w-5 border-2 border-current border-r-transparent rounded-full animate-spin" />
+            ) : (
+              <Save className={iconSizeCls} />
+            )}
+            <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"

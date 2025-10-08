@@ -52,12 +52,17 @@ export async function GET(req: Request) {
 
 // POST /api/schedule  保存一括
 // { year, month, notes: DayNote[], routes: RouteAssignment[], lowers: LowerAssignment[] }
+function isEditorDisabledByCookie(req: Request): boolean {
+  const cookie = req.headers.get('cookie') || ''
+  return /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(cookie)
+}
+
 export async function POST(req: Request) {
   const isPreview = process.env.VERCEL_ENV !== 'production'
   const t0 = Date.now()
   try {
     const session = await getServerSession(authOptions as any)
-    if (!(session as any)?.editorVerified) {
+    if (!(session as any)?.editorVerified || isEditorDisabledByCookie(req)) {
       return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
     }
     const body = await req.json()

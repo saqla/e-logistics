@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { StaffKind } from '@prisma/client'
 
 const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV !== 'production'
@@ -7,6 +9,12 @@ const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV !
 // PATCH /api/staff/:id  { name?, kind? }
 export async function PATCH(_req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions as any)
+    const cookie = _req.headers.get('cookie') || ''
+    const disabled = /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(cookie)
+    if (!(session as any)?.editorVerified || disabled) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not set')
     }
@@ -57,6 +65,12 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
 // DELETE /api/staff/:id  論理削除（復元可能）
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions as any)
+    const cookie = _req.headers.get('cookie') || ''
+    const disabled = /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(cookie)
+    if (!(session as any)?.editorVerified || disabled) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not set')
     }

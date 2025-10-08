@@ -57,14 +57,14 @@ export default function Home() {
       },
       {
         id: "shift",
-        name: "シフト表",
-        description: "当月のシフト管理",
+        name: "箱車シフト表",
+        description: "箱車のシフト管理",
         status: "開発中"
       },
       {
         id: "time-management",
         name: "労働時間管理",
-        description: "個人の労働時間や給与確認",
+        description: "個人の労働時間や概算給与確認",
         status: "開発中"
       }
     ]
@@ -76,14 +76,23 @@ export default function Home() {
         {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群（社内ログイン済み時のみ） */}
         <div className="block md:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm text-gray-700">ようこそ、{session.user?.name || session.user?.email}</span>
+            <span className="truncate text-sm text-gray-700">ようこそ、{((session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (session.user?.name || session.user?.email) : '社内ユーザー'}</span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => signIn('google')}
-                className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-              >
-                編集ログイン
-              </button>
+              {(session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '')) ? (
+                <button
+                  onClick={() => { document.cookie = 'editor_disabled=1; Path=/; Max-Age=31536000; SameSite=Lax'; window.location.reload() }}
+                  className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600"
+                >
+                  個別ログアウト
+                </button>
+              ) : (
+                <button
+                  onClick={() => { document.cookie = 'editor_disabled=; Path=/; Max-Age=0; SameSite=Lax'; signIn('google') }}
+                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                >
+                  編集ログイン
+                </button>
+              )}
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"

@@ -15,7 +15,9 @@ async function getPrisma() {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions as any)
-    if (!(session as any)?.editorVerified) {
+    const cookie = req.headers.get('cookie') || ''
+    const disabled = /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(cookie)
+    if (!(session as any)?.editorVerified || disabled) {
       return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
     }
     const prisma = await getPrisma()
@@ -39,7 +41,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions as any)
-    if (!(session as any)?.editorVerified) {
+    // DELETEのときもcookie判定
+    const cookie = _req.headers.get('cookie') || ''
+    const disabled = /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(cookie)
+    if (!(session as any)?.editorVerified || disabled) {
       return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
     }
     const prisma = await getPrisma()
