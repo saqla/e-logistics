@@ -73,7 +73,7 @@ export default function Home() {
       <div className="min-h-screen bg-gray-50">
         <SiteHeader />
 
-        {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群 */}
+        {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群（社内ログイン済み時のみ） */}
         <div className="block md:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-sm text-gray-700">ようこそ、{session.user?.name || session.user?.email}</span>

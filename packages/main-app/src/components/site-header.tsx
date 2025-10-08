@@ -27,6 +27,7 @@ export function SiteHeader() {
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
   const isTabletPortrait = isPortrait && vw >= 768 && vw < 1200
   const showCompactHeader = isPhonePortrait || isTabletPortrait
+  const isAuthed = status === 'authenticated'
 
   return (
     <header className="bg-white shadow-sm border-b">
@@ -47,8 +48,8 @@ export function SiteHeader() {
             {showCompactHeader ? (
               // 縦表示: ヘッダーはロゴ+社名とバージョンのみ
               <VersionBadge />
-            ) : (
-              // それ以外: ヘッダーに全て集約
+            ) : isAuthed ? (
+              // 非縦かつ認証済み: ヘッダーに集約
               <div className="flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{session?.user?.name || session?.user?.email}
@@ -67,6 +68,9 @@ export function SiteHeader() {
                 </button>
                 <VersionBadge />
               </div>
+            ) : (
+              // 非縦かつ未認証: バージョンのみ
+              <VersionBadge />
             )}
           </div>
         </div>
