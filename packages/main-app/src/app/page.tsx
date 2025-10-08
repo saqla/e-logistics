@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useSession, signOut } from "next-auth/react"
+import { useSession, signOut, signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import Image from "next/image"
@@ -72,6 +72,27 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-gray-50">
         <SiteHeader />
+
+        {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群 */}
+        <div className="block md:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm text-gray-700">ようこそ、{session.user?.name || session.user?.email}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => signIn('google')}
+                className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+              >
+                編集ログイン
+              </button>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                ログアウト
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* メインコンテンツ */}
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

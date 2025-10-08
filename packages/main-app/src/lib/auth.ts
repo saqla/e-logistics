@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import GoogleProvider from "next-auth/providers/google"
 
 const isProduction = process.env.NODE_ENV === 'production'
 
@@ -41,7 +42,14 @@ export const authOptions: NextAuthOptions = {
           name: "社内ユーザー"
         }
       }
-    })
+    }),
+    // Google 個別認証（環境変数が揃っている場合のみ有効化）
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID as string,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+        })]
+      : [])
   ],
   session: {
     strategy: "jwt",
@@ -51,15 +59,22 @@ export const authOptions: NextAuthOptions = {
     signIn: "/", // カスタムログインページ
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        token.id = user.id
+        token.id = (user as any).id || token.id
+        // Googleでログインした場合は編集可フラグを付与
+        if (account?.provider === 'google') {
+          ;(token as any).editorVerified = true
+        } else if (account?.provider === 'credentials') {
+          ;(token as any).editorVerified = false
+        }
       }
       return token
     },
     async session({ session, token }) {
       if (token && session.user) {
         (session.user as any).id = token.id as string
+        ;(session as any).editorVerified = !!(token as any).editorVerified
       }
       return session
     }
