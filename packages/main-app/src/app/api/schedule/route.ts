@@ -75,18 +75,40 @@ export async function POST(req: Request) {
     }
 
     // LowerAssignment 置換（当月分を削除→非空のみ作成、色も保存）
+    // クライアント側の重複防止に依存せず、サーバー側でも同日同スタッフの重複を排除する
     ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
-    for (const l of lowers as any[]) {
-      if (!l || l.staffId == null || `${l.staffId}`.trim() === '') continue
+
+    // 正規化 + サーバーサイド重複排除（同一日×同一スタッフは最初の1件のみ採用）
+    const normalizedLowers = (Array.isArray(lowers) ? (lowers as any[]) : [])
+      .filter(l => !!l && l.staffId != null && `${l.staffId}`.trim() !== '')
+      .map(l => ({
+        day: Number(l.day),
+        rowIndex: Number(l.rowIndex),
+        staffId: String(l.staffId),
+        color: l.color === 'PINK' ? 'PINK' : 'WHITE' as 'PINK' | 'WHITE',
+      }))
+      // rowIndexの小さいものを優先（配列順が不定でも安定化）
+      .sort((a, b) => (a.day - b.day) || (a.rowIndex - b.rowIndex))
+
+    const seenByDayStaff = new Set<string>()
+    const dedupedLowers: { day: number; rowIndex: number; staffId: string; color: 'PINK' | 'WHITE' }[] = []
+    for (const l of normalizedLowers) {
+      const key = `${l.day}-${l.staffId}`
+      if (seenByDayStaff.has(key)) continue
+      seenByDayStaff.add(key)
+      dedupedLowers.push(l)
+    }
+
+    for (const l of dedupedLowers) {
       ops.push(
         prisma.lowerAssignment.create({
           data: {
             year,
             month,
-            day: Number(l.day),
-            rowIndex: Number(l.rowIndex),
-            staffId: String(l.staffId),
-            color: l.color === 'PINK' ? 'PINK' : 'WHITE',
+            day: l.day,
+            rowIndex: l.rowIndex,
+            staffId: l.staffId,
+            color: l.color,
           },
         })
       )
