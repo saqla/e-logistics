@@ -18,7 +18,7 @@ const KIND_LABEL: Record<Staff['kind'], string> = {
 }
 
 export default function StaffPage() {
-  const { status } = useSession()
+  const { status, data: session } = useSession()
   const router = useRouter()
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function StaffPage() {
           <h1 className="text-2xl font-bold">スタッフ一覧管理</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => router.push('/schedule')}>月予定表へ</Button>
-            <Button onClick={openCreate}>新規追加</Button>
+            {(session as any)?.editorVerified && <Button onClick={openCreate}>新規追加</Button>}
           </div>
         </div>
 
@@ -121,12 +121,12 @@ export default function StaffPage() {
               {items.map((s) => (
                 <div key={s.id} className="grid grid-cols-[100px_1fr_140px] items-center py-2">
                   <div className={s.lowerCount >= 9 ? 'text-pink-600 font-semibold' : ''}>{s.lowerCount}</div>
-                  <button className="text-left hover:underline" onClick={() => openEdit(s)}>
+                  <button className="text-left hover:underline" onClick={() => ((session as any)?.editorVerified) && openEdit(s)}>
                     {s.name}
                   </button>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => openEdit(s)}>編集</Button>
-                    <Button variant="destructive" onClick={() => remove(s.id)}>削除</Button>
+                    {(session as any)?.editorVerified && <Button variant="outline" onClick={() => openEdit(s)}>編集</Button>}
+                    {(session as any)?.editorVerified && <Button variant="destructive" onClick={() => remove(s.id)}>削除</Button>}
                   </div>
                 </div>
               ))}
@@ -160,7 +160,7 @@ export default function StaffPage() {
           </CardContent>
         </Card>
 
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={(session as any)?.editorVerified && open} onOpenChange={setOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{isEdit ? 'スタッフ編集' : 'スタッフ追加'}</DialogTitle>
@@ -185,11 +185,11 @@ export default function StaffPage() {
             <div className="space-y-4 mt-3">
               <div>
                 <Label htmlFor="name">名前</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={!((session as any)?.editorVerified)} />
               </div>
               <div>
                 <Label htmlFor="kind">種別</Label>
-                <select id="kind" className="mt-1 w-full border rounded-md h-10 px-3 text-sm max-sm:text-lg" value={kind} onChange={(e) => setKind(e.target.value as Staff['kind'])}>
+                <select id="kind" className="mt-1 w-full border rounded-md h-10 px-3 text-sm max-sm:text-lg" value={kind} onChange={(e) => setKind(e.target.value as Staff['kind'])} disabled={!((session as any)?.editorVerified)}>
                   <option value="ALL">All</option>
                   <option value="UNIC">ユニック</option>
                   <option value="HAKO">箱車</option>
@@ -199,7 +199,7 @@ export default function StaffPage() {
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
-              <Button onClick={save}>保存</Button>
+              <Button onClick={save} disabled={!((session as any)?.editorVerified)}>保存</Button>
             </div>
           </DialogContent>
         </Dialog>

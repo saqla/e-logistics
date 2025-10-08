@@ -964,7 +964,7 @@ export default function SchedulePage() {
                             return ''
                           })()}
                         </div>
-                        <select
+                        <select disabled={!editorVerified}
                           className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={r?.special ? r.special : (r?.staffId || '')}
                           onChange={(e)=>{
@@ -1034,7 +1034,7 @@ export default function SchedulePage() {
                             return idToName.get(staffId) || ''
                           })()}
                         </div>
-                        <select
+                        <select disabled={!editorVerified}
                           className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={staffId || ''}
                           onChange={(e)=>{
