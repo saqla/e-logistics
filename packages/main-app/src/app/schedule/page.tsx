@@ -869,8 +869,7 @@ export default function SchedulePage() {
             {Array.from({length: 31}).map((_, i) => (
                 <div
                   key={i}
-                  className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
-
+                className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} ${headerPadY} ${i+1>monthDays? 'bg-gray-50' : ''} ${todayCol && (i+1===todayCol) ? 'bg-sky-50' : ''} ${highlightDays.has(i+1) ? 'ring-2 ring-amber-400' : ''}`}
                 >
                   {i+1 <= monthDays ? headerCell(i+1) : null}
                 </div>
@@ -894,7 +893,6 @@ export default function SchedulePage() {
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
                         : 'bg-blue-200 text-blue-900'
-
                     const plainNoteCls = parsed.color === 'white'
                       ? ''
                       : parsed.color === 'yellow'
@@ -911,7 +909,6 @@ export default function SchedulePage() {
                             className={`border-b ${i===0 ? 'border-l border-gray-300' : ''} ${cellPadX} h-11 md:h-12 hover:bg-yellow-50 overflow-hidden flex items-center justify-center ${d>monthDays?'bg-gray-50 cursor-not-allowed':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}
                           >
                             {text ? (
-
                               isLgUp ? (
                                 <span className={`${plainNoteCls} ${isPhonePortrait ? 'text-base' : 'text-sm md:text-base'} whitespace-nowrap overflow-hidden text-ellipsis text-center`}>{text}</span>
                               ) : (
@@ -1329,6 +1326,8 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const [target, setTarget] = useState<Remark | undefined>(undefined)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const openCreate = () => { setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
   const openEdit = (r: Remark) => { setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
@@ -1347,6 +1346,15 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
     if (!res.ok) { alert('削除に失敗しました'); return }
     setRefresh(v=>v+1)
   }
+
+  // ダイアログ表示時に自動フォーカス（新規=タイトル、編集=本文）
+  useEffect(() => {
+    if (!open) return
+    const focusTarget = mode === 'create' ? titleInputRef.current : bodyTextareaRef.current
+    // モーダルマウント直後のレイアウト確定後にフォーカス
+    const id = setTimeout(() => focusTarget?.focus({ preventScroll: true }), 0)
+    return () => clearTimeout(id)
+  }, [open, mode])
 
   return (
     <div>
@@ -1406,11 +1414,11 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
           <div className="space-y-3">
             <div>
               <Label htmlFor="rtitle">タイトル</Label>
-              <Input id="rtitle" value={title} onChange={(e)=>setTitle(e.target.value)} />
+              <Input id="rtitle" ref={titleInputRef} value={title} onChange={(e)=>setTitle(e.target.value)} autoFocus={mode==='create'} />
             </div>
             <div>
               <Label htmlFor="rbody">本文</Label>
-              <textarea id="rbody" className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} />
+              <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} autoFocus={mode==='edit'} />
             </div>
           </div>
           <div className="flex justify-end gap-2">
