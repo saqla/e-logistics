@@ -78,12 +78,21 @@ export default function Home() {
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-sm text-gray-700">ようこそ、{session.user?.name || session.user?.email}</span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => signIn('google')}
-                className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-              >
-                編集ログイン
-              </button>
+              {(session as any)?.editorVerified ? (
+                <button
+                  onClick={() => { document.cookie = 'editor_disabled=1; path=/; max-age=0'; window.location.reload() }}
+                  className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600"
+                >
+                  個別ログアウト
+                </button>
+              ) : (
+                <button
+                  onClick={() => signIn('google')}
+                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                >
+                  編集ログイン
+                </button>
+              )}
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"

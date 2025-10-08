@@ -54,12 +54,22 @@ export function SiteHeader() {
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{session?.user?.name || session?.user?.email}
                 </span>
-                <button
-                  onClick={() => signIn('google')}
-                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-                >
-                  編集ログイン
-                </button>
+                {/* Google認証済みなら編集ログインを隠し、個別ログアウトに差し替え */}
+                {(session as any)?.editorVerified ? (
+                  <button
+                    onClick={() => { document.cookie = 'editor_disabled=1; path=/; max-age=0'; window.location.reload() }}
+                    className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600"
+                  >
+                    個別ログアウト
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => signIn('google')}
+                    className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                  >
+                    編集ログイン
+                  </button>
+                )}
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
                   className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"

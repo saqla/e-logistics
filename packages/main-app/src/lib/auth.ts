@@ -59,22 +59,45 @@ export const authOptions: NextAuthOptions = {
     signIn: "/", // カスタムログインページ
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, profile }) {
+      // 共有ユーザーのID付与
       if (user) {
         token.id = (user as any).id || token.id
-        // Googleでログインした場合は編集可フラグを付与
-        if (account?.provider === 'google') {
-          ;(token as any).editorVerified = true
-        } else if (account?.provider === 'credentials') {
-          ;(token as any).editorVerified = false
-        }
+      }
+
+      // editorVerified のリフレッシュ/付与
+      const nowSec = Math.floor(Date.now() / 1000)
+      const editorUntil = (token as any).editorUntil as number | undefined
+      if (editorUntil && nowSec >= editorUntil) {
+        ;(token as any).editorVerified = false
+        ;(token as any).editorUntil = undefined
+      }
+
+      if (account?.provider === 'google') {
+        const email = (user as any)?.email || (profile as any)?.email || ''
+        const allowedEmails = (process.env.EDITOR_ALLOWED_EMAILS || '').split(',').map(s=>s.trim()).filter(Boolean)
+        const allowedDomains = (process.env.EDITOR_ALLOWED_DOMAINS || '').split(',').map(s=>s.trim()).filter(Boolean)
+        const emailDomain = email.split('@')[1] || ''
+        const emailOk = allowedEmails.length ? allowedEmails.includes(email) : true
+        const domainOk = allowedDomains.length ? allowedDomains.includes(emailDomain) : true
+        const ok = email && emailOk && domainOk
+        ;(token as any).editorVerified = ok
+        const hours = Number(process.env.EDITOR_DURATION_HOURS || '8')
+        ;(token as any).editorUntil = ok ? nowSec + hours * 3600 : undefined
+      } else if (account?.provider === 'credentials') {
+        // 社内ユーザー認証では編集フラグは付与しない
+        ;(token as any).editorVerified = (token as any).editorVerified || false
       }
       return token
     },
     async session({ session, token }) {
       if (token && session.user) {
         (session.user as any).id = token.id as string
-        ;(session as any).editorVerified = !!(token as any).editorVerified
+        const nowSec = Math.floor(Date.now() / 1000)
+        const editorUntil = (token as any).editorUntil as number | undefined
+        const verified = !!(token as any).editorVerified && (!!editorUntil ? nowSec < editorUntil : true)
+        ;(session as any).editorVerified = verified
+        ;(session as any).editorUntil = editorUntil
       }
       return session
     }
