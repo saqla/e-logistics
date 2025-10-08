@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { StaffKind } from '@prisma/client'
 
 const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV !== 'production'
@@ -53,6 +55,12 @@ export async function GET(req: Request) {
 // POST /api/staff  { name, kind }
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions as any)
+    const cookie = req.headers.get('cookie') || ''
+    const disabled = /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(cookie)
+    if (!(session as any)?.editorVerified || disabled) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not set')
     }
