@@ -57,14 +57,14 @@ export default function Home() {
       },
       {
         id: "shift",
-        name: "シフト表",
+        name: "箱車シフト表",
         description: "当月のシフト管理",
         status: "開発中"
       },
       {
         id: "time-management",
         name: "労働時間管理",
-        description: "個人の労働時間や給与確認",
+        description: "個人の労働時間や概算給与確認",
         status: "開発中"
       }
     ]
