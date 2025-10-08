@@ -836,7 +836,7 @@ export default function SchedulePage() {
                 )}
               </Button>
             )}
-            {!isPortrait && vw < 1200 && (
+            {!isPortrait && (
               <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
             )}
           </div>
