@@ -350,7 +350,7 @@ export default function SchedulePage() {
       next[idx] = { ...next[idx], color: color === 'pink' ? 'PINK' : 'WHITE' }
       return next
     })
-    setIsDirty(true)
+    if (editorVerified) setIsDirty(true)
     setLowerPickerOpen(false)
   }
 
@@ -526,7 +526,8 @@ export default function SchedulePage() {
     const t = getNote(day, slot)
     const parsed = parseNoteColor(t)
     setNoteText(parsed.content)
-    setNoteMode(t ? 'view' : 'edit')
+    // 権限がなければ常に閲覧モード
+    setNoteMode(editorVerified ? (t ? 'view' : 'edit') : 'view')
     setNoteOpen(true)
   }
   const saveNote = () => {
@@ -967,6 +968,7 @@ export default function SchedulePage() {
                           className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={r?.special ? r.special : (r?.staffId || '')}
                           onChange={(e)=>{
+                            if (!editorVerified) return
                             const v = e.target.value
                             if (v === '') { setRoute(d, rk, null, null); return }
                             if (v === 'CONTINUE' || v === 'OFF') { setRoute(d, rk, null, v as RouteSpecial); return }
@@ -1016,7 +1018,7 @@ export default function SchedulePage() {
                 const effective = chosen || persisted
                 const bg = effective === 'pink' ? 'bg-pink-100' : ''
                 const textColorCls = effective === 'pink' ? 'text-pink-900' : 'text-gray-900'
-                const lpHandlersLower = makeLongPressHandlers(() => { setLowerPickerKey(key); setLowerPickerOpen(true) })
+                const lpHandlersLower = editorVerified ? makeLongPressHandlers(() => { setLowerPickerKey(key); setLowerPickerOpen(true) }) : {}
                 return (
                   <div
                     key={`l-${rowIdx+1}-${d}`}
@@ -1036,6 +1038,7 @@ export default function SchedulePage() {
                           className="absolute inset-0 w-full h-full opacity-0 appearance-none bg-transparent outline-none text-sm md:text-base max-sm:text-lg"
                           value={staffId || ''}
                           onChange={(e)=>{
+                            if (!editorVerified) return
                             const v = e.target.value
                             const sid = v === '' ? null : v
                             // 空選択はそのまま反映
@@ -1141,12 +1144,14 @@ export default function SchedulePage() {
           {noteMode === 'view' ? (
             <div className="flex items-center justify-end gap-2 mt-2">
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
-              <Button className="text-base"
-                variant="destructive"
-                onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
-              >
-                削除
-              </Button>
+              {editorVerified && (
+                <Button className="text-base"
+                  variant="destructive"
+                  onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
+                >
+                  削除
+                </Button>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-end gap-2 mt-2">
@@ -1177,8 +1182,8 @@ export default function SchedulePage() {
         </DialogContent>
       </Dialog>
 
-      {/* 下段 色ピッカー（白/ピンク） */}
-      <Dialog open={lowerPickerOpen} onOpenChange={setLowerPickerOpen}>
+      {/* 下段 色ピッカー（白/ピンク）: 編集権限がない場合は常に閉 */}
+      <Dialog open={editorVerified && lowerPickerOpen} onOpenChange={setLowerPickerOpen}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle className="text-base">セル背景色を選択</DialogTitle>
@@ -1332,8 +1337,8 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const titleInputRef = useRef<HTMLInputElement>(null)
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const openCreate = () => { setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
-  const openEdit = (r: Remark) => { setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
+  const openCreate = () => { if (!editorVerified) return; setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
+  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
 
   const save = async () => {
     const payload = { title: title.trim(), body: body.trim() }
@@ -1362,7 +1367,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   return (
     <div>
       <div className="flex justify-end mb-2">
-        <Button size="sm" className="text-base" onClick={openCreate}>新規</Button>
+        {editorVerified && <Button size="sm" className="text-base" onClick={openCreate}>新規</Button>}
       </div>
       {!compact ? (
         <div className="space-y-2">
@@ -1370,10 +1375,12 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
             <div key={r.id} className="border rounded p-2 break-words">
               <div className="font-medium text-lg break-words">{r.title}</div>
               <div className="text-base text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
-              <div className="flex justify-end gap-2 mt-2">
-                <Button size="sm" className="text-base" variant="outline" onClick={()=>openEdit(r)}>編集</Button>
-                <Button size="sm" className="text-base" variant="destructive" onClick={()=>del(r.id)}>削除</Button>
-              </div>
+              {editorVerified && (
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button size="sm" className="text-base" variant="outline" onClick={()=>openEdit(r)}>編集</Button>
+                  <Button size="sm" className="text-base" variant="destructive" onClick={()=>del(r.id)}>削除</Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1383,7 +1390,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
             <div
               key={r.id}
               className="border rounded p-2 break-words"
-              onClick={() => openEdit(r)}
+              onClick={() => editorVerified && openEdit(r)}
             >
               <div className="font-medium text-lg break-words">{r.title}</div>
               <div className="text-base text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
@@ -1409,7 +1416,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={editorVerified && open} onOpenChange={setOpen}>
         <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>{mode==='create' ? '備考を追加' : '備考を編集'}</DialogTitle>
