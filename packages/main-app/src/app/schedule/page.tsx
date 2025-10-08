@@ -1125,7 +1125,7 @@ export default function SchedulePage() {
             <button
               type="button"
               className="w-full min-h-[10rem] border rounded-md p-3 bg-gray-50 whitespace-pre-wrap mt-2 text-left relative"
-              onClick={() => setNoteMode('edit')}
+              onClick={() => editorVerified && setNoteMode('edit')}
               title="タップで編集"
             >
               <span className="absolute right-2 top-2 text-xs text-gray-500">タップで編集</span>
@@ -1144,14 +1144,14 @@ export default function SchedulePage() {
           {noteMode === 'view' ? (
             <div className="flex items-center justify-end gap-2 mt-2">
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>閉じる</Button>
-              {editorVerified && (
+              {editorVerified ? (
                 <Button className="text-base"
                   variant="destructive"
                   onClick={() => { if (noteDay) { setNote(noteDay, noteSlot, ''); setNoteText(''); setNoteOpen(false) } }}
                 >
                   削除
                 </Button>
-              )}
+              ) : null}
             </div>
           ) : (
             <div className="flex items-center justify-end gap-2 mt-2">
