@@ -58,7 +58,7 @@ export default function Home() {
       {
         id: "shift",
         name: "箱車シフト表",
-        description: "当月のシフト管理",
+        description: "箱車のシフト管理",
         status: "開発中"
       },
       {
@@ -76,7 +76,7 @@ export default function Home() {
         {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群（社内ログイン済み時のみ） */}
         <div className="block md:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm text-gray-700">ようこそ、{session.user?.name || session.user?.email}</span>
+            <span className="truncate text-sm text-gray-700">ようこそ、{((session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (session.user?.name || session.user?.email) : '社内ユーザー'}</span>
             <div className="flex items-center gap-2">
               {(session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '')) ? (
                 <button

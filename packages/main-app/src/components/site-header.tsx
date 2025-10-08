@@ -62,7 +62,7 @@ export function SiteHeader() {
               // 非縦かつ認証済み: ヘッダーに集約
               <div className="flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
-                  ようこそ、{session?.user?.name || session?.user?.email}
+                  ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
                 </span>
                 {/* Google認証済みかつ無効化されていなければ個別ログアウト、無効化中なら編集ログイン */}
                 {(session as any)?.editorVerified && !editorDisabled ? (
