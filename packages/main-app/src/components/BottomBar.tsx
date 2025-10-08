@@ -74,7 +74,6 @@ const BottomBar: React.FC = () => {
         const y = window.scrollY || document.documentElement.scrollTop || 0;
         const prev = lastYRef.current;
         const diff = y - prev;
-
         if (y <= 60) {
           setIsVisible(true);
         } else if (Math.abs(diff) < DELTA) {
