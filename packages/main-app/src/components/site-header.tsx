@@ -60,7 +60,7 @@ export function SiteHeader() {
               <VersionBadge />
             ) : isAuthed ? (
               // 非縦かつ認証済み: ヘッダーに集約
-              <div className="flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
                 </span>
@@ -80,12 +80,7 @@ export function SiteHeader() {
                     編集ログイン
                   </button>
                 )}
-                <button
-                  onClick={() => signIn('google')}
-                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-                >
-                  編集ログイン
-                </button>
+                
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
                   className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
