@@ -78,16 +78,16 @@ export default function Home() {
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-sm text-gray-700">ようこそ、{session.user?.name || session.user?.email}</span>
             <div className="flex items-center gap-2">
-              {(session as any)?.editorVerified ? (
+              {(session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '')) ? (
                 <button
-                  onClick={() => { document.cookie = 'editor_disabled=1; path=/; max-age=0'; window.location.reload() }}
+                  onClick={() => { document.cookie = 'editor_disabled=1; Path=/; Max-Age=31536000; SameSite=Lax'; window.location.reload() }}
                   className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600"
                 >
                   個別ログアウト
                 </button>
               ) : (
                 <button
-                  onClick={() => signIn('google')}
+                  onClick={() => { document.cookie = 'editor_disabled=; Path=/; Max-Age=0; SameSite=Lax'; signIn('google') }}
                   className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
                 >
                   編集ログイン
