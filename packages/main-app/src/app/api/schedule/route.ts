@@ -121,16 +121,28 @@ export async function POST(req: Request) {
     }
 
     const includeColorForCreate = await hasLowerColorColumn()
-    for (const l of dedupedLowers) {
-      const dataBase = {
-        year,
-        month,
-        day: l.day,
-        rowIndex: l.rowIndex,
-        staffId: l.staffId,
-      } as any
-      if (includeColorForCreate) dataBase.color = l.color
-      ops.push(prisma.lowerAssignment.create({ data: dataBase }))
+    if (includeColorForCreate) {
+      for (const l of dedupedLowers) {
+        ops.push(
+          prisma.lowerAssignment.create({
+            data: {
+              year,
+              month,
+              day: l.day,
+              rowIndex: l.rowIndex,
+              staffId: l.staffId,
+              color: l.color,
+            },
+          })
+        )
+      }
+    } else {
+      // color列が存在しない古いDBに対してはraw insertで回避
+      for (const l of dedupedLowers) {
+        ops.push(
+          prisma.$executeRaw`INSERT INTO "lower_assignments" ("year","month","day","rowIndex","staffId") VALUES (${year}, ${month}, ${l.day}, ${l.rowIndex}, ${l.staffId})`
+        )
+      }
     }
 
     const tDbStart = Date.now()
