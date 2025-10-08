@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
 
@@ -54,6 +56,10 @@ export async function POST(req: Request) {
   const isPreview = process.env.VERCEL_ENV !== 'production'
   const t0 = Date.now()
   try {
+    const session = await getServerSession(authOptions as any)
+    if (!(session as any)?.editorVerified) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     const body = await req.json()
     const tParsed = Date.now()
     const year: number = body?.year

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 async function getPrisma() {
   try {
@@ -26,6 +28,10 @@ export async function GET() {
 // POST /api/remarks { title, body }
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions as any)
+    if (!(session as any)?.editorVerified) {
+      return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
+    }
     const prisma = await getPrisma()
     if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
     const body = await req.json()
