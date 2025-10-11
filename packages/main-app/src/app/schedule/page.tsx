@@ -75,9 +75,9 @@ export default function SchedulePage() {
     : (is2xl ? 'px-4 py-2' : (isXl ? 'px-5 py-3' : (isLg ? 'px-5 py-3' : 'px-3 py-2 sm:px-4 sm:py-3')))
 
   // Note color utility: encode color marker at the start of text
-  type NoteColor = 'white' | 'yellow' | 'blue'
-  const colorToMarker: Record<NoteColor, string> = { white: '[[w]]', yellow: '[[y]]', blue: '[[b]]' }
-  const markerToColor: Record<string, NoteColor> = { '[[w]]': 'white', '[[y]]': 'yellow', '[[b]]': 'blue' }
+  type NoteColor = 'white' | 'yellow' | 'blue' | 'green' | 'orange'
+  const colorToMarker: Record<NoteColor, string> = { white: '[[w]]', yellow: '[[y]]', blue: '[[b]]', green: '[[g]]', orange: '[[o]]' }
+  const markerToColor: Record<string, NoteColor> = { '[[w]]': 'white', '[[y]]': 'yellow', '[[b]]': 'blue', '[[g]]': 'green', '[[o]]': 'orange' }
   function parseNoteColor(raw: string | undefined): { color: NoteColor; content: string } {
     if (!raw) return { color: 'white', content: '' }
     for (const m of Object.keys(markerToColor)) {
@@ -894,12 +894,20 @@ export default function SchedulePage() {
                       ? 'bg-white text-gray-900 border border-gray-300'
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
-                        : 'bg-blue-200 text-blue-900'
+                        : parsed.color === 'blue'
+                          ? 'bg-blue-200 text-blue-900'
+                          : parsed.color === 'green'
+                            ? 'bg-green-200 text-green-900'
+                            : 'bg-orange-200 text-orange-900'
                     const plainNoteCls = parsed.color === 'white'
                       ? ''
                       : parsed.color === 'yellow'
                         ? 'bg-yellow-200 text-yellow-900'
-                        : 'bg-blue-200 text-blue-900'
+                        : parsed.color === 'blue'
+                          ? 'bg-blue-200 text-blue-900'
+                          : parsed.color === 'green'
+                            ? 'bg-green-200 text-green-900'
+                            : 'bg-orange-200 text-orange-900'
                     // long-press handlers with movement/scroll cancellation
                     const lpHandlers = makeLongPressHandlers(() => { setPickerDay(d); setPickerSlot(slot); setPickerOpen(true) })
                     return (
@@ -1178,6 +1186,8 @@ export default function SchedulePage() {
             <button className="border rounded p-2 bg-white text-gray-800" onClick={()=>applyColor('white')}>白</button>
             <button className="border rounded p-2 bg-yellow-200 text-yellow-900" onClick={()=>applyColor('yellow')}>黄</button>
             <button className="border rounded p-2 bg-blue-200 text-blue-900" onClick={()=>applyColor('blue')}>青</button>
+            <button className="border rounded p-2 bg-green-200 text-green-900" onClick={()=>applyColor('green')}>緑</button>
+            <button className="border rounded p-2 bg-orange-200 text-orange-900" onClick={()=>applyColor('orange')}>オレンジ</button>
           </div>
         </DialogContent>
       </Dialog>
