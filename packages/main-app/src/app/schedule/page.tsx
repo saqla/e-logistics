@@ -1451,7 +1451,7 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
               </Button>
             )}
             <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
-            <Button onClick={save} disabled={!editorVerified}>保存</Button>
+            <Button onClick={save} disabled={!editorVerified}>完了</Button>
           </div>
         </DialogContent>
       </Dialog>
