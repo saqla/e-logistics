@@ -67,7 +67,7 @@ export function SiteHeader() {
               // 縦表示: ヘッダーはロゴ+社名とバージョンのみ
               <VersionBadge />
             ) : isAuthed ? (
-              // 非縦かつ認証済み: ヘッダーに集約（モバイル幅フォールバックでVersionを表示）
+              // 非縦かつ認証済み: ヘッダーに集約（モバイル幅ではコンパクト表示）
               <>
               <div className="hidden md:flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
@@ -98,8 +98,32 @@ export function SiteHeader() {
                 </button>
                 <VersionBadge />
               </div>
-              {/* モバイル幅で非縦分岐に落ちた場合のフォールバック */}
-              <div className="md:hidden">
+              {/* モバイル幅（md未満）用のコンパクト表示 */}
+              <div className="md:hidden flex items-center gap-2">
+                <span className="truncate text-xs text-gray-600">
+                  ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
+                </span>
+                {((session as any)?.editorVerified && !editorDisabled) ? (
+                  <button
+                    onClick={() => { document.cookie = 'editor_disabled=1; Path=/; Max-Age=31536000; SameSite=Lax'; window.location.reload() }}
+                    className="px-2 py-1 text-xs bg-amber-500 text-white rounded-md hover:bg-amber-600"
+                  >
+                    個別ログアウト
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { document.cookie = 'editor_disabled=; Path=/; Max-Age=0; SameSite=Lax'; signIn('google') }}
+                    className="px-2 py-1 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                  >
+                    編集ログイン
+                  </button>
+                )}
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                >
+                  ログアウト
+                </button>
                 <VersionBadge />
               </div>
               </>
