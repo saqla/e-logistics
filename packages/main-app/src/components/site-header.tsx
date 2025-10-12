@@ -12,11 +12,19 @@ function useViewportInfo() {
     const onResize = () => {
       const w = typeof window !== 'undefined' ? window.innerWidth : 0
       const h = typeof window !== 'undefined' ? window.innerHeight : 0
-      setVw(w); setVh(h); setPortrait(h >= w)
+      setVw(w); setVh(h)
     }
     onResize();
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setPortrait(e.matches)
+    setPortrait(mq.matches)
+    mq.addEventListener?.('change', handler)
+    return () => mq.removeEventListener?.('change', handler)
   }, [])
   return { vw, vh, isPortrait }
 }
@@ -59,7 +67,7 @@ export function SiteHeader() {
               // 縦表示: ヘッダーはロゴ+社名とバージョンのみ
               <VersionBadge />
             ) : isAuthed ? (
-              // 非縦かつ認証済み: ヘッダーに集約
+              // 非縦かつ認証済み: ヘッダーに集約（モバイル幅フォールバックでVersionを表示）
               <div className="hidden md:flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
@@ -87,6 +95,12 @@ export function SiteHeader() {
                 >
                   ログアウト
                 </button>
+                <VersionBadge />
+              </div>
+              
+              // モバイル幅で非縦分岐に落ちた場合のフォールバック
+              
+              <div className="md:hidden">
                 <VersionBadge />
               </div>
             ) : (
