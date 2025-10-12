@@ -1170,7 +1170,7 @@ export default function SchedulePage() {
                 削除
               </Button>
               <Button className="text-base" variant="outline" onClick={()=>setNoteOpen(false)}>キャンセル</Button>
-              <Button className="text-base" onClick={saveNote} disabled={!editorVerified}>保存</Button>
+              <Button className="text-base" onClick={saveNote} disabled={!editorVerified}>完了</Button>
             </div>
           )}
         </DialogContent>
