@@ -16,6 +16,28 @@ export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  // portrait検知とビューポート幅
+  const [vw, setVw] = useState(0)
+  const [vh, setVh] = useState(0)
+  const [isPortrait, setPortrait] = useState(true)
+  useEffect(() => {
+    const onResize = () => {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 0
+      const h = typeof window !== 'undefined' ? window.innerHeight : 0
+      setVw(w); setVh(h)
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setPortrait(e.matches)
+    setPortrait(mq.matches)
+    mq.addEventListener?.('change', handler)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
 
   const handleLoginSuccess = () => {
     // ログイン成功時はページをリロードしてセッションを更新
@@ -74,34 +96,36 @@ export default function Home() {
         <SiteHeader />
 
         {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群（社内ログイン済み時のみ） */}
-        <div className="block md:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm text-gray-700">ようこそ、{((session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (session.user?.name || session.user?.email) : '社内ユーザー'}</span>
-            <div className="flex items-center gap-2">
-              {(session as any)?.editorVerified && !(document && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '')) ? (
+        {(isPortrait && vw > 0 && vw < 1200) ? (
+          <div className="block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-sm text-gray-700">ようこそ、{((session as any)?.editorVerified && (typeof document !== 'undefined' && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '') === false)) ? (session.user?.name || session.user?.email) : '社内ユーザー'}</span>
+              <div className="flex items-center gap-2">
+                {(session as any)?.editorVerified && (typeof document !== 'undefined' && /(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '') === false) ? (
+                  <button
+                    onClick={() => { document.cookie = 'editor_disabled=1; Path=/; Max-Age=31536000; SameSite=Lax'; window.location.reload() }}
+                    className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600"
+                  >
+                    個別ログアウト
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { document.cookie = 'editor_disabled=; Path=/; Max-Age=0; SameSite=Lax'; signIn('google') }}
+                    className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                  >
+                    編集ログイン
+                  </button>
+                )}
                 <button
-                  onClick={() => { document.cookie = 'editor_disabled=1; Path=/; Max-Age=31536000; SameSite=Lax'; window.location.reload() }}
-                  className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600"
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
                 >
-                  個別ログアウト
+                  ログアウト
                 </button>
-              ) : (
-                <button
-                  onClick={() => { document.cookie = 'editor_disabled=; Path=/; Max-Age=0; SameSite=Lax'; signIn('google') }}
-                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-                >
-                  編集ログイン
-                </button>
-              )}
-              <button
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-              >
-                ログアウト
-              </button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         {/* メインコンテンツ */}
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
