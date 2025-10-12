@@ -1085,6 +1085,9 @@ export default function SchedulePage() {
               <RightSideContent />
               <div className="border rounded-md p-3 w-full break-words mt-4">
                 <Button className="w-full text-base" variant="outline" onClick={()=>setSearchOpen(true)}>検索</Button>
+                <div className="mt-4 flex justify-center">
+                  <img src="/logo.png" alt="E-Logistics Logo" className="w-[80%] h-auto object-contain" />
+                </div>
               </div>
             </aside>
           )}
