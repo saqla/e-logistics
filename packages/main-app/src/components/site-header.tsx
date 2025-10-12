@@ -68,6 +68,7 @@ export function SiteHeader() {
               <VersionBadge />
             ) : isAuthed ? (
               // 非縦かつ認証済み: ヘッダーに集約（モバイル幅フォールバックでVersionを表示）
+              <>
               <div className="hidden md:flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
@@ -97,12 +98,11 @@ export function SiteHeader() {
                 </button>
                 <VersionBadge />
               </div>
-              
-              // モバイル幅で非縦分岐に落ちた場合のフォールバック
-              
+              {/* モバイル幅で非縦分岐に落ちた場合のフォールバック */}
               <div className="md:hidden">
                 <VersionBadge />
               </div>
+              </>
             ) : (
               // 非縦かつ未認証: バージョンのみ
               <VersionBadge />
