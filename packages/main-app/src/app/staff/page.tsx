@@ -199,7 +199,7 @@ export default function StaffPage() {
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
-              <Button onClick={save} disabled={!((session as any)?.editorVerified)}>保存</Button>
+            <Button onClick={save} disabled={!((session as any)?.editorVerified)}>完了</Button>
             </div>
           </DialogContent>
         </Dialog>
