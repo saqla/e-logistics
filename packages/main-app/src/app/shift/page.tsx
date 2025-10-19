@@ -138,6 +138,29 @@ export default function ShiftAppPage() {
     return m
   }, [assignments])
 
+  // 週配列（日曜始まり、0はプレースホルダー）
+  const weeks: number[][] = useMemo(() => {
+    const result: number[][] = []
+    const firstDow = new Date(year, month - 1, 1).getDay() // 0=Sun
+    const days = monthDays
+    let dayPtr = 1
+    // 1週目: 先頭の空きを0で埋める
+    const w0: number[] = []
+    for (let i = 0; i < firstDow; i++) w0.push(0)
+    while (w0.length < 7 && dayPtr <= days) { w0.push(dayPtr++ as number) }
+    result.push(w0)
+    // 2週目以降
+    while (dayPtr <= days) {
+      const w: number[] = []
+      for (let i = 0; i < 7; i++) {
+        if (dayPtr <= days) w.push(dayPtr++)
+        else w.push(0)
+      }
+      result.push(w)
+    }
+    return result
+  }, [year, month, monthDays])
+
   // レスポンシブ列幅（スマホ縦=7日、他は/schedule準拠の考え方）
   const [leftColPx, setLeftColPx] = useState(56)
   const [dayColPx, setDayColPx] = useState(56)
@@ -293,6 +316,61 @@ export default function ShiftAppPage() {
           <span className={`px-2 py-0.5 rounded ${getRouteColor('休み')}`}>休み</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('有給')}`}>有給</span>
         </div>
+        {/* モバイル縦: 週ごとに縦連結（7列固定） */}
+        {(isPortrait && vw > 0 && vw < 768) ? (
+          <div className="space-y-4">
+            {weeks.map((week, wi) => (
+              <div key={`wk-${wi}`} className="overflow-x-auto border rounded-md bg-white">
+                <table className="w-full text-sm table-fixed">
+                  <thead>
+                    <tr>
+                      <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: 56 }}>名前</th>
+                      {week.map((d, i) => {
+                        const dow = i // 0..6 (Sun..Sat)
+                        const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                        const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
+                        return (
+                          <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: 48 }}>{d || ''}</th>
+                        )
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staffs.map(st => (
+                      <tr key={`wk-${wi}-${st.id}`}>
+                        <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: 56 }}>{st.name}</td>
+                        {week.map((d, i) => {
+                          const a = d ? aMap.get(`${st.id}-${d}`) : undefined
+                          const label = a ? enumToRouteLabel(a.route) : null
+                          const car = a?.carNumber ?? ''
+                          const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                          const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                          const openCarPicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
+                          const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                          const openNoteBR = () => { setTempText(a?.noteBR ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
+                          return (
+                            <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: 48 }}>
+                              <div className="grid grid-cols-2 grid-rows-2 h-16">
+                                <button disabled={!d} onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
+                                <button disabled={!d} onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{d ? car : ''}</button>
+                                <button disabled={!d} onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                  {d ? (a?.noteBL ?? '') : ''}
+                                </button>
+                                <button disabled={!d} onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                  {d ? (a?.noteBR ?? '') : ''}
+                                </button>
+                              </div>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="overflow-x-auto border rounded-md bg-white">
           <table className="min-w-[900px] w-full text-sm table-fixed">
             <thead>
@@ -343,6 +421,7 @@ export default function ShiftAppPage() {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* ポートレート時のボトムメニュー */}
         {(isPortrait && vw > 0 && vw < 1200) ? (
