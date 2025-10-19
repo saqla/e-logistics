@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { SiteHeader } from '@/components/site-header'
-import { daysInMonth } from '@/lib/utils'
-import { enumToRouteLabel, getCarColor, getRouteColor } from '@/lib/shift-constants'
+import { daysInMonth, getDow } from '@/lib/utils'
+import { enumToRouteLabel, getCarColor, getRouteColor, ROUTE_LABELS, routeLabelToEnum, CAR_LABELS } from '@/lib/shift-constants'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Assignment = {
   day: number
@@ -17,12 +18,70 @@ type Assignment = {
 }
 
 export default function ShiftAppPage() {
-  const { status } = useSession()
+  const { status, data: session } = useSession()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [staffs, setStaffs] = useState<{id: string; name: string;}[]>([])
+  const [picker, setPicker] = useState<{open: boolean; staffId: string | null; day: number | null; mode: 'route' | 'car' | 'noteBL' | 'noteBR'}>({ open: false, staffId: null, day: null, mode: 'route' })
+  const [tempText, setTempText] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDirty, setDirty] = useState(false)
+
+  const applyRoute = (staffId: string, day: number, label: string) => {
+    const key = `${staffId}-${day}`
+    const existing = aMap.get(key)
+    const next: Assignment = {
+      day,
+      staffId,
+      route: routeLabelToEnum(label) as any,
+      carNumber: existing?.carNumber ?? null,
+      noteBL: existing?.noteBL ?? null,
+      noteBR: existing?.noteBR ?? null,
+    }
+    setAssignments(prev => {
+      const others = prev.filter(x => !(x.staffId === next.staffId && x.day === next.day))
+      return [...others, next]
+    })
+    setDirty(true)
+  }
+
+  const applyCar = (staffId: string, day: number, carLabel: string) => {
+    const key = `${staffId}-${day}`
+    const existing = aMap.get(key)
+    const next: Assignment = {
+      day,
+      staffId,
+      route: existing?.route ?? routeLabelToEnum('産直') as any, // 既存なければ暫定
+      carNumber: carLabel === '' ? null : carLabel,
+      noteBL: existing?.noteBL ?? null,
+      noteBR: existing?.noteBR ?? null,
+    }
+    setAssignments(prev => {
+      const others = prev.filter(x => !(x.staffId === next.staffId && x.day === next.day))
+      return [...others, next]
+    })
+    setDirty(true)
+  }
+
+  const applyNote = (staffId: string, day: number, side: 'noteBL' | 'noteBR', text: string) => {
+    const key = `${staffId}-${day}`
+    const existing = aMap.get(key)
+    const next: Assignment = {
+      day,
+      staffId,
+      route: existing?.route ?? routeLabelToEnum('産直') as any,
+      carNumber: existing?.carNumber ?? null,
+      noteBL: side === 'noteBL' ? (text || null) : (existing?.noteBL ?? null),
+      noteBR: side === 'noteBR' ? (text || null) : (existing?.noteBR ?? null),
+    }
+    setAssignments(prev => {
+      const others = prev.filter(x => !(x.staffId === next.staffId && x.day === next.day))
+      return [...others, next]
+    })
+    setDirty(true)
+  }
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -45,6 +104,11 @@ export default function ShiftAppPage() {
   }, [year, month])
 
   const monthDays = useMemo(() => daysInMonth(year, month), [year, month])
+  const todayInfo = useMemo(() => {
+    const t = new Date()
+    const isSameMonth = t.getFullYear() === year && (t.getMonth() + 1) === month
+    return { isSameMonth, day: isSameMonth ? t.getDate() : null }
+  }, [year, month])
 
   const aMap = useMemo(() => {
     const m = new Map<string, Assignment>()
@@ -62,6 +126,45 @@ export default function ShiftAppPage() {
             <Button variant="outline" onClick={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}>前月</Button>
             <div className="text-sm font-medium tabular-nums">{year}年 {month}月</div>
             <Button variant="outline" onClick={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}>翌月</Button>
+            {((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
+              <Button disabled={isSaving || !isDirty} onClick={async () => {
+                try {
+                  setIsSaving(true)
+                  const uniqueMap = new Map<string, Assignment>()
+                  for (const a of assignments) {
+                    const key = `${a.staffId}-${a.day}`
+                    if (!uniqueMap.has(key)) uniqueMap.set(key, a)
+                  }
+                  const body = {
+                    year,
+                    month,
+                    assignments: Array.from(uniqueMap.values()).map(a => ({
+                      day: a.day,
+                      staffId: a.staffId,
+                      route: a.route,
+                      carNumber: a.carNumber ?? null,
+                      noteBL: a.noteBL ?? null,
+                      noteBR: a.noteBR ?? null,
+                    })),
+                  }
+                  const res = await fetch('/api/shift', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+                  if (!res.ok) {
+                    const t = await res.text()
+                    throw new Error(t || '保存に失敗しました')
+                  }
+                  setDirty(false)
+                  // 反映再取得
+                  const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+                  const aJson = await aRes.json()
+                  setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+                } catch (e) {
+                  console.error(e)
+                  alert('保存に失敗しました。権限やネットワークを確認してください。')
+                } finally {
+                  setIsSaving(false)
+                }
+              }}>保存</Button>
+            ) : null}
           </div>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
@@ -76,10 +179,16 @@ export default function ShiftAppPage() {
           <table className="min-w-[900px] w-full text-sm">
             <thead>
               <tr>
-                <th className="sticky left-0 bg-white z-10 border-b p-2 text-left">名前</th>
-                {Array.from({ length: monthDays }).map((_, i) => (
-                  <th key={i} className="border-b p-2 text-center w-24">{i+1}</th>
-                ))}
+                <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left">名前</th>
+                {Array.from({ length: monthDays }).map((_, i) => {
+                  const d = i + 1
+                  const dow = getDow(year, month, d)
+                  const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                  const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
+                  return (
+                    <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center w-24 bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`}>{d}</th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
@@ -91,13 +200,22 @@ export default function ShiftAppPage() {
                     const a = aMap.get(`${st.id}-${d}`)
                     const label = a ? enumToRouteLabel(a.route) : null
                     const car = a?.carNumber ?? ''
+                    const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                    const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                    const openCarPicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
+                    const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                    const openNoteBR = () => { setTempText(a?.noteBR ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
                     return (
-                      <td key={d} className="border p-0 align-top">
+                      <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`}>
                         <div className="grid grid-cols-2 grid-rows-2 h-16">
-                          <div className={`col-span-1 row-span-1 flex items-center justify-center text-xs ${label?getRouteColor(label):''}`}>{label ?? ''}</div>
-                          <div className={`col-span-1 row-span-1 flex items-center justify-center text-xs ${getCarColor(car)}`}>{car}</div>
-                          <div className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap">{a?.noteBL ?? ''}</div>
-                          <div className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap">{a?.noteBR ?? ''}</div>
+                          <button onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                          <button onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{car}</button>
+                          <button onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                            {a?.noteBL ?? ''}
+                          </button>
+                          <button onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                            {a?.noteBR ?? ''}
+                          </button>
                         </div>
                       </td>
                     )
@@ -107,6 +225,39 @@ export default function ShiftAppPage() {
             </tbody>
           </table>
         </div>
+
+        <Dialog open={picker.open} onOpenChange={(o) => { if (!o) { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {picker.mode === 'route' ? 'ルートを選択' : picker.mode === 'car' ? '車番を選択' : (picker.mode === 'noteBL' ? '左下セルを編集' : '右下セルを編集')}
+              </DialogTitle>
+            </DialogHeader>
+            {picker.mode === 'route' ? (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {ROUTE_LABELS.map(l => (
+                  <button key={l} onClick={() => { if (picker.staffId && picker.day) { applyRoute(picker.staffId, picker.day, l); setPicker({ open: false, staffId: null, day: null, mode: 'route' }) } }} className={`px-3 py-2 rounded text-sm ${getRouteColor(l)}`}>{l}</button>
+                ))}
+              </div>
+            ) : (
+              picker.mode === 'car' ? (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {CAR_LABELS.map(c => (
+                    <button key={c} onClick={() => { if (picker.staffId && picker.day) { applyCar(picker.staffId, picker.day, c); setPicker({ open: false, staffId: null, day: null, mode: 'route' }) } }} className={`px-3 py-2 rounded text-sm ${getCarColor(c)}`}>{c || '空白'}</button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  <textarea value={tempText} onChange={e => setTempText(e.target.value)} className="w-full h-24 border rounded p-2 text-sm" placeholder="テキストを入力" />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') }}>キャンセル</Button>
+                    <Button onClick={() => { if (picker.staffId && picker.day) { applyNote(picker.staffId, picker.day, picker.mode as ('noteBL'|'noteBR'), tempText); setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>保存</Button>
+                  </div>
+                </div>
+              )
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )

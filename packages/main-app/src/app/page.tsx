@@ -17,6 +17,7 @@ export default function Home() {
   const router = useRouter()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [scheduleUpdatedAt, setScheduleUpdatedAt] = useState<string | null>(null)
+  const [shiftUpdatedAt, setShiftUpdatedAt] = useState<string | null>(null)
 
   const formatUpdatedAt = (iso: string): string => {
     try {
@@ -85,8 +86,18 @@ export default function Home() {
         setScheduleUpdatedAt(json?.updatedAt ?? null)
       } catch {}
     }
+    const fetchShiftUpdated = async () => {
+      try {
+        const res = await fetch('/api/shift/updated', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json()
+        const iso = typeof json?.updatedAt === 'string' ? json.updatedAt : (json?.updatedAt?._seconds ? new Date(json.updatedAt._seconds * 1000).toISOString() : null)
+        setShiftUpdatedAt(iso ?? null)
+      } catch {}
+    }
     if (status === 'authenticated') {
       fetchUpdated()
+      fetchShiftUpdated()
     }
   }, [status])
 
@@ -195,6 +206,10 @@ export default function Home() {
                     {app.id === 'schedule' ? (
                       <div className="mt-1 text-xs text-gray-600">
                         内容更新日 : {scheduleUpdatedAt ? formatUpdatedAt(scheduleUpdatedAt) : '—'}
+                      </div>
+                    ) : app.id === 'shift' ? (
+                      <div className="mt-1 text-xs text-gray-600">
+                        内容更新日 : {shiftUpdatedAt ? formatUpdatedAt(shiftUpdatedAt) : '—'}
                       </div>
                     ) : null}
                   </CardHeader>
