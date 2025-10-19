@@ -166,6 +166,7 @@ export default function ShiftAppPage() {
                     const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
                     const aJson = await aRes.json()
                     setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+                    alert('保存しました')
                   } catch (e) {
                     console.error(e)
                     alert('保存に失敗しました。権限やネットワークを確認してください。')
