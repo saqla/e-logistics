@@ -323,14 +323,25 @@ export default function ShiftAppPage() {
               <div key={`wk-${wi}`} className="overflow-x-auto border rounded-md bg-white">
                 <table className="w-full text-sm table-fixed">
                   <thead>
+                    {/* 曜日行（参考画像相当） */}
+                    <tr>
+                      <th className="bg-white border-b p-1 text-center text-xs" style={{ width: 56 }}>曜</th>
+                      {week.map((_, i) => {
+                        const wd = ['日','月','火','水','木','金','土'][i]
+                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                        return (
+                          <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: 48 }}>{wd}</th>
+                        )
+                      })}
+                    </tr>
+                    {/* 日付行（M/D） */}
                     <tr>
                       <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: 56 }}>名前</th>
                       {week.map((d, i) => {
-                        const dow = i // 0..6 (Sun..Sat)
-                        const isToday = todayInfo.isSameMonth && todayInfo.day === d
-                        const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
+                        const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                         return (
-                          <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: 48 }}>{d ? `${month}/${d}` : ''}</th>
+                          <th key={`md-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: 48 }}>{d ? `${month}/${d}` : ''}</th>
                         )
                       })}
                     </tr>
