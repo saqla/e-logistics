@@ -15,6 +15,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
+    "shift:import": "ts-node scripts/import-shift-from-csv.ts --year=2025 --month=11",
     "_dev_native": "next dev -p 3002 -H 0.0.0.0",
     "_show_ip": "node scripts/show-ip.js"
   },
