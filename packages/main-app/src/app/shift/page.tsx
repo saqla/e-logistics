@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { SiteHeader } from '@/components/site-header'
 import { daysInMonth } from '@/lib/utils'
 import { enumToRouteLabel, getCarColor, getRouteColor } from '@/lib/shift-constants'
+import { Button } from '@/components/ui/button'
 
 type Assignment = {
   day: number
@@ -55,7 +56,22 @@ export default function ShiftAppPage() {
     <div className="min-h-screen bg-gray-50">
       <SiteHeader />
       <main className="max-w-7xl mx-auto py-4 px-4">
-        <h1 className="text-2xl font-bold mb-3">箱車シフト表</h1>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h1 className="text-2xl font-bold">箱車シフト表</h1>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}>前月</Button>
+            <div className="text-sm font-medium tabular-nums">{year}年 {month}月</div>
+            <Button variant="outline" onClick={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}>翌月</Button>
+          </div>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className={`px-2 py-0.5 rounded ${getRouteColor('産直')}`}>産直</span>
+          <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(福岡)')}`}>ドンキ(福岡)</span>
+          <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(長崎)')}`}>ドンキ(長崎)</span>
+          <span className={`px-2 py-0.5 rounded ${getRouteColor('ユニック')}`}>ユニック</span>
+          <span className={`px-2 py-0.5 rounded ${getRouteColor('休み')}`}>休み</span>
+          <span className={`px-2 py-0.5 rounded ${getRouteColor('有給')}`}>有給</span>
+        </div>
         <div className="overflow-x-auto border rounded-md bg-white">
           <table className="min-w-[900px] w-full text-sm">
             <thead>
