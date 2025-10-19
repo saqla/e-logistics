@@ -291,7 +291,7 @@ export default function ShiftAppPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <main className="max-w-7xl mx-auto py-4 px-4">
+      <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
         <div className="sticky top-0 bg-white border-b z-20">
           <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-2 md:gap-6">
             <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-2 sm:ml-3">箱車シフト表</h1>
@@ -325,23 +325,23 @@ export default function ShiftAppPage() {
                   <thead>
                     {/* 曜日行（参考画像相当） */}
                     <tr>
-                      <th className="bg-white border-b p-1 text-center text-xs" style={{ width: 56 }}>曜</th>
+                      <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
                       {week.map((_, i) => {
                         const wd = ['日','月','火','水','木','金','土'][i]
                         const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                         return (
-                          <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: 48 }}>{wd}</th>
+                          <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
                         )
                       })}
                     </tr>
                     {/* 日付行（M/D） */}
                     <tr>
-                      <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: 56 }}>名前</th>
+                      <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
                       {week.map((d, i) => {
                         const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
                         const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                         return (
-                          <th key={`md-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: 48 }}>{d ? `${month}/${d}` : ''}</th>
+                          <th key={`md-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</th>
                         )
                       })}
                     </tr>
@@ -349,7 +349,7 @@ export default function ShiftAppPage() {
                   <tbody>
                     {staffs.map(st => (
                       <tr key={`wk-${wi}-${st.id}`}>
-                        <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: 56 }}>{st.name}</td>
+                        <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
                         {week.map((d, i) => {
                           const a = d ? aMap.get(`${st.id}-${d}`) : undefined
                           const label = a ? enumToRouteLabel(a.route) : null
@@ -360,7 +360,7 @@ export default function ShiftAppPage() {
                           const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
                           const openNoteBR = () => { setTempText(a?.noteBR ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
                           return (
-                            <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: 48 }}>
+                            <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
                               <div className="grid grid-cols-2 grid-rows-2 h-16">
                                 <button disabled={!d} onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
                                 <button disabled={!d} onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{d ? car : ''}</button>
