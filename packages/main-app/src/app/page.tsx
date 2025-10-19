@@ -16,6 +16,29 @@ export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const [scheduleUpdatedAt, setScheduleUpdatedAt] = useState<string | null>(null)
+
+  const formatUpdatedAt = (iso: string): string => {
+    try {
+      const d = new Date(iso)
+      const parts = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      }).formatToParts(d)
+      const get = (t: Intl.DateTimeFormatPart['type']) => parts.find(p => p.type === t)?.value ?? ''
+      const month = get('month')
+      const day = get('day')
+      const hour = get('hour')
+      const minute = get('minute')
+      return `${month}月${day}日 ${hour}時${minute}分`
+    } catch {
+      return '—'
+    }
+  }
   // portrait検知とビューポート幅
   const [vw, setVw] = useState(0)
   const [vh, setVh] = useState(0)
@@ -51,6 +74,21 @@ export default function Home() {
       // 未認証時は何もしない（ログインが必要）
     }
   }, [status, session, router])
+
+  useEffect(() => {
+    // 認証後に最新更新日時を取得
+    const fetchUpdated = async () => {
+      try {
+        const res = await fetch('/api/schedule/updated', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json()
+        setScheduleUpdatedAt(json?.updatedAt ?? null)
+      } catch {}
+    }
+    if (status === 'authenticated') {
+      fetchUpdated()
+    }
+  }, [status])
 
   if (status === "loading") {
     return (
@@ -154,6 +192,11 @@ export default function Home() {
                     <CardDescription className="text-base">
                       {app.description}
                     </CardDescription>
+                    {app.id === 'schedule' ? (
+                      <div className="mt-1 text-xs text-gray-600">
+                        内容更新日 : {scheduleUpdatedAt ? formatUpdatedAt(scheduleUpdatedAt) : '—'}
+                      </div>
+                    ) : null}
                   </CardHeader>
                   <CardContent>
                     <Button className="w-full text-base" onClick={() => router.push(`/${app.id}`)}>
