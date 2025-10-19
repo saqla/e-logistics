@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { SiteHeader } from '@/components/site-header'
 import { daysInMonth, getDow } from '@/lib/utils'
@@ -19,6 +20,7 @@ type Assignment = {
 
 export default function ShiftAppPage() {
   const { status, data: session } = useSession()
+  const router = useRouter()
   const now = new Date()
   const [isPortrait, setPortrait] = useState(true)
   useEffect(() => {
@@ -174,6 +176,9 @@ export default function ShiftAppPage() {
                   }
                 }}>保存</Button>
               ) : null}
+              {!isPortrait && (
+                <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
+              )}
             </div>
           </div>
         </div>
