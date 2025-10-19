@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { SiteHeader } from '@/components/site-header'
 import { daysInMonth, getDow } from '@/lib/utils'
 import { enumToRouteLabel, getCarColor, getRouteColor, ROUTE_LABELS, routeLabelToEnum, CAR_LABELS } from '@/lib/shift-constants'
 import { Button } from '@/components/ui/button'
@@ -128,8 +127,7 @@ export default function ShiftAppPage() {
   }, [assignments])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SiteHeader />
+    <div className="min-h-screen bg-white text-gray-900">
       <main className="max-w-7xl mx-auto py-4 px-4">
         <div className="sticky top-0 bg-white border-b z-20">
           <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-2 md:gap-6">
