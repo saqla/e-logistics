@@ -330,7 +330,7 @@ export default function ShiftAppPage() {
                         const isToday = todayInfo.isSameMonth && todayInfo.day === d
                         const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
                         return (
-                          <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: 48 }}>{d || ''}</th>
+                          <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: 48 }}>{d ? `${month}/${d}` : ''}</th>
                         )
                       })}
                     </tr>
@@ -382,7 +382,7 @@ export default function ShiftAppPage() {
                   const isToday = todayInfo.isSameMonth && todayInfo.day === d
                   const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
                   return (
-                    <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d}</th>
+                    <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{`${month}/${d}`}</th>
                   )
                 })}
               </tr>
