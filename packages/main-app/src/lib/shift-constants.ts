@@ -12,7 +12,7 @@ export type RouteLabel = typeof ROUTE_LABELS[number]
 export const CAR_LABELS = ['8514', '3717', '4825', '?', ''] as const
 export type CarLabel = typeof CAR_LABELS[number]
 
-export function routeLabelToEnum(label: RouteLabel): 'SANCHOKU'|'DONKI_FUKUOKA'|'DONKI_NAGASAKI'|'UNIC'|'OFF'|'PAID_LEAVE' {
+export function routeLabelToEnum(label: string): 'SANCHOKU'|'DONKI_FUKUOKA'|'DONKI_NAGASAKI'|'UNIC'|'OFF'|'PAID_LEAVE' {
   switch (label) {
     case '産直': return 'SANCHOKU'
     case 'ドンキ(福岡)': return 'DONKI_FUKUOKA'
@@ -20,6 +20,7 @@ export function routeLabelToEnum(label: RouteLabel): 'SANCHOKU'|'DONKI_FUKUOKA'|
     case 'ユニック': return 'UNIC'
     case '休み': return 'OFF'
     case '有給': return 'PAID_LEAVE'
+    default: return 'SANCHOKU'
   }
 }
 
