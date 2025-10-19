@@ -20,6 +20,15 @@ type Assignment = {
 export default function ShiftAppPage() {
   const { status, data: session } = useSession()
   const now = new Date()
+  const [isPortrait, setPortrait] = useState(true)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(orientation: portrait)')
+    const handler = (e: MediaQueryListEvent) => setPortrait(e.matches)
+    setPortrait(mq.matches)
+    mq.addEventListener?.('change', handler)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -29,7 +38,7 @@ export default function ShiftAppPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
 
-  const applyRoute = (staffId: string, day: number, label: string) => {
+  const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
     const existing = aMap.get(key)
     const next: Assignment = {
@@ -120,54 +129,55 @@ export default function ShiftAppPage() {
     <div className="min-h-screen bg-gray-50">
       <SiteHeader />
       <main className="max-w-7xl mx-auto py-4 px-4">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h1 className="text-2xl font-bold">箱車シフト表</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}>前月</Button>
-            <div className="text-sm font-medium tabular-nums">{year}年 {month}月</div>
-            <Button variant="outline" onClick={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}>翌月</Button>
-            {((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
-              <Button disabled={isSaving || !isDirty} onClick={async () => {
-                try {
-                  setIsSaving(true)
-                  const uniqueMap = new Map<string, Assignment>()
-                  for (const a of assignments) {
-                    const key = `${a.staffId}-${a.day}`
-                    if (!uniqueMap.has(key)) uniqueMap.set(key, a)
+        <div className="sticky top-0 bg-white border-b z-20">
+          <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-2 md:gap-6">
+            <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-2 sm:ml-3">箱車シフト表</h1>
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}>◀</Button>
+              <span className="text-xl sm:text-2xl font-semibold text-center tabular-nums">{year}年 {month}月</span>
+              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}>▶</Button>
+              {!isPortrait && ((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
+                <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" disabled={isSaving || !isDirty} onClick={async () => {
+                  try {
+                    setIsSaving(true)
+                    const uniqueMap = new Map<string, Assignment>()
+                    for (const a of assignments) {
+                      const key = `${a.staffId}-${a.day}`
+                      if (!uniqueMap.has(key)) uniqueMap.set(key, a)
+                    }
+                    const body = {
+                      year,
+                      month,
+                      assignments: Array.from(uniqueMap.values()).map(a => ({
+                        day: a.day,
+                        staffId: a.staffId,
+                        route: a.route,
+                        carNumber: a.carNumber ?? null,
+                        noteBL: a.noteBL ?? null,
+                        noteBR: a.noteBR ?? null,
+                      })),
+                    }
+                    const res = await fetch('/api/shift', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+                    if (!res.ok) {
+                      const t = await res.text()
+                      throw new Error(t || '保存に失敗しました')
+                    }
+                    setDirty(false)
+                    const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+                    const aJson = await aRes.json()
+                    setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+                  } catch (e) {
+                    console.error(e)
+                    alert('保存に失敗しました。権限やネットワークを確認してください。')
+                  } finally {
+                    setIsSaving(false)
                   }
-                  const body = {
-                    year,
-                    month,
-                    assignments: Array.from(uniqueMap.values()).map(a => ({
-                      day: a.day,
-                      staffId: a.staffId,
-                      route: a.route,
-                      carNumber: a.carNumber ?? null,
-                      noteBL: a.noteBL ?? null,
-                      noteBR: a.noteBR ?? null,
-                    })),
-                  }
-                  const res = await fetch('/api/shift', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-                  if (!res.ok) {
-                    const t = await res.text()
-                    throw new Error(t || '保存に失敗しました')
-                  }
-                  setDirty(false)
-                  // 反映再取得
-                  const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
-                  const aJson = await aRes.json()
-                  setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
-                } catch (e) {
-                  console.error(e)
-                  alert('保存に失敗しました。権限やネットワークを確認してください。')
-                } finally {
-                  setIsSaving(false)
-                }
-              }}>保存</Button>
-            ) : null}
+                }}>保存</Button>
+              ) : null}
+            </div>
           </div>
         </div>
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className={`px-2 py-0.5 rounded ${getRouteColor('産直')}`}>産直</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(福岡)')}`}>ドンキ(福岡)</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(長崎)')}`}>ドンキ(長崎)</span>
