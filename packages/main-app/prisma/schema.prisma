@@ -71,6 +71,7 @@ model Staff {
   // relations
   routeAssignments RouteAssignment[]
   lowerAssignments LowerAssignment[]
+  shiftAssignments ShiftAssignment[]
 
   @@index([name])
   @@map("staffs")
