@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoginModal } from "@/components/login-modal"
-import { SiteHeader } from "@/components/site-header"
 import { TopSiteHeader } from "@/components/topSite-header"
 import { ExternalLink } from "lucide-react"
 
