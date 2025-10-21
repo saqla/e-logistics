@@ -29,7 +29,7 @@ function useViewportInfo() {
   return { vw, vh, isPortrait }
 }
 
-export function SiteHeader({ appName = 'Eロジスティクス' }: { appName?: string }) {
+export function TopSiteHeader() {
   const { data: session, status } = useSession()
   const { vw, isPortrait } = useViewportInfo()
   const isPhonePortrait = isPortrait && vw > 0 && vw < 768
@@ -60,20 +60,17 @@ export function SiteHeader({ appName = 'Eロジスティクス' }: { appName?: s
               className="w-[120px] h-[40px] object-contain"
               priority
             />
-            <span className="text-lg font-semibold text-gray-900">{appName}</span>
+            <span className="text-lg font-semibold text-gray-900">Eロジスティクス</span>
           </div>
           <div className="flex items-center space-x-4">
             {showCompactHeader ? (
-              // 縦表示: ヘッダーはロゴ+社名とバージョンのみ
               <VersionBadge />
             ) : isAuthed ? (
-              // 非縦かつ認証済み: ヘッダーに集約（モバイル幅ではコンパクト表示）
               <>
               <div className="hidden md:flex items-center gap-3">
                 <span className="max-w-[30vw] truncate text-sm text-gray-600">
                   ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
                 </span>
-                {/* Google認証済みかつ無効化されていなければ個別ログアウト、無効化中なら編集ログイン */}
                 {(session as any)?.editorVerified && !editorDisabled ? (
                   <button
                     onClick={() => { document.cookie = 'editor_disabled=1; Path=/; Max-Age=31536000; SameSite=Lax'; window.location.reload() }}
@@ -98,7 +95,6 @@ export function SiteHeader({ appName = 'Eロジスティクス' }: { appName?: s
                 </button>
                 <VersionBadge />
               </div>
-              {/* モバイル幅（md未満）用のコンパクト表示 */}
               <div className="md:hidden flex items-center gap-2">
                 <span className="truncate text-xs text-gray-600">
                   ようこそ、{(session as any)?.editorVerified && !editorDisabled ? (session?.user?.name || session?.user?.email) : '社内ユーザー'}
@@ -128,7 +124,6 @@ export function SiteHeader({ appName = 'Eロジスティクス' }: { appName?: s
               </div>
               </>
             ) : (
-              // 非縦かつ未認証: バージョンのみ
               <VersionBadge />
             )}
           </div>

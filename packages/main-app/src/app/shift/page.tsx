@@ -7,6 +7,7 @@ import { daysInMonth, getDow } from '@/lib/utils'
 import { enumToRouteLabel, getCarColor, getRouteColor, ROUTE_LABELS, routeLabelToEnum, CAR_LABELS } from '@/lib/shift-constants'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { SiteHeader } from '@/components/site-header'
 
 type Assignment = {
   day: number
@@ -291,10 +292,10 @@ export default function ShiftAppPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      <SiteHeader appName="箱車シフト表" />
       <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
         <div className="sticky top-0 bg-white border-b z-20">
           <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-2 md:gap-6">
-            <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-2 sm:ml-3">箱車シフト表</h1>
             <div className="flex items-center gap-2 whitespace-nowrap">
               <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}>◀</Button>
               <span className="text-xl sm:text-2xl font-semibold text-center tabular-nums">{year}年 {month}月</span>

@@ -10,6 +10,7 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoginModal } from "@/components/login-modal"
 import { SiteHeader } from "@/components/site-header"
+import { TopSiteHeader } from "@/components/topSite-header"
 import { ExternalLink } from "lucide-react"
 
 export default function Home() {
@@ -142,7 +143,7 @@ export default function Home() {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        <SiteHeader />
+        <TopSiteHeader />
 
         {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群（社内ログイン済み時のみ） */}
         {(isPortrait && vw > 0 && vw < 1200) ? (
@@ -243,7 +244,7 @@ export default function Home() {
   console.log("Rendering login page - status:", status, "session:", session)
   return (
     <div className="min-h-screen bg-white">
-      <SiteHeader />
+      <TopSiteHeader />
 
       {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">

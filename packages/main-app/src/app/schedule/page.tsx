@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { SiteHeader } from '@/components/site-header'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -818,9 +819,9 @@ export default function SchedulePage() {
 
   return (
     <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${(isPhonePortrait || isTabletPortrait || isPhoneLandscape) ? 'pb-24' : ''}`}>
+      <SiteHeader appName="月予定表" />
       <div className="sticky top-0 bg-white border-b z-20">
         <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
-          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap ml-3 sm:ml-4">月予定表</h1>
           <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
             <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
             <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
