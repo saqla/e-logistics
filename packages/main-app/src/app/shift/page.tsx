@@ -292,23 +292,18 @@ export default function ShiftAppPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <SiteHeader appName="箱車シフト表" />
+      <SiteHeader
+        appName="箱車シフト表"
+        year={year}
+        month={month}
+        onPrev={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}
+        onNext={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}
+        onSave={((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? saveAll : undefined}
+        saveDisabled={isSaving || !isDirty}
+        showSave={!isPortrait}
+        onBack={() => router.push('/')}
+      />
       <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
-        <div className="sticky top-0 bg-white border-b z-20">
-          <div className="w-full px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between md:justify-center gap-2 md:gap-6">
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}>◀</Button>
-              <span className="text-xl sm:text-2xl font-semibold text-center tabular-nums">{year}年 {month}月</span>
-              <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}>▶</Button>
-              {!isPortrait && ((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
-                <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" disabled={isSaving || !isDirty} onClick={saveAll}>保存</Button>
-              ) : null}
-              {!isPortrait && (
-                <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
-              )}
-            </div>
-          </div>
-        </div>
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className={`px-2 py-0.5 rounded ${getRouteColor('産直')}`}>産直</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(福岡)')}`}>ドンキ(福岡)</span>

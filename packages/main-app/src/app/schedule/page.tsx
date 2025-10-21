@@ -819,31 +819,17 @@ export default function SchedulePage() {
 
   return (
     <div className={`min-h-screen bg-white text-gray-900 overflow-x-hidden ${(isPhonePortrait || isTabletPortrait || isPhoneLandscape) ? 'pb-24' : ''}`}>
-      <SiteHeader appName="月予定表" />
-      <div className="sticky top-0 bg-white border-b z-20">
-        <div className={`w-full ${headerBarPad} flex items-center justify-between md:justify-center gap-1 sm:gap-2 md:gap-14`}>
-          <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
-            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(-1)}>◀</Button>
-            <span className="text-xl sm:text-2xl font-semibold text-center whitespace-nowrap">{title}</span>
-            <Button variant="ghost" className="text-base focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => move(1)}>▶</Button>
-            {!isPortrait && (
-              <Button className="ml-2 sm:ml-4 text-base sm:text-lg hidden md:block" onClick={handleSave} disabled={saving || !editorVerified}>
-                {saving ? (
-                  <span className="inline-flex items-center gap-2">
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span>
-                    保存中...
-                  </span>
-                ) : (
-                  '保存'
-                )}
-              </Button>
-            )}
-            {!isPortrait && (
-              <Button className="ml-2 sm:ml-3 text-base sm:text-lg hidden md:block" variant="outline" onClick={() => router.push('/')}>アプリ選択に戻る</Button>
-            )}
-          </div>
-        </div>
-      </div>
+      <SiteHeader
+        appName="月予定表"
+        year={ym.year}
+        month={ym.month}
+        onPrev={() => move(-1)}
+        onNext={() => move(1)}
+        onSave={handleSave}
+        saveDisabled={saving || !editorVerified}
+        showSave
+        onBack={() => router.push('/')}
+      />
 
       <div className="px-4 py-4">
         <div className="w-full flex gap-4 items-start">
