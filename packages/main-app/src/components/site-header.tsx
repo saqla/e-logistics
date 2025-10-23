@@ -13,6 +13,7 @@ type SiteHeaderProps = {
   saveDisabled?: boolean
   showSave?: boolean
   onBack?: () => void
+  showBack?: boolean
 }
 
 export function SiteHeader({
@@ -25,6 +26,7 @@ export function SiteHeader({
   saveDisabled = false,
   showSave = true,
   onBack,
+  showBack = true,
 }: SiteHeaderProps) {
   const router = useRouter()
   const back = () => (onBack ? onBack() : router.push('/'))
@@ -44,7 +46,9 @@ export function SiteHeader({
               <Button className="ml-1 text-base sm:text-lg" onClick={onSave} disabled={saveDisabled}>保存</Button>
             ) : null}
             {/* アプリ選択に戻る */}
-            <Button className="text-base sm:text-lg" variant="outline" onClick={back}>アプリ選択に戻る</Button>
+            {showBack ? (
+              <Button className="text-base sm:text-lg" variant="outline" onClick={back}>アプリ選択に戻る</Button>
+            ) : null}
           </div>
         </div>
       </div>
