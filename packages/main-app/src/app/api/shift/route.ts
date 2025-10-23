@@ -118,7 +118,7 @@ export async function POST(req: Request) {
   }
 
   // 置換保存（対象月を全削除→作成）
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx) => {
     await tx.shiftAssignment.deleteMany({ where: { year, month } })
     for (const a of deduped) {
       await tx.shiftAssignment.create({
