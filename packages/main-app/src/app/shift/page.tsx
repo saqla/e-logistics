@@ -302,6 +302,7 @@ export default function ShiftAppPage() {
         saveDisabled={isSaving || !isDirty}
         showSave={!isPortrait}
         onBack={() => router.push('/')}
+        showBack={!isPortrait}
       />
       <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
