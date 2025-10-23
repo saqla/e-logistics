@@ -1,6 +1,6 @@
 {
   "name": "@e-logistics/main-app",
-  "version": "0.5.0",
+  "version": "0.6.5",
   "private": true,
   "installConfig": {
     "hoistingLimits": "none"
@@ -15,6 +15,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
+    
     "_dev_native": "next dev -p 3002 -H 0.0.0.0",
     "_show_ip": "node scripts/show-ip.js"
   },

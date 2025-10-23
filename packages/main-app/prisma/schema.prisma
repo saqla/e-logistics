@@ -10,6 +10,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// 箱車シフト：上段左のルート種別
+enum ShiftRouteKind {
+  SANCHOKU      // 産直
+  DONKI_FUKUOKA // ドンキ(福岡)
+  DONKI_NAGASAKI// ドンキ(長崎)
+  UNIC          // ユニック
+  OFF           // 休み
+  PAID_LEAVE    // 有給
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -61,6 +71,7 @@ model Staff {
   // relations
   routeAssignments RouteAssignment[]
   lowerAssignments LowerAssignment[]
+  shiftAssignments ShiftAssignment[]
 
   @@index([name])
   @@map("staffs")
@@ -149,4 +160,25 @@ model Remark {
   updatedAt DateTime @updatedAt
 
   @@map("remarks")
+}
+
+// 箱車シフト：1日×スタッフごとの4セル（左上/右上/左下/右下）
+model ShiftAssignment {
+  id        String          @id @default(cuid())
+  year      Int
+  month     Int
+  day       Int
+  staffId   String
+  route     ShiftRouteKind  // 左上セル
+  carNumber String?         // 右上セル（8514/3717/4825/?/空白）
+  noteBL    String?         // 左下セル（自由入力）
+  noteBR    String?         // 右下セル（自由入力）
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  staff     Staff           @relation(fields: [staffId], references: [id])
+
+  @@unique([year, month, day, staffId])
+  @@index([year, month, day])
+  @@map("shift_assignments")
 }

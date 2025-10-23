@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoginModal } from "@/components/login-modal"
-import { SiteHeader } from "@/components/site-header"
+import { TopSiteHeader } from "@/components/topSite-header"
 import { ExternalLink } from "lucide-react"
 
 export default function Home() {
@@ -17,6 +17,7 @@ export default function Home() {
   const router = useRouter()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [scheduleUpdatedAt, setScheduleUpdatedAt] = useState<string | null>(null)
+  const [shiftUpdatedAt, setShiftUpdatedAt] = useState<string | null>(null)
 
   const formatUpdatedAt = (iso: string): string => {
     try {
@@ -85,8 +86,18 @@ export default function Home() {
         setScheduleUpdatedAt(json?.updatedAt ?? null)
       } catch {}
     }
+    const fetchShiftUpdated = async () => {
+      try {
+        const res = await fetch('/api/shift/updated', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json()
+        const iso = typeof json?.updatedAt === 'string' ? json.updatedAt : (json?.updatedAt?._seconds ? new Date(json.updatedAt._seconds * 1000).toISOString() : null)
+        setShiftUpdatedAt(iso ?? null)
+      } catch {}
+    }
     if (status === 'authenticated') {
       fetchUpdated()
+      fetchShiftUpdated()
     }
   }, [status])
 
@@ -131,7 +142,7 @@ export default function Home() {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        <SiteHeader />
+        <TopSiteHeader />
 
         {/* スマホ/タブレット縦: ダッシュボード上に編集ボタン群（社内ログイン済み時のみ） */}
         {(isPortrait && vw > 0 && vw < 1200) ? (
@@ -196,6 +207,10 @@ export default function Home() {
                       <div className="mt-1 text-xs text-gray-600">
                         内容更新日 : {scheduleUpdatedAt ? formatUpdatedAt(scheduleUpdatedAt) : '—'}
                       </div>
+                    ) : app.id === 'shift' ? (
+                      <div className="mt-1 text-xs text-gray-600">
+                        内容更新日 : {shiftUpdatedAt ? formatUpdatedAt(shiftUpdatedAt) : '—'}
+                      </div>
                     ) : null}
                   </CardHeader>
                   <CardContent>
@@ -228,7 +243,7 @@ export default function Home() {
   console.log("Rendering login page - status:", status, "session:", session)
   return (
     <div className="min-h-screen bg-white">
-      <SiteHeader />
+      <TopSiteHeader />
 
       {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
