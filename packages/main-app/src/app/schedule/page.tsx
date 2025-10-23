@@ -827,8 +827,9 @@ export default function SchedulePage() {
         onNext={() => move(1)}
         onSave={handleSave}
         saveDisabled={saving || !editorVerified}
-        showSave
+        showSave={!isPortrait}
         onBack={() => router.push('/')}
+        showBack={!isPortrait}
       />
 
       <div className="px-4 py-4">
