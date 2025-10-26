@@ -59,6 +59,19 @@ export default function ShiftAppPage() {
   const [cBody, setCBody] = useState('')
   const [cCategory, setCCategory] = useState<'common'|'sanchoku'|'esaki'|'maruno'>('common')
   const [editingVisible, setEditingVisible] = useState(false)
+  // ルート一覧（連絡ダイアログ内で表示・簡易編集）
+  const [routeItems, setRouteItems] = useState<{id:string; key:string; name:string; order:number; bgClass:string; textClass:string; enabled:boolean}[]>([])
+  const [routeLoading, setRouteLoading] = useState(false)
+  const [routeEditId, setRouteEditId] = useState<string | null>(null)
+  const [routeEditName, setRouteEditName] = useState('')
+  const palette = [
+    { bg: 'bg-purple-600', text: 'text-white' },
+    { bg: 'bg-orange-500', text: 'text-white' },
+    { bg: 'bg-violet-400', text: 'text-white' },
+    { bg: 'bg-green-500', text: 'text-white' },
+    { bg: 'bg-red-500', text: 'text-white' },
+    { bg: 'bg-gray-200', text: 'text-gray-800' },
+  ] as const
 
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
@@ -322,6 +335,43 @@ export default function ShiftAppPage() {
     load()
   }, [])
 
+  // ルート一覧のロード
+  useEffect(() => {
+    const load = async () => {
+      setRouteLoading(true)
+      try {
+        const r = await fetch('/api/route-defs', { cache: 'no-store' })
+        const j = await r.json().catch(()=>({items:[]}))
+        const arr = Array.isArray(j.items) ? j.items : []
+        arr.sort((a:any,b:any)=> (a.order??0)-(b.order??0))
+        setRouteItems(arr)
+      } finally { setRouteLoading(false) }
+    }
+    load()
+  }, [])
+
+  const startEditRoute = (id: string) => {
+    const it = routeItems.find(x => x.id===id)
+    if (!it) return
+    setRouteEditId(id)
+    setRouteEditName(it.name)
+  }
+  const cancelEditRoute = () => { setRouteEditId(null); setRouteEditName('') }
+  const saveRouteName = async () => {
+    if (!routeEditId) return
+    const r = await fetch(`/api/route-defs/${routeEditId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: routeEditName }) })
+    if (!r.ok) { alert('保存に失敗しました'); return }
+    const j = await r.json().catch(()=>({}))
+    if (j?.item) setRouteItems(prev => prev.map(x => x.id===routeEditId ? j.item : x))
+    cancelEditRoute()
+  }
+  const applyRouteColorInline = async (id: string, bg: string, text: string) => {
+    const r = await fetch(`/api/route-defs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bgClass: bg, textClass: text }) })
+    if (!r.ok) { alert('保存に失敗しました'); return }
+    const j = await r.json().catch(()=>({}))
+    if (j?.item) setRouteItems(prev => prev.map(x => x.id===id ? j.item : x))
+  }
+
   const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
   const openEditContact = (id: string) => {
     const t = contacts.find(x => x.id === id)
@@ -534,10 +584,12 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent className="max-w-3xl bg-white">
+        <DialogContent className="max-w-3xl bg-white max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
+          {/* スクロール可能ラッパー */}
+          <div className="overflow-y-auto max-h-[70vh] pr-1">
           <div className="grid grid-cols-2 gap-3">
             {[
               { key:'common', title:'共通' },
@@ -589,16 +641,59 @@ export default function ShiftAppPage() {
             </div>
           )}
 
-          {/* 管理コンテナ（ルート一覧の設定） */}
+          {/* ルート一覧（スタッフ一覧レイアウト参照） */}
           <div className="mt-4">
-            <div className="font-semibold text-center text-xl mb-2">管理</div>
+            <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
             <div className="border rounded-md p-3 w-full break-words">
-              <div className="flex flex-col gap-2">
-                <Button className="w-full text-base" variant="outline" onClick={() => router.push('/schedule?openRouteDefs=1')}>
-                  ルート一覧の設定
-                </Button>
-              </div>
+              {routeLoading ? (
+                <div className="text-sm text-gray-600">読み込み中…</div>
+              ) : (
+                <div className="grid grid-cols-1 divide-y">
+                  <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
+                    <div>ルート名</div>
+                    <div>操作</div>
+                  </div>
+                  {routeItems.map(it => (
+                    <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
+                      <div>
+                        {routeEditId===it.id ? (
+                          <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                            <span>{it.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        {routeEditId===it.id ? (
+                          <>
+                            <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                            <Button onClick={saveRouteName}>保存</Button>
+                          </>
+                        ) : (
+                          <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                        )}
+                      </div>
+                      {routeEditId===it.id && (
+                        <div className="col-span-2 mt-2">
+                          <div className="text-sm text-gray-600 mb-1">色を選択</div>
+                          <div className="grid grid-cols-6 gap-2">
+                            {palette.map((p, idx) => (
+                              <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {routeItems.length === 0 && (
+                    <div className="text-sm text-gray-500 py-4">データがありません</div>
+                  )}
+                </div>
+              )}
             </div>
+          </div>
           </div>
         </DialogContent>
       </Dialog>
