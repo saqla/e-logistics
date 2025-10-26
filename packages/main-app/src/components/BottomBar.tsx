@@ -119,11 +119,8 @@ const BottomBar: React.FC = () => {
   };
 
   const handleRemarks = () => {
-    // /schedule では備考ダイアログ、/shift は現状なし（将来拡張）
-    if (pathname === '/schedule') {
-      const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
-      window.dispatchEvent(event);
-    }
+    const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
+    window.dispatchEvent(event);
   };
   const handleSave = () => {
     const eventName = pathname === '/shift' ? 'requestShiftSave' : 'requestScheduleSave';
@@ -170,17 +167,15 @@ const BottomBar: React.FC = () => {
             <span className={labelSizeCls}>{isSaving ? '保存中' : '保存'}</span>
           </Button>
         )}
-        {pathname === '/schedule' && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
-            onClick={handleRemarks}
-          >
-            <MessageSquare className={iconSizeCls} />
-            <span className={labelSizeCls}>備考/管理</span>
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex flex-col h-11 w-16 text-foreground/80 hover:text-foreground"
+          onClick={handleRemarks}
+        >
+          <MessageSquare className={iconSizeCls} />
+          <span className={labelSizeCls}>備考/管理</span>
+        </Button>
       </div>
     </div>
   );
