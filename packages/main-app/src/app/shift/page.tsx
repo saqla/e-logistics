@@ -534,7 +534,7 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl bg-white">
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
