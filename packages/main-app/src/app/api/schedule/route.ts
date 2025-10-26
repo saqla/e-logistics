@@ -31,11 +31,12 @@ export async function GET(req: Request) {
   const [notesRows, routeRows, lowerRows] = await Promise.all([
     (prisma.$queryRaw`SELECT "day","slot","text" FROM "day_notes" WHERE "year"=${year} AND "month"=${month} ORDER BY "day","slot"` as unknown as any[]),
     (prisma.$queryRaw`SELECT "day",
-      CASE WHEN "route"='EZAKI_DONKI' THEN 'ESAKI_DONKI' ELSE "route" END AS route,
-      "staffId","special"
+      CASE WHEN ("route")::text='EZAKI_DONKI' THEN 'ESAKI_DONKI' ELSE ("route")::text END AS route,
+      "staffId",
+      ("special")::text AS special
       FROM "route_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[]),
     includeColor
-      ? (prisma.$queryRaw`SELECT "day","rowIndex","staffId","color" FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[])
+      ? (prisma.$queryRaw`SELECT "day","rowIndex","staffId", ("color")::text AS color FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[])
       : (prisma.$queryRaw`SELECT "day","rowIndex","staffId" FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[]),
   ])
   return NextResponse.json({ notes: notesRows, routes: routeRows, lowers: lowerRows })
