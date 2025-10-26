@@ -163,6 +163,18 @@ model Remark {
   @@map("remarks")
 }
 
+// 箱車シフト用の連絡（備考とは独立）
+model ShiftContact {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  category  String?  // 'common' | 'sanchoku' | 'esaki' | 'maruno'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shift_contacts")
+}
+
 // 箱車シフト：1日×スタッフごとの4セル（左上/右上/左下/右下）
 model ShiftAssignment {
   id        String          @id @default(cuid())

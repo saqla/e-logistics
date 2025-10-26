@@ -52,6 +52,12 @@ export default function ShiftAppPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
+  const [contacts, setContacts] = useState<{id:string; title:string; body:string; category?:string}[]>([])
+  const [cMode, setCMode] = useState<'create'|'edit'>('create')
+  const [targetId, setTargetId] = useState<string|undefined>(undefined)
+  const [cTitle, setCTitle] = useState('')
+  const [cBody, setCBody] = useState('')
+  const [cCategory, setCCategory] = useState<'common'|'sanchoku'|'esaki'|'maruno'>('common')
 
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
@@ -305,6 +311,39 @@ export default function ShiftAppPage() {
     return () => window.removeEventListener('openShiftContactDialog', onOpen)
   }, [])
 
+  // 連絡のロード
+  useEffect(() => {
+    const load = async () => {
+      const r = await fetch('/api/shift/contact', { cache: 'no-store' })
+      const j = await r.json().catch(()=>({items:[]}))
+      setContacts(Array.isArray(j.items)? j.items: [])
+    }
+    load()
+  }, [])
+
+  const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true) }
+  const openEditContact = (id: string) => {
+    const t = contacts.find(x => x.id === id)
+    if (!t) return
+    setCMode('edit'); setTargetId(id); setCTitle(t.title); setCBody(t.body); setCCategory((t.category as any) || 'common'); setContactOpen(true)
+  }
+  const saveContact = async () => {
+    const payload = { title: cTitle.trim(), body: cBody.trim(), category: cCategory }
+    const url = cMode==='create' ? '/api/shift/contact' : `/api/shift/contact/${targetId}`
+    const method = cMode==='create' ? 'POST' : 'PATCH'
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!r.ok) { alert('保存に失敗しました'); return }
+    const j = await r.json().catch(()=>({}))
+    if (cMode==='create' && j?.item) setContacts(prev => [...prev, j.item])
+    if (cMode==='edit' && j?.item) setContacts(prev => prev.map(x => x.id===j.item.id? j.item: x))
+    setContactOpen(false)
+  }
+  const deleteContact = async (id: string) => {
+    const r = await fetch(`/api/shift/contact/${id}`, { method: 'DELETE' })
+    if (!r.ok) { alert('削除に失敗しました'); return }
+    setContacts(prev => prev.filter(x => x.id !== id))
+  }
+
   // saving状態をBottomBarへ通知
   useEffect(() => {
     const ev = new CustomEvent('shiftSavingState', { detail: { saving: isSaving } })
@@ -490,11 +529,55 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
-          <div className="text-sm text-gray-600">シフトに関する連絡事項をここに表示/実装予定です。</div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { key:'common', title:'共通' },
+              { key:'sanchoku', title:'産直' },
+              { key:'esaki', title:'江D' },
+              { key:'maruno', title:'丸D' },
+            ].map(g => (
+              <div key={g.key} className="border rounded-md p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-semibold text-lg">{g.title}</div>
+                  <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+                </div>
+                <div className="space-y-2">
+                  {contacts.filter(c => (c.category||'common')===g.key).map(c => (
+                    <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                      <div className="font-medium text-base break-words">{c.title}</div>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
+                    </div>
+                  ))}
+                  {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
+                    <div className="text-sm text-gray-500">（項目なし）</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2">
+            <div className="grid grid-cols-1 gap-2">
+              <input className="border rounded p-2 text-sm" placeholder="タイトル" value={cTitle} onChange={e=>setCTitle(e.target.value)} />
+              <textarea className="border rounded p-2 text-sm h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+              <select className="border rounded p-2 text-sm" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+                <option value="common">共通</option>
+                <option value="sanchoku">産直</option>
+                <option value="esaki">江D</option>
+                <option value="maruno">丸D</option>
+              </select>
+              <div className="flex justify-end gap-2">
+                {cMode==='edit' && targetId && (
+                  <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+                )}
+                <Button variant="outline" onClick={()=>setContactOpen(false)}>キャンセル</Button>
+                <Button onClick={saveContact}>完了</Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
