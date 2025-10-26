@@ -26,28 +26,19 @@ export async function GET(req: Request) {
   const month = Number(searchParams.get('month'))
   if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
+  // PrismaのenumとDBの古いenum値(EZAKI_DONKI等)不整合により500となるのを回避するため、GETはrawで取得
   const includeColor = await hasLowerColorColumn()
-  const [notes, routes, lowers] = await Promise.all([
-    prisma.dayNote.findMany({
-      where: { year, month },
-      orderBy: [{ day: 'asc' }, { slot: 'asc' }],
-      select: { day: true, slot: true, text: true },
-    }),
-    prisma.routeAssignment.findMany({
-      where: { year, month },
-      select: { day: true, route: true, staffId: true, special: true },
-    }),
+  const [notesRows, routeRows, lowerRows] = await Promise.all([
+    (prisma.$queryRaw`SELECT "day","slot","text" FROM "day_notes" WHERE "year"=${year} AND "month"=${month} ORDER BY "day","slot"` as unknown as any[]),
+    (prisma.$queryRaw`SELECT "day",
+      CASE WHEN "route"='EZAKI_DONKI' THEN 'ESAKI_DONKI' ELSE "route" END AS route,
+      "staffId","special"
+      FROM "route_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[]),
     includeColor
-      ? prisma.lowerAssignment.findMany({
-          where: { year, month },
-          select: { day: true, rowIndex: true, staffId: true, color: true },
-        })
-      : (prisma.lowerAssignment.findMany({
-          where: { year, month },
-          select: { day: true, rowIndex: true, staffId: true },
-        }) as any),
+      ? (prisma.$queryRaw`SELECT "day","rowIndex","staffId","color" FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[])
+      : (prisma.$queryRaw`SELECT "day","rowIndex","staffId" FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[]),
   ])
-  return NextResponse.json({ notes, routes, lowers })
+  return NextResponse.json({ notes: notesRows, routes: routeRows, lowers: lowerRows })
 }
 
 // POST /api/schedule  保存一括
