@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 async function getPrisma() {
   try {
@@ -11,10 +12,32 @@ async function getPrisma() {
   }
 }
 
+async function ensureShiftContactSchema() {
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='shift_contacts' LIMIT 1"
+    )
+    const exists = Array.isArray(rows) && rows.length > 0
+    if (exists) return
+    await prisma.$transaction([
+      prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "shift_contacts" (
+        "id" TEXT PRIMARY KEY,
+        "title" TEXT NOT NULL,
+        "body" TEXT NOT NULL,
+        "category" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`),
+      prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "shift_contacts_createdAt_idx" ON "shift_contacts" ("createdAt");`)
+    ] as any)
+  } catch {}
+}
+
 // GET /api/shift/contact
 export async function GET() {
   const prisma = await getPrisma()
   if (!prisma) return NextResponse.json({ items: [] })
+  await ensureShiftContactSchema()
   const items = await prisma.shiftContact.findMany({ orderBy: { createdAt: 'asc' } })
   return NextResponse.json({ items })
 }
@@ -29,6 +52,7 @@ export async function POST(req: Request) {
   }
   const prisma = await getPrisma()
   if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
+  await ensureShiftContactSchema()
   const body = await req.json()
   const rawTitle: string | undefined = typeof body?.title === 'string' ? body.title : undefined
   const content: string = (body?.body ?? '').toString().trim()
