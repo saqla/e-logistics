@@ -35,7 +35,8 @@ type RouteSpecial = 'CONTINUE' | 'OFF' | null
 type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; special: RouteSpecial }
 type LowerAssignment = { day: number; rowIndex: number; staffId: string | null; color?: 'WHITE' | 'PINK' }
 
-const ROUTE_LABEL: Record<RouteKind, string> = {
+// デフォルトのルート名（DB未設定時）
+const DEFAULT_ROUTE_LABEL: Record<RouteKind, string> = {
   ESAKI_DONKI: '江D',
   SANCHOKU: '産直',
   MARUNO_DONKI: '丸D'
@@ -742,6 +743,24 @@ export default function SchedulePage() {
   }, [saving])
 
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
+  // ルート定義（名称・色）を取得
+  const [routeDefs, setRouteDefs] = useState<Record<string,{name:string; bgClass:string; textClass:string}>>({})
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch('/api/route-defs', { cache: 'no-store' })
+        const j = await r.json().catch(()=>({items:[]}))
+        if (Array.isArray(j.items)) {
+          const map: Record<string,{name:string; bgClass:string; textClass:string}> = {}
+          for (const it of j.items) {
+            if (it?.enabled) map[it.key] = { name: it.name, bgClass: it.bgClass, textClass: it.textClass }
+          }
+          setRouteDefs(map)
+        }
+      } catch {}
+    }
+    load()
+  }, [])
   const scrollToDay = (day: number) => {
     const main = mainScrollRef.current
     const top = topScrollRef.current
@@ -939,7 +958,7 @@ export default function SchedulePage() {
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
             {(['ESAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{routeDefs[rk]?.name || DEFAULT_ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
@@ -947,7 +966,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-full">
-                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
+                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis ${routeDefs[rk]?.bgClass || ''} ${routeDefs[rk]?.textClass || ''}`}>
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
