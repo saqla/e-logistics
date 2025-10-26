@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { daysInMonth, getDow } from '@/lib/utils'
@@ -430,68 +430,66 @@ export default function ShiftAppPage() {
         </div>
         {/* モバイル縦: 週ごとに縦連結（7列固定） */}
         {(isPortrait && vw > 0 && vw < 768) ? (
-          <div className="space-y-4">
-            {weeks.map((week, wi) => (
-              <div key={`wk-${wi}`} className="overflow-x-auto border rounded-md bg-white">
-                <table className="w-full text-sm table-fixed">
-                  <thead>
-                    {/* 曜日行（参考画像相当） */}
+          <div className="overflow-x-auto border rounded-md bg-white">
+            <table className="w-full text-sm table-fixed">
+              <thead>
+                {/* 曜日行：週ごとに7列繰り返し */}
+                <tr>
+                  <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const wd = ['日','月','火','水','木','金','土'][i]
+                    const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                    return (
+                      <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.map((week, wi) => (
+                  <Fragment key={`wkblk-${wi}`}>
+                    {/* 週のヘッダー（日付行） */}
                     <tr>
-                      <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
-                      {week.map((_, i) => {
-                        const wd = ['日','月','火','水','木','金','土'][i]
-                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                        return (
-                          <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
-                        )
-                      })}
-                    </tr>
-                    {/* 日付行（M/D） */}
-                    <tr>
-                      <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
+                      <td className="sticky left-0 bg-white z-20 border-b p-2 text-left" style={{ width: leftColPx }}></td>
                       {week.map((d, i) => {
                         const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
                         const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                         return (
-                          <th key={`md-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</th>
+                          <td key={`date-${wi}-${i}`} className={`border-b p-2 text-center ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</td>
                         )
                       })}
                     </tr>
-                  </thead>
-                  <tbody>
+                    {/* 週の明細（名前×7日） */}
                     {staffs.map(st => (
-                      <tr key={`wk-${wi}-${st.id}`}>
+                      <tr key={`row-${wi}-${st.id}`}>
                         <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
                         {week.map((d, i) => {
                           const a = d ? aMap.get(`${st.id}-${d}`) : undefined
                           const label = a ? enumToRouteLabel(a.route) : null
-                          const car = a?.carNumber ?? ''
                           const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
                           const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                          const openCarPicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
                           const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                          const openNoteBR = () => { setTempText(a?.noteBR ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
                           return (
-                            <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                              <div className="grid grid-cols-2 grid-rows-2 h-16">
-                                <button disabled={!d} onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
-                                <button disabled={!d} onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{d ? car : ''}</button>
-                                <button disabled={!d} onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                  {d ? (a?.noteBL ?? '') : ''}
-                                </button>
-                                <button disabled={!d} onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                  {d ? (a?.noteBR ?? '') : ''}
-                                </button>
-                              </div>
+                            <td key={`cell-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                              {d ? (
+                                <div className="grid grid-rows-2 h-16">
+                                  <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                                  <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                    {a?.noteBL ?? ''}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="h-16" />
+                              )}
                             </td>
                           )
                         })}
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
         <div className="overflow-x-auto border rounded-md bg-white">
@@ -521,19 +519,13 @@ export default function ShiftAppPage() {
                     const car = a?.carNumber ?? ''
                     const isToday = todayInfo.isSameMonth && todayInfo.day === d
                     const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                    const openCarPicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
                     const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                    const openNoteBR = () => { setTempText(a?.noteBR ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
                     return (
                       <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                        <div className="grid grid-cols-2 grid-rows-2 h-16">
-                          <button onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                          <button onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{car}</button>
-                          <button onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                        <div className="grid grid-rows-2 h-16">
+                          <button onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                          <button onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
                             {a?.noteBL ?? ''}
-                          </button>
-                          <button onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                            {a?.noteBR ?? ''}
                           </button>
                         </div>
                       </td>
