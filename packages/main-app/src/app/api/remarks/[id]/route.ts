@@ -29,7 +29,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (typeof body?.body === 'string') data.body = body.body.trim()
     // 後方互換のため category の更新は無効化（将来スキーマ導入時に再検討）
     if (Object.keys(data).length === 0) return NextResponse.json({ error: '更新項目がありません' }, { status: 400 })
-    const updated = await prisma.remark.update({ where: { id }, data })
+    // 後方互換: raw UPDATEで列を限定
+    if (Object.prototype.hasOwnProperty.call(data, 'title') || Object.prototype.hasOwnProperty.call(data, 'body')) {
+      const titleVal = typeof data.title === 'string' ? data.title : undefined
+      const bodyVal = typeof data.body === 'string' ? data.body : undefined
+      if (titleVal != null && bodyVal != null) {
+        await prisma.$executeRaw`UPDATE "remarks" SET "title"=${titleVal}, "body"=${bodyVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
+      } else if (titleVal != null) {
+        await prisma.$executeRaw`UPDATE "remarks" SET "title"=${titleVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
+      } else if (bodyVal != null) {
+        await prisma.$executeRaw`UPDATE "remarks" SET "body"=${bodyVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
+      }
+      const updated = await prisma.remark.findUnique({ where: { id } })
+      return NextResponse.json({ remark: updated })
+    }
+    const updated = await prisma.remark.findUnique({ where: { id } })
     return NextResponse.json({ remark: updated })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
