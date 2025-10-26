@@ -1370,14 +1370,15 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const rest = items.slice(3)
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'create'|'edit'>('create')
+  const [viewMode, setViewMode] = useState<'view'|'edit'>('edit')
   const [target, setTarget] = useState<Remark | undefined>(undefined)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const openCreate = () => { if (!editorVerified) return; setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
-  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
+  const openCreate = () => { if (!editorVerified) return; setMode('create'); setViewMode('edit'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
+  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setViewMode('view'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
 
   const save = async () => {
     const t = title.trim(); const b = body.trim()
@@ -1407,14 +1408,13 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
     setRefresh(v=>v+1)
   }
 
-  // ダイアログ表示時に自動フォーカス（新規=タイトル、編集=本文）
+  // ダイアログ表示時に自動フォーカス（編集モードのみ）
   useEffect(() => {
-    if (!open) return
+    if (!open || viewMode !== 'edit') return
     const focusTarget = mode === 'create' ? titleInputRef.current : bodyTextareaRef.current
-    // モーダルマウント直後のレイアウト確定後にフォーカス
     const id = setTimeout(() => focusTarget?.focus({ preventScroll: true }), 0)
     return () => clearTimeout(id)
-  }, [open, mode])
+  }, [open, mode, viewMode])
 
   return (
     <div>
@@ -1471,19 +1471,29 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
       <Dialog open={editorVerified && open} onOpenChange={setOpen}>
         <DialogContent className="bg-white">
           <DialogHeader>
-            <DialogTitle>{mode==='create' ? '備考を追加' : '備考を編集'}</DialogTitle>
+            <DialogTitle>{mode==='create' ? '備考を追加' : (viewMode==='view' ? '備考' : '備考を編集')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="rtitle">タイトル</Label>
-              <Input id="rtitle" ref={titleInputRef} value={title} onChange={(e)=>setTitle(e.target.value)} autoFocus={mode==='create'} />
+          {viewMode === 'view' ? (
+            <div className="space-y-3" onClick={() => setViewMode('edit')}>
+              <div className="font-medium text-lg break-words">{title || <span className="text-gray-400">（タイトルなし）</span>}</div>
+              <div className="text-base text-gray-700 whitespace-pre-wrap break-words min-h-[8rem] border rounded-md p-3 bg-gray-50 relative">
+                <span className="absolute right-2 top-2 text-xs text-gray-500">タップで編集</span>
+                {body || <span className="text-gray-400">（本文なし）</span>}
+              </div>
             </div>
-            <div>
-              <Label htmlFor="rbody">本文</Label>
-              <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} autoFocus={mode==='edit'} />
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="rtitle">タイトル</Label>
+                <Input id="rtitle" ref={titleInputRef} value={title} onChange={(e)=>setTitle(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="rbody">本文</Label>
+                <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} />
+              </div>
             </div>
-          </div>
-          <div className="flex justify-end gap-2">
+          )}
+          <div className="flex justify-end gap-2 mt-3">
             {mode==='edit' && target && (
               <Button
                 variant="destructive"
@@ -1492,8 +1502,12 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
                 削除
               </Button>
             )}
-            <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
-            <Button onClick={save} disabled={!editorVerified}>完了</Button>
+            {viewMode === 'edit' && <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>}
+            {viewMode === 'edit' ? (
+              <Button onClick={save} disabled={!editorVerified}>完了</Button>
+            ) : (
+              <Button variant="outline" onClick={()=>setViewMode('edit')}>編集</Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
