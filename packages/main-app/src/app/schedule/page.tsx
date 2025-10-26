@@ -705,6 +705,7 @@ export default function SchedulePage() {
   const [asideOpen, setAsideOpen] = useState(false)
   // 検索モーダル
   const [searchOpen, setSearchOpen] = useState(false)
+  const [routeDefsOpen, setRouteDefsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchScope, setSearchScope] = useState<'month'|'jump'>('month')
   const [highlightDays, setHighlightDays] = useState<Set<number>>(new Set())
@@ -1266,7 +1267,7 @@ export default function SchedulePage() {
             <div className="font-semibold text-center text-xl mb-2">管理</div>
             <div className="border rounded-md p-3 w-full break-words">
               <div className="flex flex-col gap-2">
-                <Button className="w-full text-base" variant="outline" onClick={() => alert('準備中: ルート一覧の設定')}>
+                <Button className="w-full text-base" variant="outline" onClick={() => setRouteDefsOpen(true)}>
                   ルート一覧の設定
                 </Button>
               </div>
@@ -1319,6 +1320,16 @@ export default function SchedulePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+  {/* ルート一覧の設定（ポートレート管理用簡易UI） */}
+  <Dialog open={routeDefsOpen} onOpenChange={setRouteDefsOpen}>
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>ルート一覧の設定</DialogTitle>
+      </DialogHeader>
+      <RouteDefsEditor />
+    </DialogContent>
+  </Dialog>
     </div>
   )
 }
@@ -1578,6 +1589,62 @@ function MobileRemarksGrid() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function RouteDefsEditor() {
+  const { data: session } = useSession()
+  const editorVerified = (session as any)?.editorVerified === true
+  const [items, setItems] = useState<{id:string; key:string; name:string; order:number; bgClass:string; textClass:string; enabled:boolean}[]>([])
+  const [loading, setLoading] = useState(false)
+  const [palette] = useState([
+    { bg: 'bg-purple-600', text: 'text-white' },
+    { bg: 'bg-orange-500', text: 'text-white' },
+    { bg: 'bg-violet-400', text: 'text-white' },
+    { bg: 'bg-green-500', text: 'text-white' },
+    { bg: 'bg-red-500', text: 'text-white' },
+    { bg: 'bg-gray-200', text: 'text-gray-800' },
+  ])
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      try {
+        const r = await fetch('/api/route-defs', { cache: 'no-store' })
+        const j = await r.json().catch(()=>({items:[]}))
+        setItems(Array.isArray(j.items) ? j.items : [])
+      } finally { setLoading(false) }
+    }
+    load()
+  }, [])
+
+  const applyColor = async (id: string, bg: string, text: string) => {
+    if (!editorVerified) return
+    const r = await fetch(`/api/route-defs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bgClass: bg, textClass: text }) })
+    if (!r.ok) { alert('保存に失敗しました'); return }
+    const j = await r.json().catch(()=>({}))
+    if (j?.item) setItems(prev => prev.map(x => x.id===id ? j.item : x))
+  }
+
+  if (loading) return <div className="text-sm text-gray-600">読み込み中…</div>
+
+  return (
+    <div className="space-y-3">
+      {items.map(it => (
+        <div key={it.id} className="border rounded-md p-3">
+          <div className="flex items-center justify-between">
+            <div className="font-medium text-base">{it.name}</div>
+            <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+          </div>
+          <div className="mt-2 grid grid-cols-6 gap-2">
+            {palette.map((p, idx) => (
+              <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyColor(it.id, p.bg, p.text)}>Aa</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {items.length === 0 && (<div className="text-sm text-gray-600">設定対象のルートがありません</div>)}
     </div>
   )
 }
