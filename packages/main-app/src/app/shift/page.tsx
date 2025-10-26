@@ -569,8 +569,8 @@ export default function ShiftAppPage() {
           {editingVisible && (
             <div className="mt-2">
               <div className="grid grid-cols-1 gap-2">
-                <textarea className="border rounded p-2 text-sm h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
-                <select className="border rounded p-2 text-sm" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+                <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+                <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
                   <option value="common">共通</option>
                   <option value="sanchoku">産直</option>
                   <option value="esaki">江D</option>
