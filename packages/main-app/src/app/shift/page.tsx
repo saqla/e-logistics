@@ -436,15 +436,13 @@ export default function ShiftAppPage() {
                 {/* 曜日行：週ごとに7列繰り返し */}
                 <tr>
                   <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
-                  {weeks.map((week, wi) => (
-                    week.map((_, i) => {
-                      const wd = ['日','月','火','水','木','金','土'][i]
-                      const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                      return (
-                        <th key={`wd-${wi}-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
-                      )
-                    })
-                  ))}
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const wd = ['日','月','火','水','木','金','土'][i]
+                    const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                    return (
+                      <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
