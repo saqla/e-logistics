@@ -30,13 +30,13 @@ function useIsPortrait() {
 type Staff = { id: string; name: string; kind: 'ALL'|'UNIC'|'HAKO'|'JIMU'; lowerCount: number }
 
 type Note = { day: number; slot: number; text: string }
-type RouteKind = 'EZAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
+type RouteKind = 'ESAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
 type RouteSpecial = 'CONTINUE' | 'OFF' | null
 type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; special: RouteSpecial }
 type LowerAssignment = { day: number; rowIndex: number; staffId: string | null; color?: 'WHITE' | 'PINK' }
 
 const ROUTE_LABEL: Record<RouteKind, string> = {
-  EZAKI_DONKI: '江D',
+  ESAKI_DONKI: '江D',
   SANCHOKU: '産直',
   MARUNO_DONKI: '丸D'
 }
@@ -936,7 +936,7 @@ export default function SchedulePage() {
             </TooltipProvider>
 
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
-            {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
+            {(['ESAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
               <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {

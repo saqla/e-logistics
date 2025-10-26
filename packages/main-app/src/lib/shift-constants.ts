@@ -59,11 +59,11 @@ export function getCarColor(car: string): string {
 }
 
 // 予定表投影用ルートキー（必要に応じてUI/DBから直接設定）
-export type ScheduleRouteKey = 'EZAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
+export type ScheduleRouteKey = 'ESAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
 
 export const SHIFT_TO_SCHEDULE_ROUTE: Record<string, ScheduleRouteKey | null> = {
   SANCHOKU: 'SANCHOKU',
-  DONKI_FUKUOKA: 'EZAKI_DONKI',
+  DONKI_FUKUOKA: 'ESAKI_DONKI',
   DONKI_NAGASAKI: 'MARUNO_DONKI',
   UNIC: null,
   OFF: null,

@@ -20,9 +20,9 @@ export async function POST(req: Request) {
   let body: any
   try { body = await req.json().catch(() => ({})) } catch { body = {} }
   const overwrite = !!body?.overwrite
-  const routes: ('EZAKI_DONKI'|'SANCHOKU'|'MARUNO_DONKI')[] = Array.isArray(body?.routes) && body.routes.length
+  const routes: ('ESAKI_DONKI'|'SANCHOKU'|'MARUNO_DONKI')[] = Array.isArray(body?.routes) && body.routes.length
     ? body.routes
-    : ['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI']
+    : ['ESAKI_DONKI','SANCHOKU','MARUNO_DONKI']
 
   // 対象月のシフト取得
   const shifts = await prisma.shiftAssignment.findMany({

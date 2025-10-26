@@ -94,7 +94,7 @@ model DayNote {
 
 // 上段最下部3行のルート種別
 enum RouteKind {
-  EZAKI_DONKI
+  ESAKI_DONKI
   SANCHOKU
   MARUNO_DONKI
 }
