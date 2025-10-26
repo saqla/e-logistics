@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { randomUUID } from 'crypto'
 
 async function getPrisma() {
   try {
@@ -55,7 +56,16 @@ export async function POST(req: Request) {
     const title: string = body?.title?.trim()
     const content: string = body?.body?.trim()
     if (!title || !content) return NextResponse.json({ error: 'タイトルと本文は必須です' }, { status: 400 })
-    // 後方互換のため category は送らない（列が無い環境でも保存可能にする）
+    // 後方互換: category列が無いDBではraw insert（列を明示）
+    const includeCategory = await hasRemarkCategoryColumn(prisma)
+    if (!includeCategory) {
+      const id = randomUUID()
+      const createdAt = new Date()
+      const updatedAt = createdAt
+      await prisma.$executeRaw`INSERT INTO "remarks" ("id","title","body","createdAt","updatedAt") VALUES (${id}, ${title}, ${content}, ${createdAt}, ${updatedAt})`
+      const created = await prisma.remark.findUnique({ where: { id } })
+      return NextResponse.json({ remark: created })
+    }
     const created = await prisma.remark.create({ data: { title, body: content } })
     return NextResponse.json({ remark: created })
   } catch (e: any) {

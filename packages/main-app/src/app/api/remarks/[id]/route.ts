@@ -27,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const data: any = {}
     if (typeof body?.title === 'string') data.title = body.title.trim()
     if (typeof body?.body === 'string') data.body = body.body.trim()
-    // 後方互換のため category の更新は一旦無効化
+    // 後方互換のため category の更新は無効化（将来スキーマ導入時に再検討）
     if (Object.keys(data).length === 0) return NextResponse.json({ error: '更新項目がありません' }, { status: 400 })
     const updated = await prisma.remark.update({ where: { id }, data })
     return NextResponse.json({ remark: updated })
