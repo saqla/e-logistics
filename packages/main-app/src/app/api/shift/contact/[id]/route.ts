@@ -25,9 +25,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const body = await req.json()
   const data: any = {}
   if (typeof body?.title === 'string') data.title = body.title.trim()
-  if (typeof body?.body === 'string') data.body = body.body.trim()
+  if (typeof body?.body === 'string') data.body = (body.body ?? '').toString().trim()
   if (typeof body?.category === 'string') data.category = body.category
   if (Object.keys(data).length === 0) return NextResponse.json({ error: '更新項目がありません' }, { status: 400 })
+  if (data.body != null && data.body === '') return NextResponse.json({ error: '本文は必須です' }, { status: 400 })
   const updated = await prisma.shiftContact.update({ where: { id }, data })
   return NextResponse.json({ item: updated })
 }
