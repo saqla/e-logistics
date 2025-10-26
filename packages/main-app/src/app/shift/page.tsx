@@ -468,19 +468,13 @@ export default function ShiftAppPage() {
                           const car = a?.carNumber ?? ''
                           const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
                           const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                          const openCarPicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
                           const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                          const openNoteBR = () => { setTempText(a?.noteBR ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
                           return (
                             <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                              <div className="grid grid-cols-2 grid-rows-2 h-16">
-                                <button disabled={!d} onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
-                                <button disabled={!d} onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{d ? car : ''}</button>
-                                <button disabled={!d} onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                              <div className="grid grid-rows-2 h-16">
+                                <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
+                                <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
                                   {d ? (a?.noteBL ?? '') : ''}
-                                </button>
-                                <button disabled={!d} onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                  {d ? (a?.noteBR ?? '') : ''}
                                 </button>
                               </div>
                             </td>
@@ -521,19 +515,13 @@ export default function ShiftAppPage() {
                     const car = a?.carNumber ?? ''
                     const isToday = todayInfo.isSameMonth && todayInfo.day === d
                     const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                    const openCarPicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
                     const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                    const openNoteBR = () => { setTempText(a?.noteBR ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
                     return (
                       <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                        <div className="grid grid-cols-2 grid-rows-2 h-16">
-                          <button onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                          <button onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{car}</button>
-                          <button onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                        <div className="grid grid-rows-2 h-16">
+                          <button onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                          <button onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
                             {a?.noteBL ?? ''}
-                          </button>
-                          <button onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                            {a?.noteBR ?? ''}
                           </button>
                         </div>
                       </td>
