@@ -25,18 +25,14 @@ async function ensureSchema() {
 }
 
 async function ensureDefaults() {
-  // 既定の6ルート（シフト用）+ 月予定表の3ルートキーも包含
+  // シフト予定表の既定6ルートのみを保証（不足分だけupsert）
   const defaults: { key: string; name: string; order: number; bgClass: string; textClass: string; enabled: boolean }[] = [
-    // 月予定表3ルート
-    { key: 'ESAKI_DONKI',   name: '江D',       order: 10, bgClass: 'bg-gray-200',  textClass: 'text-gray-900', enabled: true },
-    { key: 'SANCHOKU',      name: '産直',     order: 20, bgClass: 'bg-green-500', textClass: 'text-white',    enabled: true },
-    { key: 'MARUNO_DONKI',  name: '丸D',       order: 30, bgClass: 'bg-gray-200',  textClass: 'text-gray-900', enabled: true },
-    // シフト6種
-    { key: 'DONKI_FUKUOKA', name: 'ドンキ(福岡)', order: 40, bgClass: 'bg-orange-500', textClass: 'text-white', enabled: true },
-    { key: 'DONKI_NAGASAKI',name: 'ドンキ(長崎)', order: 50, bgClass: 'bg-violet-400', textClass: 'text-white', enabled: true },
-    { key: 'UNIC',          name: 'ユニック', order: 60, bgClass: 'bg-blue-500',  textClass: 'text-white',    enabled: true },
-    { key: 'OFF',           name: '休み',     order: 70, bgClass: 'bg-gray-200',  textClass: 'text-gray-900', enabled: true },
-    { key: 'PAID_LEAVE',    name: '有給',     order: 80, bgClass: 'bg-yellow-300',textClass: 'text-yellow-900',enabled: true },
+    { key: 'SANCHOKU',       name: '産直',       order: 20, bgClass: 'bg-green-500',  textClass: 'text-white',     enabled: true },
+    { key: 'DONKI_FUKUOKA',  name: 'ドンキ(福岡)', order: 40, bgClass: 'bg-orange-500', textClass: 'text-white',     enabled: true },
+    { key: 'DONKI_NAGASAKI', name: 'ドンキ(長崎)', order: 50, bgClass: 'bg-violet-400', textClass: 'text-white',     enabled: true },
+    { key: 'UNIC',           name: 'ユニック',   order: 60, bgClass: 'bg-blue-500',   textClass: 'text-white',     enabled: true },
+    { key: 'OFF',            name: '休み',       order: 70, bgClass: 'bg-gray-200',   textClass: 'text-gray-900',  enabled: true },
+    { key: 'PAID_LEAVE',     name: '有給',       order: 80, bgClass: 'bg-yellow-300', textClass: 'text-yellow-900',enabled: true },
   ]
   for (const d of defaults) {
     await prisma.routeDefinition.upsert({
@@ -49,11 +45,8 @@ async function ensureDefaults() {
 
 export async function GET() {
   await ensureSchema()
-  // 初期データが無ければ作成（idempotent）
-  const cnt = await prisma.routeDefinition.count()
-  if (cnt === 0) {
-    await ensureDefaults()
-  }
+  // シフト用の不足分のみ作成（毎回冪等upsert）
+  await ensureDefaults()
   const items = await prisma.routeDefinition.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] })
   return NextResponse.json({ items })
 }
