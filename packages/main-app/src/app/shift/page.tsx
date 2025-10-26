@@ -584,7 +584,7 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent className="max-w-3xl bg-white">
+        <DialogContent className="max-w-3xl bg-white overflow-visible max-h-none">
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
@@ -647,14 +647,12 @@ export default function ShiftAppPage() {
                 <div className="text-sm text-gray-600">読み込み中…</div>
               ) : (
                 <div className="grid grid-cols-1 divide-y">
-                  <div className="grid grid-cols-[80px_1fr_140px] text-sm text-gray-500 py-2">
-                    <div>表示順</div>
+                  <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
                     <div>ルート名</div>
                     <div>操作</div>
                   </div>
                   {routeItems.map(it => (
-                    <div key={it.id} className="grid grid-cols-[80px_1fr_140px] items-center py-2">
-                      <div>{it.order ?? 0}</div>
+                    <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
                       <div>
                         {routeEditId===it.id ? (
                           <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
@@ -676,7 +674,7 @@ export default function ShiftAppPage() {
                         )}
                       </div>
                       {routeEditId===it.id && (
-                        <div className="col-span-3 mt-2">
+                        <div className="col-span-2 mt-2">
                           <div className="text-sm text-gray-600 mb-1">色を選択</div>
                           <div className="grid grid-cols-6 gap-2">
                             {palette.map((p, idx) => (
