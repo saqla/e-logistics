@@ -450,7 +450,7 @@ export default function ShiftAppPage() {
                   <Fragment key={`wkblk-${wi}`}>
                     {/* 週のヘッダー（日付行） */}
                     <tr>
-                      <td className="sticky left-0 bg-white z-20 border-b p-2 text-left font-medium" style={{ width: leftColPx }}>名前</td>
+                      <td className="sticky left-0 bg-white z-20 border-b p-2 text-left" style={{ width: leftColPx }}></td>
                       {week.map((d, i) => {
                         const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
                         const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
