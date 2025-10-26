@@ -62,7 +62,8 @@ export async function POST(req: Request) {
     if (overwrite) {
       await tx.routeAssignment.deleteMany({ where: { year, month } })
     }
-    for (const [k, staffId] of byDayRoute.entries()) {
+    const entries = Array.from(byDayRoute.entries())
+    for (const [k, staffId] of entries) {
       const [dayStr, routeKey] = k.split('-')
       const day = Number(dayStr)
       await tx.routeAssignment.upsert({
