@@ -584,10 +584,12 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent className="max-w-3xl bg-white overflow-visible max-h-none">
+        <DialogContent className="max-w-3xl bg-white max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
+          {/* スクロール可能ラッパー */}
+          <div className="overflow-y-auto max-h-[70vh] pr-1">
           <div className="grid grid-cols-2 gap-3">
             {[
               { key:'common', title:'共通' },
@@ -691,6 +693,7 @@ export default function ShiftAppPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </DialogContent>
       </Dialog>
