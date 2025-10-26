@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   const content: string = (body?.body ?? '').toString().trim()
   const category: string | undefined = typeof body?.category === 'string' ? body.category : undefined
   if (!content) return NextResponse.json({ error: '本文は必須です' }, { status: 400 })
-  const created = await prisma.shiftContact.create({ data: { title: null, body: content, category } })
+  const created = await prisma.shiftContact.create({ data: { title: '', body: content, category } })
   return NextResponse.json({ item: created })
 }
 
