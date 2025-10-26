@@ -548,7 +548,6 @@ export default function ShiftAppPage() {
               <div key={g.key} className="border rounded-md p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-semibold text-lg">{g.title}</div>
-                  <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
                 </div>
                 <div className="space-y-2">
                   {contacts.filter(c => (c.category||'common')===g.key).map(c => (
@@ -564,10 +563,12 @@ export default function ShiftAppPage() {
               </div>
             ))}
           </div>
+          <div className="mt-3 flex justify-end">
+            <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+          </div>
           {editingVisible && (
             <div className="mt-2">
               <div className="grid grid-cols-1 gap-2">
-                <input className="border rounded p-2 text-sm" placeholder="タイトル" value={cTitle} onChange={e=>setCTitle(e.target.value)} />
                 <textarea className="border rounded p-2 text-sm h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
                 <select className="border rounded p-2 text-sm" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
                   <option value="common">共通</option>
