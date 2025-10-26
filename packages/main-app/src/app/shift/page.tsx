@@ -430,62 +430,68 @@ export default function ShiftAppPage() {
         </div>
         {/* モバイル縦: 週ごとに縦連結（7列固定） */}
         {(isPortrait && vw > 0 && vw < 768) ? (
-          <div className="space-y-4">
-            {weeks.map((week, wi) => (
-              <div key={`wk-${wi}`} className="overflow-x-auto border rounded-md bg-white">
-                <table className="w-full text-sm table-fixed">
-                  <thead>
-                    {/* 曜日行（参考画像相当） */}
-                    <tr>
-                      <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
-                      {week.map((_, i) => {
-                        const wd = ['日','月','火','水','木','金','土'][i]
-                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                        return (
-                          <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
-                        )
-                      })}
-                    </tr>
-                    {/* 日付行（M/D） */}
-                    <tr>
-                      <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
-                      {week.map((d, i) => {
+          <div className="overflow-x-auto border rounded-md bg-white">
+            <table className="w-full text-sm table-fixed">
+              <thead>
+                {/* 曜日行：週ごとに7列繰り返し */}
+                <tr>
+                  <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
+                  {weeks.map((week, wi) => (
+                    week.map((_, i) => {
+                      const wd = ['日','月','火','水','木','金','土'][i]
+                      const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                      return (
+                        <th key={`wd-${wi}-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
+                      )
+                    })
+                  ))}
+                </tr>
+                {/* 日付行：M/D表示（当月外は空） */}
+                <tr>
+                  <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
+                  {weeks.map((week, wi) => (
+                    week.map((d, i) => {
+                      const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                      const dow = i
+                      const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
+                      return (
+                        <th key={`md-${wi}-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</th>
+                      )
+                    })
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {staffs.map(st => (
+                  <tr key={`st-${st.id}`}>
+                    <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+                    {weeks.map((week, wi) => (
+                      week.map((d, i) => {
+                        const a = d ? aMap.get(`${st.id}-${d}`) : undefined
+                        const label = a ? enumToRouteLabel(a.route) : null
                         const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                        const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                        const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
                         return (
-                          <th key={`md-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</th>
-                        )
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {staffs.map(st => (
-                      <tr key={`wk-${wi}-${st.id}`}>
-                        <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
-                        {week.map((d, i) => {
-                          const a = d ? aMap.get(`${st.id}-${d}`) : undefined
-                          const label = a ? enumToRouteLabel(a.route) : null
-                          const car = a?.carNumber ?? ''
-                          const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                          const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                          const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                          return (
-                            <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                          <td key={`cell-${st.id}-${wi}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                            {d ? (
                               <div className="grid grid-rows-2 h-16">
-                                <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
+                                <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
                                 <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                  {d ? (a?.noteBL ?? '') : ''}
+                                  {a?.noteBL ?? ''}
                                 </button>
                               </div>
-                            </td>
-                          )
-                        })}
-                      </tr>
+                            ) : (
+                              <div className="h-16" />
+                            )}
+                          </td>
+                        )
+                      })
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
         <div className="overflow-x-auto border rounded-md bg-white">
