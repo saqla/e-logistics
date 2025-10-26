@@ -1252,12 +1252,12 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md bg-white`}>
+        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-3xl bg-white`}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
-          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
-          <RightSideContent compact />
+          {/* モバイル縦では4グループ（共通/産直/江D/丸D）を2x2で表示 */}
+          <MobileRemarksGrid />
           <div className="mt-3">
             <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
           </div>
@@ -1430,6 +1430,108 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
             <div>
               <Label htmlFor="rbody">本文</Label>
               <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} autoFocus={mode==='edit'} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            {mode==='edit' && target && (
+              <Button
+                variant="destructive"
+                onClick={async ()=>{ await del(target.id); setOpen(false) }}
+              >
+                削除
+              </Button>
+            )}
+            <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
+            <Button onClick={save} disabled={!editorVerified}>完了</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function MobileRemarksGrid() {
+  const { data: session } = useSession()
+  const editorVerified = (session as any)?.editorVerified === true
+  const { items, setRefresh } = useRemarks()
+  const first3 = items.slice(0,3)
+  const rest = items.slice(3)
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'create'|'edit'>('create')
+  const [target, setTarget] = useState<Remark | undefined>(undefined)
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+
+  const openCreate = () => { if (!editorVerified) return; setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
+  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
+
+  const save = async () => {
+    const payload = { title: title.trim(), body: body.trim() }
+    const url = mode==='create' ? '/api/remarks' : `/api/remarks/${target!.id}`
+    const method = mode==='create' ? 'POST' : 'PATCH'
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) { alert('保存に失敗しました'); return }
+    setOpen(false); setRefresh(v=>v+1)
+  }
+
+  const del = async (id: string) => {
+    const res = await fetch(`/api/remarks/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('削除に失敗しました'); return }
+    setRefresh(v=>v+1)
+  }
+
+  // 全備考を単純に4等分（将来はタグ/種別でグルーピングも可）
+  const groups = [
+    { key: 'common', title: '共通' },
+    { key: 'sanchoku', title: '産直' },
+    { key: 'esaki', title: '江D' },
+    { key: 'maruno', title: '丸D' },
+  ] as const
+  const chunk = (arr: Remark[], from: number, to: number) => arr.slice(from, to)
+  const g0 = chunk(items, 0, Math.ceil(items.length/4))
+  const g1 = chunk(items, Math.ceil(items.length/4), Math.ceil(items.length/2))
+  const g2 = chunk(items, Math.ceil(items.length/2), Math.ceil(items.length*3/4))
+  const g3 = chunk(items, Math.ceil(items.length*3/4), items.length)
+  const map = { common: g0, sanchoku: g1, esaki: g2, maruno: g3 } as Record<string, Remark[]>
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        {groups.map((g) => (
+          <div key={g.key} className="border rounded-md p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-lg">{g.title}</div>
+              {editorVerified && <Button size="sm" className="text-base" onClick={openCreate}>新規</Button>}
+            </div>
+            <div className="space-y-2">
+              {map[g.key].map(r => (
+                <div key={r.id} className="border rounded p-2 break-words" onClick={() => editorVerified && openEdit(r)}>
+                  <div className="font-medium text-base break-words">{r.title}</div>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
+                </div>
+              ))}
+              {map[g.key].length === 0 && (
+                <div className="text-sm text-gray-500">（項目なし）</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 備考作成/編集ダイアログ */}
+      <Dialog open={editorVerified && open} onOpenChange={setOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>{mode==='create' ? '備考を追加' : '備考を編集'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="rtitle2">タイトル</Label>
+              <Input id="rtitle2" value={title} onChange={(e)=>setTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="rbody2">本文</Label>
+              <textarea id="rbody2" className="w-full h-40 border rounded-md p-2 text-sm" value={body} onChange={(e)=>setBody(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2">
