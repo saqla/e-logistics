@@ -173,6 +173,11 @@ model ShiftAssignment {
   carNumber String?         // 右上セル（8514/3717/4825/?/空白）
   noteBL    String?         // 左下セル（自由入力）
   noteBR    String?         // 右下セル（自由入力）
+  // 自動生成補助
+  role      String?         // 'driver' | 'assistant' など（将来enum化予定）
+  priority  Int?            // 小さいほど優先、未指定は0扱い
+  ignoreInSchedule Boolean? // 予定表投影から除外
+  scheduleRouteKey RouteKind? // 予定表の3ルート種別に直接マップ
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 

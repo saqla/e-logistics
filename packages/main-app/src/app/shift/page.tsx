@@ -290,6 +290,19 @@ export default function ShiftAppPage() {
     }
   }
 
+  // BottomBar からの保存要求に応答
+  useEffect(() => {
+    const onReq = (_e: Event) => { saveAll() }
+    window.addEventListener('requestShiftSave', onReq)
+    return () => window.removeEventListener('requestShiftSave', onReq)
+  }, [])
+
+  // saving状態をBottomBarへ通知
+  useEffect(() => {
+    const ev = new CustomEvent('shiftSavingState', { detail: { saving: isSaving } })
+    window.dispatchEvent(ev)
+  }, [isSaving])
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <SiteHeader
@@ -305,12 +318,6 @@ export default function ShiftAppPage() {
         showBack={!isPortrait}
       />
       <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
-        {/* shiftのsaving状態をBottomBarへ通知 */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          (function(){
-            try{window.dispatchEvent(new CustomEvent('shiftSavingState',{detail:{saving:${isSaving}}}))}catch(e){}
-          })();
-        ` }} />
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className={`px-2 py-0.5 rounded ${getRouteColor('産直')}`}>産直</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(福岡)')}`}>ドンキ(福岡)</span>
