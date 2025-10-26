@@ -32,6 +32,11 @@ export async function GET() {
   try {
     const prisma = await getPrisma()
     if (!prisma) return NextResponse.json({ remarks: [] })
+    const includeCategory = await hasRemarkCategoryColumn(prisma)
+    if (!includeCategory) {
+      const rows = await prisma.$queryRaw`SELECT "id","title","body","createdAt","updatedAt" FROM "remarks" ORDER BY "createdAt" ASC` as any[]
+      return NextResponse.json({ remarks: rows })
+    }
     const items = await prisma.remark.findMany({ orderBy: { createdAt: 'asc' } })
     return NextResponse.json({ remarks: items })
   } catch (e: any) {
@@ -61,7 +66,8 @@ export async function POST(req: Request) {
     const createdAt = new Date()
     const updatedAt = createdAt
     await prisma.$executeRaw`INSERT INTO "remarks" ("id","title","body","createdAt","updatedAt") VALUES (${id}, ${title}, ${content}, ${createdAt}, ${updatedAt})`
-    const created = await prisma.remark.findUnique({ where: { id } })
+    const rows = await prisma.$queryRaw`SELECT "id","title","body","createdAt","updatedAt" FROM "remarks" WHERE "id"=${id} LIMIT 1` as any[]
+    const created = rows?.[0] || { id, title, body: content, createdAt, updatedAt }
     return NextResponse.json({ remark: created })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
