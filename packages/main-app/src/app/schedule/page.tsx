@@ -1296,17 +1296,7 @@ export default function SchedulePage() {
               </div>
             </div>
           </div>
-          {/* 管理：/scheduleではスタッフ/クリアのみ。ルート一覧設定は/shift側に限定 */}
-          <div className="mt-3">
-            <div className="font-semibold text-center text-xl mb-2">管理</div>
-            <div className="border rounded-md p-3 w-full break-words">
-              <div className="flex flex-col gap-2">
-                <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
-                <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
-                <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
-              </div>
-            </div>
-          </div>
+          {/* 重複していた管理コンテナを削除（上のスクロール領域内のみ表示） */}
         </DialogContent>
       </Dialog>
 
