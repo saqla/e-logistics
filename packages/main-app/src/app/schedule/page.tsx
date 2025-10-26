@@ -1391,11 +1391,24 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
 
   const save = async () => {
-    const payload = { title: title.trim(), body: body.trim() }
+    const t = title.trim(); const b = body.trim()
+    const payload = { title: t, body: b }
     const url = mode==='create' ? '/api/remarks' : `/api/remarks/${target!.id}`
     const method = mode==='create' ? 'POST' : 'PATCH'
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-    if (!res.ok) { alert('保存に失敗しました'); return }
+    if (!res.ok) {
+      try {
+        const ct = res.headers.get('content-type') || ''
+        if (ct.includes('application/json')) {
+          const j = await res.json(); alert(j?.error || '保存に失敗しました')
+        } else {
+          const txt = await res.text(); alert(txt || '保存に失敗しました')
+        }
+      } catch {
+        alert('保存に失敗しました')
+      }
+      return
+    }
     setOpen(false); setRefresh(v=>v+1)
   }
 
