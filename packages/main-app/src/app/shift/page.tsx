@@ -58,6 +58,7 @@ export default function ShiftAppPage() {
   const [cTitle, setCTitle] = useState('')
   const [cBody, setCBody] = useState('')
   const [cCategory, setCCategory] = useState<'common'|'sanchoku'|'esaki'|'maruno'>('common')
+  const [editingVisible, setEditingVisible] = useState(false)
 
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
@@ -321,26 +322,30 @@ export default function ShiftAppPage() {
     load()
   }, [])
 
-  const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true) }
+  const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
   const openEditContact = (id: string) => {
     const t = contacts.find(x => x.id === id)
     if (!t) return
-    setCMode('edit'); setTargetId(id); setCTitle(t.title); setCBody(t.body); setCCategory((t.category as any) || 'common'); setContactOpen(true)
+    setCMode('edit'); setTargetId(id); setCTitle(t.title); setCBody(t.body); setCCategory((t.category as any) || 'common'); setContactOpen(true); setEditingVisible(true)
   }
   const saveContact = async () => {
     const payload = { title: cTitle.trim(), body: cBody.trim(), category: cCategory }
     const url = cMode==='create' ? '/api/shift/contact' : `/api/shift/contact/${targetId}`
     const method = cMode==='create' ? 'POST' : 'PATCH'
     const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-    if (!r.ok) { alert('保存に失敗しました'); return }
+    if (!r.ok) {
+      let msg = '保存に失敗しました'
+      try { const t = await r.text(); if (t) msg = t } catch {}
+      alert(msg); return
+    }
     const j = await r.json().catch(()=>({}))
     if (cMode==='create' && j?.item) setContacts(prev => [...prev, j.item])
     if (cMode==='edit' && j?.item) setContacts(prev => prev.map(x => x.id===j.item.id? j.item: x))
-    setContactOpen(false)
+    setEditingVisible(false)
   }
   const deleteContact = async (id: string) => {
     const r = await fetch(`/api/shift/contact/${id}`, { method: 'DELETE' })
-    if (!r.ok) { alert('削除に失敗しました'); return }
+    if (!r.ok) { let msg='削除に失敗しました'; try{const t=await r.text(); if(t) msg=t}catch{}; alert(msg); return }
     setContacts(prev => prev.filter(x => x.id !== id))
   }
 
@@ -559,25 +564,27 @@ export default function ShiftAppPage() {
               </div>
             ))}
           </div>
-          <div className="mt-2">
-            <div className="grid grid-cols-1 gap-2">
-              <input className="border rounded p-2 text-sm" placeholder="タイトル" value={cTitle} onChange={e=>setCTitle(e.target.value)} />
-              <textarea className="border rounded p-2 text-sm h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
-              <select className="border rounded p-2 text-sm" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
-                <option value="common">共通</option>
-                <option value="sanchoku">産直</option>
-                <option value="esaki">江D</option>
-                <option value="maruno">丸D</option>
-              </select>
-              <div className="flex justify-end gap-2">
-                {cMode==='edit' && targetId && (
-                  <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
-                )}
-                <Button variant="outline" onClick={()=>setContactOpen(false)}>キャンセル</Button>
-                <Button onClick={saveContact}>完了</Button>
+          {editingVisible && (
+            <div className="mt-2">
+              <div className="grid grid-cols-1 gap-2">
+                <input className="border rounded p-2 text-sm" placeholder="タイトル" value={cTitle} onChange={e=>setCTitle(e.target.value)} />
+                <textarea className="border rounded p-2 text-sm h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+                <select className="border rounded p-2 text-sm" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+                  <option value="common">共通</option>
+                  <option value="sanchoku">産直</option>
+                  <option value="esaki">江D</option>
+                  <option value="maruno">丸D</option>
+                </select>
+                <div className="flex justify-end gap-2">
+                  {cMode==='edit' && targetId && (
+                    <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+                  )}
+                  <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
+                  <Button onClick={saveContact}>完了</Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
