@@ -119,6 +119,10 @@ const BottomBar: React.FC = () => {
   };
 
   const handleRemarks = () => {
+    if (pathname === '/shift') {
+      router.push('/schedule?openRemarks=1');
+      return;
+    }
     const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
   };
