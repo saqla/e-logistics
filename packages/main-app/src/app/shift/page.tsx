@@ -563,9 +563,11 @@ export default function ShiftAppPage() {
               </div>
             ))}
           </div>
-          <div className="mt-3 flex justify-end">
-            <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
-          </div>
+          {!editingVisible && (
+            <div className="mt-3 flex justify-end">
+              <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+            </div>
+          )}
           {editingVisible && (
             <div className="mt-2">
               <div className="grid grid-cols-1 gap-2">
