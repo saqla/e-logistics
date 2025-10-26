@@ -1273,14 +1273,28 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md bg-white`}>
+        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md max-h-[85vh] bg-white`}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
-          {/* compact表示は維持。下部に統合管理コンテナ（スタッフ/ルート）を表示 */}
-          <RemarkPanel compact />
-          <div className="mt-3">
-            <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
+          {/* スクロール可能コンテナ（縦画面で4件以上でもスクロール可） */}
+          <div className="overflow-y-auto max-h-[70vh] pr-1">
+            {/* compact表示は維持。下部に管理コンテナ */}
+            <RemarkPanel compact />
+            <div className="mt-3">
+              <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
+            </div>
+            {/* 管理：/scheduleではスタッフ/クリアのみ。ルート一覧設定は/shift側に限定 */}
+            <div className="mt-3">
+              <div className="font-semibold text-center text-xl mb-2">管理</div>
+              <div className="border rounded-md p-3 w-full break-words">
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
+                  <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
+                  <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
+                </div>
+              </div>
+            </div>
           </div>
           {/* 管理：/scheduleではスタッフ/クリアのみ。ルート一覧設定は/shift側に限定 */}
           <div className="mt-3">
