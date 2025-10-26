@@ -67,7 +67,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     const prisma = await getPrisma()
     if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
     const id = params.id
-    await prisma.remark.delete({ where: { id } })
+    // 後方互換: category列未導入DBでも確実に動作するようrawで削除
+    await prisma.$executeRaw`DELETE FROM "remarks" WHERE "id"=${id}`
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
