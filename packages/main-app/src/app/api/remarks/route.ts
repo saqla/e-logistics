@@ -55,10 +55,8 @@ export async function POST(req: Request) {
     const title: string = body?.title?.trim()
     const content: string = body?.body?.trim()
     if (!title || !content) return NextResponse.json({ error: 'タイトルと本文は必須です' }, { status: 400 })
-    const data: any = { title, body: content }
-    const includeCategory = await hasRemarkCategoryColumn(prisma)
-    if (includeCategory && typeof body?.category === 'string') data.category = body.category
-    const created = await prisma.remark.create({ data })
+    // 後方互換のため category は送らない（列が無い環境でも保存可能にする）
+    const created = await prisma.remark.create({ data: { title, body: content } })
     return NextResponse.json({ remark: created })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
