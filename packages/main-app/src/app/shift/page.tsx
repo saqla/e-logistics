@@ -552,7 +552,7 @@ export default function ShiftAppPage() {
                 <div className="space-y-2">
                   {contacts.filter(c => (c.category||'common')===g.key).map(c => (
                     <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
-                      <div className="font-medium text-base break-words">{c.title}</div>
+                      {/* タイトルは不要。本文のみ表示 */}
                       <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
                     </div>
                   ))}

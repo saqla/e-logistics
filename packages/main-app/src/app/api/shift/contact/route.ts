@@ -54,17 +54,10 @@ export async function POST(req: Request) {
   if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
   await ensureShiftContactSchema()
   const body = await req.json()
-  const rawTitle: string | undefined = typeof body?.title === 'string' ? body.title : undefined
   const content: string = (body?.body ?? '').toString().trim()
   const category: string | undefined = typeof body?.category === 'string' ? body.category : undefined
   if (!content) return NextResponse.json({ error: '本文は必須です' }, { status: 400 })
-  // タイトル未指定の場合は本文先頭から自動生成（先頭行の先頭30文字）
-  const autoTitle = (() => {
-    const firstLine = content.split(/\r?\n/)[0] || ''
-    return firstLine.substring(0, 30) || '連絡'
-  })()
-  const title = (rawTitle ?? '').toString().trim() || autoTitle
-  const created = await prisma.shiftContact.create({ data: { title, body: content, category } })
+  const created = await prisma.shiftContact.create({ data: { title: null, body: content, category } })
   return NextResponse.json({ item: created })
 }
 

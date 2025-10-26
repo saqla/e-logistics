@@ -166,7 +166,7 @@ model Remark {
 // 箱車シフト用の連絡（備考とは独立）
 model ShiftContact {
   id        String   @id @default(cuid())
-  title     String
+  title     String?
   body      String
   category  String?  // 'common' | 'sanchoku' | 'esaki' | 'maruno'
   createdAt DateTime @default(now())
