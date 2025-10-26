@@ -40,10 +40,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       } else if (bodyVal != null) {
         await prisma.$executeRaw`UPDATE "remarks" SET "body"=${bodyVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
       }
-      const updated = await prisma.remark.findUnique({ where: { id } })
+      const rows = await prisma.$queryRaw`SELECT "id","title","body","createdAt","updatedAt" FROM "remarks" WHERE "id"=${id} LIMIT 1` as any[]
+      const updated = rows?.[0] || { id, title: titleVal, body: bodyVal }
       return NextResponse.json({ remark: updated })
     }
-    const updated = await prisma.remark.findUnique({ where: { id } })
+    const rows = await prisma.$queryRaw`SELECT "id","title","body","createdAt","updatedAt" FROM "remarks" WHERE "id"=${id} LIMIT 1` as any[]
+    const updated = rows?.[0] || null
     return NextResponse.json({ remark: updated })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
