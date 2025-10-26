@@ -51,6 +51,14 @@ export default function ShiftAppPage() {
   const [tempText, setTempText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
+  const [contacts, setContacts] = useState<{id:string; title:string; body:string; category?:string}[]>([])
+  const [cMode, setCMode] = useState<'create'|'edit'>('create')
+  const [targetId, setTargetId] = useState<string|undefined>(undefined)
+  const [cTitle, setCTitle] = useState('')
+  const [cBody, setCBody] = useState('')
+  const [cCategory, setCCategory] = useState<'common'|'sanchoku'|'esaki'|'maruno'>('common')
+  const [editingVisible, setEditingVisible] = useState(false)
 
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
@@ -290,6 +298,63 @@ export default function ShiftAppPage() {
     }
   }
 
+  // BottomBar からの保存要求に応答
+  useEffect(() => {
+    const onReq = (_e: Event) => { saveAll() }
+    window.addEventListener('requestShiftSave', onReq)
+    return () => window.removeEventListener('requestShiftSave', onReq)
+  }, [])
+
+  // 連絡（備考扱い）ダイアログのオープンイベント
+  useEffect(() => {
+    const onOpen = (_e: Event) => setContactOpen(true)
+    window.addEventListener('openShiftContactDialog', onOpen)
+    return () => window.removeEventListener('openShiftContactDialog', onOpen)
+  }, [])
+
+  // 連絡のロード
+  useEffect(() => {
+    const load = async () => {
+      const r = await fetch('/api/shift/contact', { cache: 'no-store' })
+      const j = await r.json().catch(()=>({items:[]}))
+      setContacts(Array.isArray(j.items)? j.items: [])
+    }
+    load()
+  }, [])
+
+  const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
+  const openEditContact = (id: string) => {
+    const t = contacts.find(x => x.id === id)
+    if (!t) return
+    setCMode('edit'); setTargetId(id); setCTitle(t.title); setCBody(t.body); setCCategory((t.category as any) || 'common'); setContactOpen(true); setEditingVisible(true)
+  }
+  const saveContact = async () => {
+    const payload = { title: cTitle.trim(), body: cBody.trim(), category: cCategory }
+    const url = cMode==='create' ? '/api/shift/contact' : `/api/shift/contact/${targetId}`
+    const method = cMode==='create' ? 'POST' : 'PATCH'
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!r.ok) {
+      let msg = '保存に失敗しました'
+      try { const t = await r.text(); if (t) msg = t } catch {}
+      alert(msg); return
+    }
+    const j = await r.json().catch(()=>({}))
+    if (cMode==='create' && j?.item) setContacts(prev => [...prev, j.item])
+    if (cMode==='edit' && j?.item) setContacts(prev => prev.map(x => x.id===j.item.id? j.item: x))
+    setEditingVisible(false)
+  }
+  const deleteContact = async (id: string) => {
+    const r = await fetch(`/api/shift/contact/${id}`, { method: 'DELETE' })
+    if (!r.ok) { let msg='削除に失敗しました'; try{const t=await r.text(); if(t) msg=t}catch{}; alert(msg); return }
+    setContacts(prev => prev.filter(x => x.id !== id))
+  }
+
+  // saving状態をBottomBarへ通知
+  useEffect(() => {
+    const ev = new CustomEvent('shiftSavingState', { detail: { saving: isSaving } })
+    window.dispatchEvent(ev)
+  }, [isSaving])
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <SiteHeader
@@ -431,15 +496,7 @@ export default function ShiftAppPage() {
         </div>
         )}
 
-        {/* ポートレート時のボトムメニュー */}
-        {(isPortrait && vw > 0 && vw < 1200) ? (
-          <div className="fixed bottom-0 inset-x-0 bg-white border-t shadow-sm px-3 py-2 flex items-center justify-between z-50">
-            <span className="text-sm text-gray-700">{year}年 {month}月</span>
-            {((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
-              <Button disabled={isSaving || !isDirty} onClick={saveAll} className="text-base">{isSaving ? '保存中…' : '保存'}</Button>
-            ) : null}
-          </div>
-        ) : null}
+        {/* 共有BottomBarを使用するためローカルのボトムメニューは撤去 */}
 
         <Dialog open={picker.open} onOpenChange={(o) => { if (!o) { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>
           <DialogContent>
@@ -474,6 +531,77 @@ export default function ShiftAppPage() {
           </DialogContent>
         </Dialog>
       </main>
+
+      {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent className="max-w-3xl bg-white">
+          <DialogHeader>
+            <DialogTitle>連絡</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { key:'common', title:'共通' },
+              { key:'sanchoku', title:'産直' },
+              { key:'esaki', title:'江D' },
+              { key:'maruno', title:'丸D' },
+            ].map(g => (
+              <div key={g.key} className="border rounded-md p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-semibold text-lg">{g.title}</div>
+                </div>
+                <div className="space-y-2">
+                  {contacts.filter(c => (c.category||'common')===g.key).map(c => (
+                    <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                      {/* タイトルは不要。本文のみ表示 */}
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
+                    </div>
+                  ))}
+                  {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
+                    <div className="text-sm text-gray-500">（項目なし）</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {!editingVisible && (
+            <div className="mt-3 flex justify-end">
+              <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+            </div>
+          )}
+          {editingVisible && (
+            <div className="mt-2">
+              <div className="grid grid-cols-1 gap-2">
+                <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+                <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+                  <option value="common">共通</option>
+                  <option value="sanchoku">産直</option>
+                  <option value="esaki">江D</option>
+                  <option value="maruno">丸D</option>
+                </select>
+                <div className="flex justify-end gap-2">
+                  {cMode==='edit' && targetId && (
+                    <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+                  )}
+                  <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
+                  <Button onClick={saveContact}>完了</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 管理コンテナ（ルート一覧の設定） */}
+          <div className="mt-4">
+            <div className="font-semibold text-center text-xl mb-2">管理</div>
+            <div className="border rounded-md p-3 w-full break-words">
+              <div className="flex flex-col gap-2">
+                <Button className="w-full text-base" variant="outline" onClick={() => router.push('/schedule?openRouteDefs=1')}>
+                  ルート一覧の設定
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

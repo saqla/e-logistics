@@ -31,14 +31,22 @@ const BottomBar: React.FC = () => {
   const isPortrait = useIsPortrait();
   const [isSaving, setIsSaving] = useState(false);
 
-  // schedule側のsaving状態を同期
+  // saving状態を同期（/schedule と /shift の双方を監視）
   useEffect(() => {
-    const onSaving = (e: Event) => {
+    const onScheduleSaving = (e: Event) => {
       const ce = e as CustomEvent<{ saving: boolean }>
       setIsSaving(!!ce.detail?.saving)
     }
-    window.addEventListener('scheduleSavingState', onSaving as EventListener)
-    return () => window.removeEventListener('scheduleSavingState', onSaving as EventListener)
+    const onShiftSaving = (e: Event) => {
+      const ce = e as CustomEvent<{ saving: boolean }>
+      setIsSaving(!!ce.detail?.saving)
+    }
+    window.addEventListener('scheduleSavingState', onScheduleSaving as EventListener)
+    window.addEventListener('shiftSavingState', onShiftSaving as EventListener)
+    return () => {
+      window.removeEventListener('scheduleSavingState', onScheduleSaving as EventListener)
+      window.removeEventListener('shiftSavingState', onShiftSaving as EventListener)
+    }
   }, [])
   
 
@@ -55,8 +63,9 @@ const BottomBar: React.FC = () => {
     return () => window.removeEventListener('resize', onResize);
   }, [onResize]);
 
-  // /scheduleでのみ表示（スマホ or タブレット縦）
-  const shouldShowBar = pathname === '/schedule' && (isMobile || isPortrait);
+  // /schedule と /shift で表示（スマホ or タブレット縦）
+  const isTargetPage = pathname === '/schedule' || pathname === '/shift';
+  const shouldShowBar = isTargetPage && (isMobile || isPortrait);
   const isTabletPortrait = !isMobile && isPortrait && vw >= 768 && vw < 1200;
   const barHeightPx = isTabletPortrait ? 80 : 60;
   const iconSizeCls = isTabletPortrait ? 'h-6 w-6 mb-1' : 'h-5 w-5 mb-1';
@@ -110,11 +119,17 @@ const BottomBar: React.FC = () => {
   };
 
   const handleRemarks = () => {
-    const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
-    window.dispatchEvent(event);
+    if (pathname === '/schedule') {
+      const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
+      window.dispatchEvent(event);
+    } else if (pathname === '/shift') {
+      const event = new CustomEvent('openShiftContactDialog', { detail: { source: 'BottomBar' } });
+      window.dispatchEvent(event);
+    }
   };
   const handleSave = () => {
-    const event = new CustomEvent('requestScheduleSave', { detail: { source: 'BottomBar' } });
+    const eventName = pathname === '/shift' ? 'requestShiftSave' : 'requestScheduleSave';
+    const event = new CustomEvent(eventName, { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
   };
   
@@ -164,7 +179,7 @@ const BottomBar: React.FC = () => {
           onClick={handleRemarks}
         >
           <MessageSquare className={iconSizeCls} />
-          <span className={labelSizeCls}>備考/管理</span>
+          <span className={labelSizeCls}>{pathname === '/shift' ? '連絡' : '備考/管理'}</span>
         </Button>
       </div>
     </div>
