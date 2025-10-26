@@ -11,6 +11,21 @@ async function getPrisma() {
   }
 }
 
+// remarks.category 列が存在するか（互換対応）
+let hasRemarkCategoryColumnCache: boolean | null = null
+async function hasRemarkCategoryColumn(prisma: any): Promise<boolean> {
+  if (hasRemarkCategoryColumnCache != null) return hasRemarkCategoryColumnCache
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      "select 1 from information_schema.columns where table_name='remarks' and column_name='category' limit 1"
+    )
+    hasRemarkCategoryColumnCache = Array.isArray(rows) && rows.length > 0
+  } catch {
+    hasRemarkCategoryColumnCache = false
+  }
+  return hasRemarkCategoryColumnCache
+}
+
 // GET /api/remarks
 export async function GET() {
   try {
@@ -40,8 +55,10 @@ export async function POST(req: Request) {
     const title: string = body?.title?.trim()
     const content: string = body?.body?.trim()
     if (!title || !content) return NextResponse.json({ error: 'タイトルと本文は必須です' }, { status: 400 })
-    const category: string | undefined = typeof body?.category === 'string' ? body.category : undefined
-    const created = await prisma.remark.create({ data: { title, body: content, category } })
+    const data: any = { title, body: content }
+    const includeCategory = await hasRemarkCategoryColumn(prisma)
+    if (includeCategory && typeof body?.category === 'string') data.category = body.category
+    const created = await prisma.remark.create({ data })
     return NextResponse.json({ remark: created })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
