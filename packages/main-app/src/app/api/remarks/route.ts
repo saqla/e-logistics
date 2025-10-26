@@ -16,9 +16,9 @@ let hasRemarkCategoryColumnCache: boolean | null = null
 async function hasRemarkCategoryColumn(prisma: any): Promise<boolean> {
   if (hasRemarkCategoryColumnCache != null) return hasRemarkCategoryColumnCache
   try {
-    const rows = await prisma.$queryRawUnsafe<any[]>(
+    const rows = await prisma.$queryRawUnsafe(
       "select 1 from information_schema.columns where table_name='remarks' and column_name='category' limit 1"
-    )
+    ) as any[]
     hasRemarkCategoryColumnCache = Array.isArray(rows) && rows.length > 0
   } catch {
     hasRemarkCategoryColumnCache = false
