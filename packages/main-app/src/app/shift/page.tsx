@@ -305,6 +305,12 @@ export default function ShiftAppPage() {
         showBack={!isPortrait}
       />
       <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
+        {/* shiftのsaving状態をBottomBarへ通知 */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            try{window.dispatchEvent(new CustomEvent('shiftSavingState',{detail:{saving:${isSaving}}}))}catch(e){}
+          })();
+        ` }} />
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className={`px-2 py-0.5 rounded ${getRouteColor('産直')}`}>産直</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(福岡)')}`}>ドンキ(福岡)</span>
@@ -431,15 +437,7 @@ export default function ShiftAppPage() {
         </div>
         )}
 
-        {/* ポートレート時のボトムメニュー */}
-        {(isPortrait && vw > 0 && vw < 1200) ? (
-          <div className="fixed bottom-0 inset-x-0 bg-white border-t shadow-sm px-3 py-2 flex items-center justify-between z-50">
-            <span className="text-sm text-gray-700">{year}年 {month}月</span>
-            {((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
-              <Button disabled={isSaving || !isDirty} onClick={saveAll} className="text-base">{isSaving ? '保存中…' : '保存'}</Button>
-            ) : null}
-          </div>
-        ) : null}
+        {/* 共有BottomBarを使用するためローカルのボトムメニューは撤去 */}
 
         <Dialog open={picker.open} onOpenChange={(o) => { if (!o) { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>
           <DialogContent>
