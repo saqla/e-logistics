@@ -156,6 +156,7 @@ model Remark {
   id        String   @id @default(cuid())
   title     String
   body      String
+  category  String?  // 'common' | 'sanchoku' | 'esaki' | 'maruno'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

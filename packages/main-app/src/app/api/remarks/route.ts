@@ -40,7 +40,8 @@ export async function POST(req: Request) {
     const title: string = body?.title?.trim()
     const content: string = body?.body?.trim()
     if (!title || !content) return NextResponse.json({ error: 'タイトルと本文は必須です' }, { status: 400 })
-    const created = await prisma.remark.create({ data: { title, body: content } })
+    const category: string | undefined = typeof body?.category === 'string' ? body.category : undefined
+    const created = await prisma.remark.create({ data: { title, body: content, category } })
     return NextResponse.json({ remark: created })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'

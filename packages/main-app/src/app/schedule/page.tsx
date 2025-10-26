@@ -1313,7 +1313,7 @@ export default function SchedulePage() {
 }
 
 // 備考エリア コンポーネント（簡易実装）
-type Remark = { id: string; title: string; body: string }
+type Remark = { id: string; title: string; body: string; category?: 'common'|'sanchoku'|'esaki'|'maruno' }
 
 function useRemarks() {
   const [items, setItems] = useState<Remark[]>([])
@@ -1487,12 +1487,12 @@ function MobileRemarksGrid() {
     { key: 'esaki', title: '江D' },
     { key: 'maruno', title: '丸D' },
   ] as const
-  const chunk = (arr: Remark[], from: number, to: number) => arr.slice(from, to)
-  const g0 = chunk(items, 0, Math.ceil(items.length/4))
-  const g1 = chunk(items, Math.ceil(items.length/4), Math.ceil(items.length/2))
-  const g2 = chunk(items, Math.ceil(items.length/2), Math.ceil(items.length*3/4))
-  const g3 = chunk(items, Math.ceil(items.length*3/4), items.length)
-  const map = { common: g0, sanchoku: g1, esaki: g2, maruno: g3 } as Record<string, Remark[]>
+  const map: Record<string, Remark[]> = {
+    common: items.filter(r => (r as any).category === 'common' || !r.category),
+    sanchoku: items.filter(r => (r as any).category === 'sanchoku'),
+    esaki: items.filter(r => (r as any).category === 'esaki'),
+    maruno: items.filter(r => (r as any).category === 'maruno'),
+  }
 
   return (
     <div>
@@ -1501,7 +1501,7 @@ function MobileRemarksGrid() {
           <div key={g.key} className="border rounded-md p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="font-semibold text-lg">{g.title}</div>
-              {editorVerified && <Button size="sm" className="text-base" onClick={openCreate}>新規</Button>}
+              {editorVerified && <Button size="sm" className="text-base" onClick={() => { setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }}>新規</Button>}
             </div>
             <div className="space-y-2">
               {map[g.key].map(r => (
@@ -1533,6 +1533,18 @@ function MobileRemarksGrid() {
               <Label htmlFor="rbody2">本文</Label>
               <textarea id="rbody2" className="w-full h-40 border rounded-md p-2 text-sm" value={body} onChange={(e)=>setBody(e.target.value)} />
             </div>
+            <div>
+              <Label htmlFor="rcat2">カテゴリ</Label>
+              <select id="rcat2" className="w-full border rounded-md p-2 text-sm" value={(target as any)?.category || ''} onChange={(e) => {
+                const v = e.target.value
+                setTarget(prev => prev ? ({ ...prev, category: v } as any) : ({ id: '', title, body, category: v } as any))
+              }}>
+                <option value="common">共通</option>
+                <option value="sanchoku">産直</option>
+                <option value="esaki">江D</option>
+                <option value="maruno">丸D</option>
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             {mode==='edit' && target && (
@@ -1544,7 +1556,14 @@ function MobileRemarksGrid() {
               </Button>
             )}
             <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
-            <Button onClick={save} disabled={!editorVerified}>完了</Button>
+            <Button onClick={async () => {
+              const payload = { title: title.trim(), body: body.trim(), category: (target as any)?.category || 'common' }
+              const url = mode==='create' ? '/api/remarks' : `/api/remarks/${target!.id}`
+              const method = mode==='create' ? 'POST' : 'PATCH'
+              const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+              if (!res.ok) { alert('保存に失敗しました'); return }
+              setOpen(false); setRefresh(v=>v+1)
+            }} disabled={!editorVerified}>完了</Button>
           </div>
         </DialogContent>
       </Dialog>
