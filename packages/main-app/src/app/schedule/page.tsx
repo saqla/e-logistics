@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { SiteHeader } from '@/components/site-header'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -44,7 +44,6 @@ const ROUTE_LABEL: Record<RouteKind, string> = {
 export default function SchedulePage() {
   const { status, data: session } = useSession()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const isPortrait = useIsPortrait()
   const [vw, setVw] = useState(0)
   const [vh, setVh] = useState(0)
@@ -725,19 +724,6 @@ export default function SchedulePage() {
     return () => window.removeEventListener('openRemarksDialog', handleOpenRemarks);
   }, []);
 
-  // クエリからの起動（/shiftのBottomBarからの遷移対策）
-  useEffect(() => {
-    if (searchParams?.get('openRemarks') === '1') {
-      setAsideOpen(true)
-      // 履歴を汚さないようにクエリを消しておく
-      try {
-        const url = new URL(window.location.href)
-        url.searchParams.delete('openRemarks')
-        window.history.replaceState({}, '', url.toString())
-      } catch {}
-    }
-  }, [searchParams])
-
   // BottomBar との保存イベント連携を復帰
   const handleSaveRef = useRef(handleSave)
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
@@ -1266,12 +1252,12 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-3xl bg-white`}>
+        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md bg-white`}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
-          {/* モバイル縦では4グループ（共通/産直/江D/丸D）を2x2で表示 */}
-          <MobileRemarksGrid />
+          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
+          <RightSideContent compact />
           <div className="mt-3">
             <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
           </div>

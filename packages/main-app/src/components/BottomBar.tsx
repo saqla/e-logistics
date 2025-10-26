@@ -119,12 +119,13 @@ const BottomBar: React.FC = () => {
   };
 
   const handleRemarks = () => {
-    if (pathname === '/shift') {
-      router.push('/schedule?openRemarks=1');
-      return;
+    if (pathname === '/schedule') {
+      const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
+      window.dispatchEvent(event);
+    } else if (pathname === '/shift') {
+      const event = new CustomEvent('openShiftContactDialog', { detail: { source: 'BottomBar' } });
+      window.dispatchEvent(event);
     }
-    const event = new CustomEvent('openRemarksDialog', { detail: { source: 'BottomBar' } });
-    window.dispatchEvent(event);
   };
   const handleSave = () => {
     const eventName = pathname === '/shift' ? 'requestShiftSave' : 'requestScheduleSave';
@@ -178,7 +179,7 @@ const BottomBar: React.FC = () => {
           onClick={handleRemarks}
         >
           <MessageSquare className={iconSizeCls} />
-          <span className={labelSizeCls}>備考/管理</span>
+          <span className={labelSizeCls}>{pathname === '/shift' ? '連絡' : '備考/管理'}</span>
         </Button>
       </div>
     </div>

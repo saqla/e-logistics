@@ -51,6 +51,7 @@ export default function ShiftAppPage() {
   const [tempText, setTempText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
 
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
@@ -297,6 +298,13 @@ export default function ShiftAppPage() {
     return () => window.removeEventListener('requestShiftSave', onReq)
   }, [])
 
+  // 連絡（備考扱い）ダイアログのオープンイベント
+  useEffect(() => {
+    const onOpen = (_e: Event) => setContactOpen(true)
+    window.addEventListener('openShiftContactDialog', onOpen)
+    return () => window.removeEventListener('openShiftContactDialog', onOpen)
+  }, [])
+
   // saving状態をBottomBarへ通知
   useEffect(() => {
     const ev = new CustomEvent('shiftSavingState', { detail: { saving: isSaving } })
@@ -479,6 +487,16 @@ export default function ShiftAppPage() {
           </DialogContent>
         </Dialog>
       </main>
+
+      {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>連絡</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-gray-600">シフトに関する連絡事項をここに表示/実装予定です。</div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
