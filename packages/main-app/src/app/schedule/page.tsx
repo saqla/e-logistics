@@ -726,6 +726,13 @@ export default function SchedulePage() {
     return () => window.removeEventListener('openRemarksDialog', handleOpenRemarks);
   }, []);
 
+  // /shift側からのルート定義設定ダイアログ起動
+  useEffect(() => {
+    const handleOpenRouteDefs = (_e: Event) => { setRouteDefsOpen(true); setAsideOpen(true) }
+    window.addEventListener('openRouteDefsDialog', handleOpenRouteDefs)
+    return () => window.removeEventListener('openRouteDefsDialog', handleOpenRouteDefs)
+  }, [])
+
   // BottomBar との保存イベント連携を復帰
   const handleSaveRef = useRef(handleSave)
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])

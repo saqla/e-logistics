@@ -588,6 +588,18 @@ export default function ShiftAppPage() {
               </div>
             </div>
           )}
+
+          {/* 管理コンテナ（ルート一覧の設定） */}
+          <div className="mt-4">
+            <div className="font-semibold text-center text-xl mb-2">管理</div>
+            <div className="border rounded-md p-3 w-full break-words">
+              <div className="flex flex-col gap-2">
+                <Button className="w-full text-base" variant="outline" onClick={() => router.push('/schedule?openRouteDefs=1')}>
+                  ルート一覧の設定
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
