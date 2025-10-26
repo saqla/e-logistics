@@ -1283,19 +1283,20 @@ export default function SchedulePage() {
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
-          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
-          <RightSideContent compact />
+          {/* compact表示は維持。下部に統合管理コンテナ（スタッフ/ルート）を表示 */}
+          <RemarkPanel compact />
           <div className="mt-3">
             <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
           </div>
-          {/* 管理コンテナ（ルート一覧の設定） */}
+          {/* 統合管理コンテナ */}
           <div className="mt-3">
             <div className="font-semibold text-center text-xl mb-2">管理</div>
             <div className="border rounded-md p-3 w-full break-words">
               <div className="flex flex-col gap-2">
-                <Button className="w-full text-base" variant="outline" onClick={() => setRouteDefsOpen(true)}>
-                  ルート一覧の設定
-                </Button>
+                <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
+                <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
+                <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
+                <Button variant="outline" onClick={() => setRouteDefsOpen(true)}>ルート一覧の設定</Button>
               </div>
             </div>
           </div>
