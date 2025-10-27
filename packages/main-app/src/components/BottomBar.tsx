@@ -129,7 +129,7 @@ const BottomBar: React.FC = () => {
   };
   const handleSave = () => {
     const eventName = pathname === '/shift' ? 'requestShiftSave' : 'requestScheduleSave';
-    const event = new CustomEvent(eventName, { detail: { source: 'BottomBar', allowEmpty: 1 } });
+    const event = new CustomEvent(eventName, { detail: { source: 'BottomBar' } });
     window.dispatchEvent(event);
   };
   
