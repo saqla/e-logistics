@@ -309,8 +309,19 @@ export default function ShiftAppPage() {
         throw new Error(msg)
       }
       const j = await res.json().catch(()=>({}))
+      const localCount = uniqueMap.size
       if (Array.isArray(j?.assignments)) {
-        setAssignments(j.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+        const serverAssigns = j.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null }))
+        setAssignments(serverAssigns)
+        // まれに反映が遅延する環境対策でリトライ（サーバ返却が極端に少ない場合のみ）
+        if (serverAssigns.length === 0 && localCount > 0) {
+          await new Promise(r => setTimeout(r, 300))
+          const aRes2 = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+          const aJson2 = await aRes2.json().catch(()=>({}))
+          if (Array.isArray(aJson2?.assignments) && aJson2.assignments.length > 0) {
+            setAssignments(aJson2.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+          }
+        }
       } else {
         const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
         const aJson = await aRes.json()
