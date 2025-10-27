@@ -296,8 +296,17 @@ export default function ShiftAppPage() {
       }
       const res = await fetch('/api/shift', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) {
-        const t = await res.text()
-        throw new Error(t || '保存に失敗しました')
+        let msg = '保存に失敗しました'
+        try {
+          const ct = res.headers.get('content-type') || ''
+          if (ct.includes('application/json')) {
+            const j = await res.json(); if (j?.error) msg = j.error
+          } else {
+            const t = await res.text(); if (t) msg = t
+          }
+          msg += ` (status ${res.status})`
+        } catch {}
+        throw new Error(msg)
       }
       const j = await res.json().catch(()=>({}))
       if (Array.isArray(j?.assignments)) {
@@ -309,9 +318,9 @@ export default function ShiftAppPage() {
       }
       setDirty(false)
       alert('保存しました')
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
-      alert('保存に失敗しました。権限やネットワークを確認してください。')
+      alert(e?.message || '保存に失敗しました。権限やネットワークを確認してください。')
     } finally {
       setIsSaving(false)
     }
@@ -822,7 +831,7 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（ポートレート時） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent className="max-w-3xl bg-white max-h-[85vh]">
+        <DialogContent className="max-w-3xl bg-white max-h-[85vh]" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>

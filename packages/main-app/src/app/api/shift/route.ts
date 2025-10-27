@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { randomUUID } from 'crypto'
 
 async function ensureShiftSchema(): Promise<void> {
   // テーブルが無ければ初回だけ作成（プレビュー向け）
@@ -54,6 +55,21 @@ async function ensureShiftSchema(): Promise<void> {
       END IF;
     END $$;`),
   ] as any)
+}
+
+// 追加カラム( role など)の有無を確認
+let hasExtendedColsCache: boolean | null = null
+async function hasExtendedShiftColumns(): Promise<boolean> {
+  if (hasExtendedColsCache != null) return hasExtendedColsCache
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      "select 1 from information_schema.columns where table_name='shift_assignments' and column_name='role' limit 1"
+    )
+    hasExtendedColsCache = Array.isArray(rows) && rows.length > 0
+  } catch {
+    hasExtendedColsCache = false
+  }
+  return hasExtendedColsCache
 }
 
 // GET /api/shift?year=2025&month=11
@@ -129,48 +145,33 @@ export async function POST(req: Request) {
 
   // セーフ保存：提供されたキーのみをupsert（全消しはしない）
   try {
+    const extended = await hasExtendedShiftColumns()
     if (deduped.length > 0) {
-      const existing = await prisma.shiftAssignment.findMany({
-        where: { year, month },
-        select: { day: true, staffId: true }
-      })
-      const existsSet = new Set(existing.map(e => `${e.day}-${e.staffId}`))
-      const ops: any[] = []
-      for (const a of deduped) {
-        const key = `${a.day}-${a.staffId}`
-        if (existsSet.has(key)) {
-          ops.push(prisma.shiftAssignment.update({
-            where: {
-              // 安全なユニーク検索（id未使用）
-              // Prismaは複合uniqueキーに名前が無くてもupdateManyで確実に動作させられるため、updateManyに変更
-            } as any,
-            data: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+      if (extended) {
+        // 通常経路: Prismaでupsert
+        await prisma.$transaction(
+          deduped.map(a => prisma.shiftAssignment.upsert({
+            where: { year_month_day_staffId: { year, month, day: a.day, staffId: a.staffId } },
+            update: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+            create: { year, month, day: a.day, staffId: a.staffId, route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
           }))
-        } else {
-          ops.push(prisma.shiftAssignment.create({
-            data: { year, month, day: a.day, staffId: a.staffId, route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
-          }))
+        )
+      } else {
+        // 互換経路: raw SQLでupdate or insert（role等が無いDB向け）
+        for (const a of deduped) {
+          const updated = await prisma.$executeRaw`UPDATE "shift_assignments" SET "route"=${a.route}::"ShiftRouteKind", "carNumber"=${a.carNumber}, "noteBL"=${a.noteBL}, "noteBR"=${a.noteBR}, "updatedAt"=NOW() WHERE "year"=${year} AND "month"=${month} AND "day"=${a.day} AND "staffId"=${a.staffId}`
+          if (!updated) {
+            const id = randomUUID()
+            const createdAt = new Date()
+            const updatedAt = createdAt
+            await prisma.$executeRaw`INSERT INTO "shift_assignments" ("id","year","month","day","staffId","route","carNumber","noteBL","noteBR","createdAt","updatedAt") VALUES (${id}, ${year}, ${month}, ${a.day}, ${a.staffId}, ${a.route}::"ShiftRouteKind", ${a.carNumber}, ${a.noteBL}, ${a.noteBR}, ${createdAt}, ${updatedAt})`
+          }
         }
       }
-      // updateManyへ置換（whereに複合条件を指定）
-      for (let i = 0; i < ops.length; i++) {
-        const a = deduped[i]
-        if (!a) continue
-        if (existsSet.has(`${a.day}-${a.staffId}`)) {
-          ops[i] = prisma.shiftAssignment.updateMany({
-            where: { year, month, day: a.day, staffId: a.staffId },
-            data: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
-          })
-        }
-      }
-      await prisma.$transaction(ops)
     }
-    const latest = await prisma.shiftAssignment.findMany({
-      where: { year, month },
-      orderBy: [{ day: 'asc' }],
-      select: { id: true, year: true, month: true, day: true, staffId: true, route: true, carNumber: true, noteBL: true, noteBR: true, updatedAt: true }
-    })
-    return NextResponse.json({ ok: true, count: deduped.length, assignments: latest })
+    // 最新をrawで取得（enumはtext化）
+    const latest = await prisma.$queryRaw`SELECT "day","staffId", ("route")::text AS route, "carNumber","noteBL","noteBR" FROM "shift_assignments" WHERE "year"=${year} AND "month"=${month} ORDER BY "day"`
+    return NextResponse.json({ ok: true, count: deduped.length, assignments: latest as any })
   } catch (e: any) {
     const message = e?.message || '保存に失敗しました'
     return NextResponse.json({ error: message }, { status: 500 })
