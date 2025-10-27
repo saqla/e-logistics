@@ -127,28 +127,17 @@ export async function POST(req: Request) {
     deduped.push(it)
   }
 
-  // 置換保存（対象月を全削除→createMany）
+  // セーフ保存：提供されたキーのみをupsert（全消しはしない）
   try {
-    const batch: any[] = [
-      prisma.shiftAssignment.deleteMany({ where: { year, month } }),
-    ]
     if (deduped.length > 0) {
-      batch.push(
-        prisma.shiftAssignment.createMany({
-          data: deduped.map(a => ({
-            year,
-            month,
-            day: a.day,
-            staffId: a.staffId,
-            route: a.route as any,
-            carNumber: a.carNumber,
-            noteBL: a.noteBL,
-            noteBR: a.noteBR,
-          })),
-        })
+      await prisma.$transaction(
+        deduped.map(a => prisma.shiftAssignment.upsert({
+          where: { year_month_day_staffId: { year, month, day: a.day, staffId: a.staffId } },
+          update: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+          create: { year, month, day: a.day, staffId: a.staffId, route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+        }))
       )
     }
-    await prisma.$transaction(batch)
     return NextResponse.json({ ok: true, count: deduped.length })
   } catch (e: any) {
     const message = e?.message || '保存に失敗しました'
