@@ -130,13 +130,40 @@ export async function POST(req: Request) {
   // セーフ保存：提供されたキーのみをupsert（全消しはしない）
   try {
     if (deduped.length > 0) {
-      await prisma.$transaction(
-        deduped.map(a => prisma.shiftAssignment.upsert({
-          where: { year_month_day_staffId: { year, month, day: a.day, staffId: a.staffId } },
-          update: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
-          create: { year, month, day: a.day, staffId: a.staffId, route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
-        }))
-      )
+      const existing = await prisma.shiftAssignment.findMany({
+        where: { year, month },
+        select: { day: true, staffId: true }
+      })
+      const existsSet = new Set(existing.map(e => `${e.day}-${e.staffId}`))
+      const ops: any[] = []
+      for (const a of deduped) {
+        const key = `${a.day}-${a.staffId}`
+        if (existsSet.has(key)) {
+          ops.push(prisma.shiftAssignment.update({
+            where: {
+              // 安全なユニーク検索（id未使用）
+              // Prismaは複合uniqueキーに名前が無くてもupdateManyで確実に動作させられるため、updateManyに変更
+            } as any,
+            data: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+          }))
+        } else {
+          ops.push(prisma.shiftAssignment.create({
+            data: { year, month, day: a.day, staffId: a.staffId, route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+          }))
+        }
+      }
+      // updateManyへ置換（whereに複合条件を指定）
+      for (let i = 0; i < ops.length; i++) {
+        const a = deduped[i]
+        if (!a) continue
+        if (existsSet.has(`${a.day}-${a.staffId}`)) {
+          ops[i] = prisma.shiftAssignment.updateMany({
+            where: { year, month, day: a.day, staffId: a.staffId },
+            data: { route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR },
+          })
+        }
+      }
+      await prisma.$transaction(ops)
     }
     const latest = await prisma.shiftAssignment.findMany({
       where: { year, month },
