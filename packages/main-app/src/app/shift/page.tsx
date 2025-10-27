@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { daysInMonth, getDow } from '@/lib/utils'
@@ -51,6 +51,27 @@ export default function ShiftAppPage() {
   const [tempText, setTempText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
+  const [contacts, setContacts] = useState<{id:string; title:string; body:string; category?:string}[]>([])
+  const [cMode, setCMode] = useState<'create'|'edit'>('create')
+  const [targetId, setTargetId] = useState<string|undefined>(undefined)
+  const [cTitle, setCTitle] = useState('')
+  const [cBody, setCBody] = useState('')
+  const [cCategory, setCCategory] = useState<'common'|'sanchoku'|'esaki'|'maruno'>('common')
+  const [editingVisible, setEditingVisible] = useState(false)
+  // ルート一覧（連絡ダイアログ内で表示・簡易編集）
+  const [routeItems, setRouteItems] = useState<{id:string; key:string; name:string; order:number; bgClass:string; textClass:string; enabled:boolean}[]>([])
+  const [routeLoading, setRouteLoading] = useState(false)
+  const [routeEditId, setRouteEditId] = useState<string | null>(null)
+  const [routeEditName, setRouteEditName] = useState('')
+  const palette = [
+    { bg: 'bg-purple-600', text: 'text-white' },
+    { bg: 'bg-orange-500', text: 'text-white' },
+    { bg: 'bg-violet-400', text: 'text-white' },
+    { bg: 'bg-green-500', text: 'text-white' },
+    { bg: 'bg-red-500', text: 'text-white' },
+    { bg: 'bg-gray-200', text: 'text-gray-800' },
+  ] as const
 
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
@@ -290,6 +311,211 @@ export default function ShiftAppPage() {
     }
   }
 
+  // BottomBar からの保存要求に応答
+  useEffect(() => {
+    const onReq = (_e: Event) => { saveAll() }
+    window.addEventListener('requestShiftSave', onReq)
+    return () => window.removeEventListener('requestShiftSave', onReq)
+  }, [])
+
+  // 連絡（備考扱い）ダイアログのオープンイベント（ポートレート時のみダイアログを開く）
+  useEffect(() => {
+    const onOpen = (_e: Event) => {
+      if (isPortrait) setContactOpen(true)
+    }
+    window.addEventListener('openShiftContactDialog', onOpen)
+    return () => window.removeEventListener('openShiftContactDialog', onOpen)
+  }, [isPortrait])
+
+  // 連絡のロード
+  useEffect(() => {
+    const load = async () => {
+      const r = await fetch('/api/shift/contact', { cache: 'no-store' })
+      const j = await r.json().catch(()=>({items:[]}))
+      setContacts(Array.isArray(j.items)? j.items: [])
+    }
+    load()
+  }, [])
+
+  // ルート一覧のロード
+  useEffect(() => {
+    const load = async () => {
+      setRouteLoading(true)
+      try {
+        const r = await fetch('/api/route-defs', { cache: 'no-store' })
+        const j = await r.json().catch(()=>({items:[]}))
+        const arr = Array.isArray(j.items) ? j.items : []
+        arr.sort((a:any,b:any)=> (a.order??0)-(b.order??0))
+        setRouteItems(arr)
+      } finally { setRouteLoading(false) }
+    }
+    load()
+  }, [])
+
+  const startEditRoute = (id: string) => {
+    const it = routeItems.find(x => x.id===id)
+    if (!it) return
+    setRouteEditId(id)
+    setRouteEditName(it.name)
+  }
+  const cancelEditRoute = () => { setRouteEditId(null); setRouteEditName('') }
+  const saveRouteName = async () => {
+    if (!routeEditId) return
+    const r = await fetch(`/api/route-defs/${routeEditId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: routeEditName }) })
+    if (!r.ok) { alert('保存に失敗しました'); return }
+    const j = await r.json().catch(()=>({}))
+    if (j?.item) setRouteItems(prev => prev.map(x => x.id===routeEditId ? j.item : x))
+    cancelEditRoute()
+  }
+  const applyRouteColorInline = async (id: string, bg: string, text: string) => {
+    const r = await fetch(`/api/route-defs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bgClass: bg, textClass: text }) })
+    if (!r.ok) { alert('保存に失敗しました'); return }
+    const j = await r.json().catch(()=>({}))
+    if (j?.item) setRouteItems(prev => prev.map(x => x.id===id ? j.item : x))
+  }
+
+  const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
+  const openEditContact = (id: string) => {
+    const t = contacts.find(x => x.id === id)
+    if (!t) return
+    setCMode('edit'); setTargetId(id); setCTitle(t.title); setCBody(t.body); setCCategory((t.category as any) || 'common'); setContactOpen(true); setEditingVisible(true)
+  }
+  const saveContact = async () => {
+    const payload = { title: cTitle.trim(), body: cBody.trim(), category: cCategory }
+    const url = cMode==='create' ? '/api/shift/contact' : `/api/shift/contact/${targetId}`
+    const method = cMode==='create' ? 'POST' : 'PATCH'
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!r.ok) {
+      let msg = '保存に失敗しました'
+      try { const t = await r.text(); if (t) msg = t } catch {}
+      alert(msg); return
+    }
+    const j = await r.json().catch(()=>({}))
+    if (cMode==='create' && j?.item) setContacts(prev => [...prev, j.item])
+    if (cMode==='edit' && j?.item) setContacts(prev => prev.map(x => x.id===j.item.id? j.item: x))
+    setEditingVisible(false)
+  }
+  const deleteContact = async (id: string) => {
+    const r = await fetch(`/api/shift/contact/${id}`, { method: 'DELETE' })
+    if (!r.ok) { let msg='削除に失敗しました'; try{const t=await r.text(); if(t) msg=t}catch{}; alert(msg); return }
+    setContacts(prev => prev.filter(x => x.id !== id))
+  }
+
+  // saving状態をBottomBarへ通知
+  useEffect(() => {
+    const ev = new CustomEvent('shiftSavingState', { detail: { saving: isSaving } })
+    window.dispatchEvent(ev)
+  }, [isSaving])
+
+  // 連絡パネル本体（ダイアログ/右サイド共通）
+  const ContactBody = () => (
+    <div className="overflow-y-auto max-h-[70vh] pr-1">
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { key:'common', title:'共通' },
+          { key:'sanchoku', title:'産直' },
+          { key:'esaki', title:'江D' },
+          { key:'maruno', title:'丸D' },
+        ].map(g => (
+          <div key={g.key} className="border rounded-md p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-lg">{g.title}</div>
+            </div>
+            <div className="space-y-2">
+              {contacts.filter(c => (c.category||'common')===g.key).map(c => (
+                <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
+                </div>
+              ))}
+              {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
+                <div className="text-sm text-gray-500">（項目なし）</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {!editingVisible && (
+        <div className="mt-3 flex justify-end">
+          <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+        </div>
+      )}
+      {editingVisible && (
+        <div className="mt-2">
+          <div className="grid grid-cols-1 gap-2">
+            <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+            <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+              <option value="common">共通</option>
+              <option value="sanchoku">産直</option>
+              <option value="esaki">江D</option>
+              <option value="maruno">丸D</option>
+            </select>
+            <div className="flex justify-end gap-2">
+              {cMode==='edit' && targetId && (
+                <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+              )}
+              <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
+              <Button onClick={saveContact}>完了</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ルート一覧（スタッフ一覧レイアウト参照） */}
+      <div className="mt-4">
+        <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
+        <div className="border rounded-md p-3 w-full break-words">
+          {routeLoading ? (
+            <div className="text-sm text-gray-600">読み込み中…</div>
+          ) : (
+            <div className="grid grid-cols-1 divide-y">
+              <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
+                <div>ルート名</div>
+                <div>操作</div>
+              </div>
+              {routeItems.map(it => (
+                <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
+                  <div>
+                    {routeEditId===it.id ? (
+                      <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                        <span>{it.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    {routeEditId===it.id ? (
+                      <>
+                        <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                        <Button onClick={saveRouteName}>保存</Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                    )}
+                  </div>
+                  {routeEditId===it.id && (
+                    <div className="col-span-2 mt-2">
+                      <div className="text-sm text-gray-600 mb-1">色を選択</div>
+                      <div className="grid grid-cols-6 gap-2">
+                        {palette.map((p, idx) => (
+                          <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {routeItems.length === 0 && (
+                <div className="text-sm text-gray-500 py-4">データがありません</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <SiteHeader
@@ -313,133 +539,246 @@ export default function ShiftAppPage() {
           <span className={`px-2 py-0.5 rounded ${getRouteColor('休み')}`}>休み</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('有給')}`}>有給</span>
         </div>
-        {/* モバイル縦: 週ごとに縦連結（7列固定） */}
-        {(isPortrait && vw > 0 && vw < 768) ? (
-          <div className="space-y-4">
-            {weeks.map((week, wi) => (
-              <div key={`wk-${wi}`} className="overflow-x-auto border rounded-md bg-white">
-                <table className="w-full text-sm table-fixed">
-                  <thead>
-                    {/* 曜日行（参考画像相当） */}
-                    <tr>
-                      <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
-                      {week.map((_, i) => {
-                        const wd = ['日','月','火','水','木','金','土'][i]
-                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                        return (
-                          <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
-                        )
-                      })}
-                    </tr>
-                    {/* 日付行（M/D） */}
-                    <tr>
-                      <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
-                      {week.map((d, i) => {
-                        const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                        return (
-                          <th key={`md-${i}`} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</th>
-                        )
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {staffs.map(st => (
-                      <tr key={`wk-${wi}-${st.id}`}>
-                        <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+        {(() => {
+          // 週ごとの縦連結テーブルを共通化
+          const WeeklyTable = () => (
+            <div className="overflow-x-auto border rounded-md bg-white">
+              <table className="w-full text-sm table-fixed">
+                <thead>
+                  {/* 曜日行：7列 */}
+                  <tr>
+                    <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
+                    {Array.from({ length: 7 }).map((_, i) => {
+                      const wd = ['日','月','火','水','木','金','土'][i]
+                      const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                      return (
+                        <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeks.map((week, wi) => (
+                    <Fragment key={`wkblk-${wi}`}>
+                      {/* 週のヘッダー（日付行） */}
+                      <tr>
+                        <td className="sticky left-0 bg-white z-20 border-b p-2 text-left" style={{ width: leftColPx }}></td>
                         {week.map((d, i) => {
-                          const a = d ? aMap.get(`${st.id}-${d}`) : undefined
-                          const label = a ? enumToRouteLabel(a.route) : null
-                          const car = a?.carNumber ?? ''
                           const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                          const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                          const openCarPicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
-                          const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                          const openNoteBR = () => { setTempText(a?.noteBR ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
+                          const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                           return (
-                            <td key={`wk-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                              <div className="grid grid-cols-2 grid-rows-2 h-16">
-                                <button disabled={!d} onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{d ? (label ?? '') : ''}</button>
-                                <button disabled={!d} onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{d ? car : ''}</button>
-                                <button disabled={!d} onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                  {d ? (a?.noteBL ?? '') : ''}
-                                </button>
-                                <button disabled={!d} onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                  {d ? (a?.noteBR ?? '') : ''}
-                                </button>
-                              </div>
-                            </td>
+                            <td key={`date-${wi}-${i}`} className={`border-b p-2 text-center ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</td>
                           )
                         })}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        ) : (
-        <div className="overflow-x-auto border rounded-md bg-white">
-          <table className="min-w-[900px] w-full text-sm table-fixed">
-            <thead>
-              <tr>
-                <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
-                {Array.from({ length: monthDays }).map((_, i) => {
-                  const d = i + 1
-                  const dow = getDow(year, month, d)
-                  const isToday = todayInfo.isSameMonth && todayInfo.day === d
-                  const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
-                  return (
-                    <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{`${month}/${d}`}</th>
-                  )
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {staffs.map(st => (
-                <tr key={st.id}>
-                  <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
-                  {Array.from({ length: monthDays }).map((_, i) => {
-                    const d = i+1
-                    const a = aMap.get(`${st.id}-${d}`)
-                    const label = a ? enumToRouteLabel(a.route) : null
-                    const car = a?.carNumber ?? ''
-                    const isToday = todayInfo.isSameMonth && todayInfo.day === d
-                    const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                    const openCarPicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'car' })
-                    const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                    const openNoteBR = () => { setTempText(a?.noteBR ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBR' }) }
-                    return (
-                      <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                        <div className="grid grid-cols-2 grid-rows-2 h-16">
-                          <button onClick={openRoutePicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                          <button onClick={openCarPicker} className={`col-span-1 row-span-1 flex items-center justify-center text-xs w-full h-full ${getCarColor(car)}`}>{car}</button>
-                          <button onClick={openNoteBL} className="col-span-1 row-span-1 border-t border-r p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                            {a?.noteBL ?? ''}
-                          </button>
-                          <button onClick={openNoteBR} className="col-span-1 row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                            {a?.noteBR ?? ''}
-                          </button>
-                        </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        )}
+                      {/* 週の明細（名前×7日） */}
+                      {staffs.map(st => (
+                        <tr key={`row-${wi}-${st.id}`}>
+                          <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+                          {week.map((d, i) => {
+                            const a = d ? aMap.get(`${st.id}-${d}`) : undefined
+                            const label = a ? enumToRouteLabel(a.route) : null
+                            const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                            const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                            const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                            return (
+                              <td key={`cell-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                                {d ? (
+                                  <div className="grid grid-rows-2 h-16">
+                                    <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                                    <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                      {a?.noteBL ?? ''}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="h-16" />
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
 
-        {/* ポートレート時のボトムメニュー */}
-        {(isPortrait && vw > 0 && vw < 1200) ? (
-          <div className="fixed bottom-0 inset-x-0 bg-white border-t shadow-sm px-3 py-2 flex items-center justify-between z-50">
-            <span className="text-sm text-gray-700">{year}年 {month}月</span>
-            {((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? (
-              <Button disabled={isSaving || !isDirty} onClick={saveAll} className="text-base">{isSaving ? '保存中…' : '保存'}</Button>
-            ) : null}
-          </div>
-        ) : null}
+          // 連絡パネル本体（ダイアログと共通利用）
+          const ContactBody = () => (
+            <div className="overflow-y-auto max-h-[70vh] pr-1">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key:'common', title:'共通' },
+                  { key:'sanchoku', title:'産直' },
+                  { key:'esaki', title:'江D' },
+                  { key:'maruno', title:'丸D' },
+                ].map(g => (
+                  <div key={g.key} className="border rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-lg">{g.title}</div>
+                    </div>
+                    <div className="space-y-2">
+                      {contacts.filter(c => (c.category||'common')===g.key).map(c => (
+                        <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
+                        </div>
+                      ))}
+                      {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
+                        <div className="text-sm text-gray-500">（項目なし）</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {!editingVisible && (
+                <div className="mt-3 flex justify-end">
+                  <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+                </div>
+              )}
+              {editingVisible && (
+                <div className="mt-2">
+                  <div className="grid grid-cols-1 gap-2">
+                    <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+                    <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+                      <option value="common">共通</option>
+                      <option value="sanchoku">産直</option>
+                      <option value="esaki">江D</option>
+                      <option value="maruno">丸D</option>
+                    </select>
+                    <div className="flex justify-end gap-2">
+                      {cMode==='edit' && targetId && (
+                        <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+                      )}
+                      <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
+                      <Button onClick={saveContact}>完了</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ルート一覧 */}
+              <div className="mt-4">
+                <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
+                <div className="border rounded-md p-3 w-full break-words">
+                  {routeLoading ? (
+                    <div className="text-sm text-gray-600">読み込み中…</div>
+                  ) : (
+                    <div className="grid grid-cols-1 divide-y">
+                      <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
+                        <div>ルート名</div>
+                        <div>操作</div>
+                      </div>
+                      {routeItems.map(it => (
+                        <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
+                          <div>
+                            {routeEditId===it.id ? (
+                              <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                                <span>{it.name}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            {routeEditId===it.id ? (
+                              <>
+                                <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                                <Button onClick={saveRouteName}>保存</Button>
+                              </>
+                            ) : (
+                              <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                            )}
+                          </div>
+                          {routeEditId===it.id && (
+                            <div className="col-span-2 mt-2">
+                              <div className="text-sm text-gray-600 mb-1">色を選択</div>
+                              <div className="grid grid-cols-6 gap-2">
+                                {palette.map((p, idx) => (
+                                  <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {routeItems.length === 0 && (
+                        <div className="text-sm text-gray-500 py-4">データがありません</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+
+          if (isPortrait && vw > 0 && vw < 768) {
+            // スマホ縦: 週ごとに縦連結のみ
+            return <WeeklyTable />
+          }
+          if (!isPortrait) {
+            // 非ポートレート: 左に週テーブル、右に連絡パネル
+            return (
+              <div className="grid grid-cols-[1fr_420px] gap-4 items-start">
+                <WeeklyTable />
+                <div className="border rounded-md bg-white p-3">
+                  <div className="font-semibold text-lg mb-2">連絡</div>
+                  <ContactBody />
+                </div>
+              </div>
+            )
+          }
+          // それ以外（タブレット縦など）は従来の横長テーブル
+          return (
+            <div className="overflow-x-auto border rounded-md bg-white">
+              <table className="min-w-[900px] w-full text-sm table-fixed">
+                <thead>
+                  <tr>
+                    <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
+                    {Array.from({ length: monthDays }).map((_, i) => {
+                      const d = i + 1
+                      const dow = getDow(year, month, d)
+                      const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                      const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
+                      return (
+                        <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{`${month}/${d}`}</th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffs.map(st => (
+                    <tr key={st.id}>
+                      <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+                      {Array.from({ length: monthDays }).map((_, i) => {
+                        const d = i+1
+                        const a = aMap.get(`${st.id}-${d}`)
+                        const label = a ? enumToRouteLabel(a.route) : null
+                        const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                        const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                        const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                        return (
+                          <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                            <div className="grid grid-rows-2 h-16">
+                              <button onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                              <button onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                {a?.noteBL ?? ''}
+                              </button>
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })()}
+
+        {/* 共有BottomBarを使用するためローカルのボトムメニューは撤去 */}
 
         <Dialog open={picker.open} onOpenChange={(o) => { if (!o) { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>
           <DialogContent>
@@ -474,6 +813,16 @@ export default function ShiftAppPage() {
           </DialogContent>
         </Dialog>
       </main>
+
+      {/* 連絡ダイアログ（ポートレート時） */}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent className="max-w-3xl bg-white max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>連絡</DialogTitle>
+          </DialogHeader>
+          <ContactBody />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

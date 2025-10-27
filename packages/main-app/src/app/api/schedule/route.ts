@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // lower_assignments テーブルに color 列が存在するかをキャッシュ付きで確認
 let hasLowerColorColumnCache: boolean | null = null
 async function hasLowerColorColumn(): Promise<boolean> {
@@ -21,33 +24,44 @@ async function hasLowerColorColumn(): Promise<boolean> {
 
 // GET /api/schedule?year=2025&month=9
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const year = Number(searchParams.get('year'))
-  const month = Number(searchParams.get('month'))
-  if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
+  try {
+    const t0 = Date.now()
+    const { searchParams } = new URL(req.url)
+    const year = Number(searchParams.get('year'))
+    const month = Number(searchParams.get('month'))
+    if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
-  const includeColor = await hasLowerColorColumn()
-  const [notes, routes, lowers] = await Promise.all([
-    prisma.dayNote.findMany({
-      where: { year, month },
-      orderBy: [{ day: 'asc' }, { slot: 'asc' }],
-      select: { day: true, slot: true, text: true },
-    }),
-    prisma.routeAssignment.findMany({
-      where: { year, month },
-      select: { day: true, route: true, staffId: true, special: true },
-    }),
-    includeColor
-      ? prisma.lowerAssignment.findMany({
-          where: { year, month },
-          select: { day: true, rowIndex: true, staffId: true, color: true },
-        })
-      : (prisma.lowerAssignment.findMany({
-          where: { year, month },
-          select: { day: true, rowIndex: true, staffId: true },
-        }) as any),
-  ])
-  return NextResponse.json({ notes, routes, lowers })
+    // debug=1 のときは軽量な疎通確認を返す
+    if (searchParams.get('debug') === '1') {
+      const [dn, ra, la] = await Promise.all([
+        prisma.dayNote.count({ where: { year, month } }),
+        prisma.routeAssignment.count({ where: { year, month } }),
+        prisma.lowerAssignment.count({ where: { year, month } }),
+      ])
+      const headers = new Headers({ 'Server-Timing': `total;dur=${Date.now()-t0}` })
+      return NextResponse.json({ ok: true, counts: { day_notes: dn, route_assignments: ra, lower_assignments: la } }, { headers })
+    }
+
+    // PrismaのenumとDBの古いenum値(EZAKI_DONKI等)不整合により500となるのを回避するため、GETはrawで取得
+    const includeColor = await hasLowerColorColumn()
+    const [notesRows, routeRows, lowerRows] = await Promise.all([
+      (prisma.$queryRaw`SELECT "day","slot","text" FROM "day_notes" WHERE "year"=${year} AND "month"=${month} ORDER BY "day","slot"` as unknown as any[]),
+      (prisma.$queryRaw`SELECT "day",
+        CASE WHEN ("route")::text='EZAKI_DONKI' THEN 'ESAKI_DONKI' ELSE ("route")::text END AS route,
+        "staffId",
+        ("special")::text AS special
+        FROM "route_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[]),
+      includeColor
+        ? (prisma.$queryRaw`SELECT "day","rowIndex","staffId", ("color")::text AS color FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[])
+        : (prisma.$queryRaw`SELECT "day","rowIndex","staffId" FROM "lower_assignments" WHERE "year"=${year} AND "month"=${month}` as unknown as any[]),
+    ])
+    const headers = new Headers({ 'Server-Timing': `total;dur=${Date.now()-t0}` })
+    return NextResponse.json({ notes: notesRows, routes: routeRows, lowers: lowerRows }, { headers })
+  } catch (e: any) {
+    const message = e?.message || 'Internal Error'
+    const code = e?.code
+    return NextResponse.json({ error: message, code }, { status: 500 })
+  }
 }
 
 // POST /api/schedule  保存一括
@@ -71,9 +85,25 @@ export async function POST(req: Request) {
     const month: number = body?.month
     if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
+    const { searchParams } = new URL(req.url)
+    const allowEmpty = searchParams.get('allowEmpty') === '1'
     const notes = Array.isArray(body?.notes) ? body.notes : []
     const routes = Array.isArray(body?.routes) ? body.routes : []
     const lowers = Array.isArray(body?.lowers) ? body.lowers : []
+
+    // 空保存ガード：既存データがある月に対して、空配列での保存要求は無視（明示allowEmpty=1時のみ許可）
+    const existingCounts = await Promise.all([
+      prisma.dayNote.count({ where: { year, month } }),
+      prisma.routeAssignment.count({ where: { year, month } }),
+      prisma.lowerAssignment.count({ where: { year, month } }),
+    ])
+    const existingTotal = existingCounts[0] + existingCounts[1] + existingCounts[2]
+    if (!allowEmpty && (!notes || notes.length===0) && (!routes || routes.length===0) && (!lowers || lowers.length===0) && existingTotal > 0) {
+      const totalMs = Date.now() - t0
+      const headers = new Headers({ 'Server-Timing': `total;dur=${totalMs}` })
+      // 変更なしで成功扱いにする
+      return NextResponse.json({ ok: true, noChange: true }, { headers })
+    }
 
     // 非インタラクティブトランザクション（ロールバック版：アップサート中心）
     const ops: any[] = []

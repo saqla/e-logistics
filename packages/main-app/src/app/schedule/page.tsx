@@ -30,13 +30,14 @@ function useIsPortrait() {
 type Staff = { id: string; name: string; kind: 'ALL'|'UNIC'|'HAKO'|'JIMU'; lowerCount: number }
 
 type Note = { day: number; slot: number; text: string }
-type RouteKind = 'EZAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
+type RouteKind = 'ESAKI_DONKI' | 'SANCHOKU' | 'MARUNO_DONKI'
 type RouteSpecial = 'CONTINUE' | 'OFF' | null
 type RouteAssignment = { day: number; route: RouteKind; staffId: string | null; special: RouteSpecial }
 type LowerAssignment = { day: number; rowIndex: number; staffId: string | null; color?: 'WHITE' | 'PINK' }
 
-const ROUTE_LABEL: Record<RouteKind, string> = {
-  EZAKI_DONKI: '江D',
+// デフォルトのルート名（DB未設定時）
+const DEFAULT_ROUTE_LABEL: Record<RouteKind, string> = {
+  ESAKI_DONKI: '江D',
   SANCHOKU: '産直',
   MARUNO_DONKI: '丸D'
 }
@@ -724,6 +725,8 @@ export default function SchedulePage() {
     return () => window.removeEventListener('openRemarksDialog', handleOpenRemarks);
   }, []);
 
+  // ルート一覧管理は/shift側のみで扱うため、/schedule側の起動連携は撤去
+
   // BottomBar との保存イベント連携を復帰
   const handleSaveRef = useRef(handleSave)
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
@@ -741,6 +744,24 @@ export default function SchedulePage() {
   }, [saving])
 
   const idToName = useMemo(() => new Map(staffs.map(s => [s.id, s.name])), [staffs])
+  // ルート定義（名称・色）を取得
+  const [routeDefs, setRouteDefs] = useState<Record<string,{name:string; bgClass:string; textClass:string}>>({})
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch('/api/route-defs', { cache: 'no-store' })
+        const j = await r.json().catch(()=>({items:[]}))
+        if (Array.isArray(j.items)) {
+          const map: Record<string,{name:string; bgClass:string; textClass:string}> = {}
+          for (const it of j.items) {
+            if (it?.enabled) map[it.key] = { name: it.name, bgClass: it.bgClass, textClass: it.textClass }
+          }
+          setRouteDefs(map)
+        }
+      } catch {}
+    }
+    load()
+  }, [])
   const scrollToDay = (day: number) => {
     const main = mainScrollRef.current
     const top = topScrollRef.current
@@ -936,9 +957,9 @@ export default function SchedulePage() {
             </TooltipProvider>
 
             {/* ルート行（江ドンキ / 産直 / 丸ドンキ） */}
-            {(['EZAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
+            {(['ESAKI_DONKI','SANCHOKU','MARUNO_DONKI'] as RouteKind[]).map((rk, idx) => (
               <div key={rk} className="grid" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
-              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{ROUTE_LABEL[rk]}</div>
+              <div className={`sticky left-0 bg-white border-b border-r border-gray-300 ${idx===0 ? 'border-t' : ''} px-1 ${isPhoneLandscape ? 'py-1.5' : 'py-1'} text-center z-10 flex items-center justify-center font-semibold`} style={{lineHeight: 1}}>{routeDefs[rk]?.name || DEFAULT_ROUTE_LABEL[rk]}</div>
               {Array.from({length: 31}).map((_,i) => {
                 const d=i+1
                 const r=getRoute(d, rk)
@@ -946,7 +967,7 @@ export default function SchedulePage() {
                   <div key={d} className={`border-b ${idx===0 ? 'border-t' : ''} ${i===0 ? 'border-l border-gray-300' : ''} px-1 h-11 md:h-12 ${d>monthDays?'bg-gray-50':''} ${todayCol && d===todayCol ? 'bg-sky-50' : ''} ${highlightDays.has(d) ? 'ring-2 ring-amber-400' : ''}`}>
                     {d<=monthDays && (
                       <div className="relative h-full">
-                        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
+                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${isPhonePortrait ? 'text-sm' : 'text-[13px] sm:text-sm md:text-base'} font-medium whitespace-nowrap overflow-hidden text-ellipsis ${routeDefs[rk]?.bgClass || ''} ${routeDefs[rk]?.textClass || ''}`}>
                           {(() => {
                             if (r?.special === 'CONTINUE') {
                               return (
@@ -1252,15 +1273,30 @@ export default function SchedulePage() {
 
       {/* モバイル用 右サイド ダイアログ */}
       <Dialog open={asideOpen} onOpenChange={setAsideOpen}>
-        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md bg-white`}>
+        <DialogContent className={`${isPortrait ? '' : 'md:hidden'} max-w-md max-h-[85vh] bg-white`}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">備考</DialogTitle>
           </DialogHeader>
-          {/* compact表示は維持。タップで編集開始は各パネル内部で直接編集UIへ誘導（本実装はスタッフ/メモ側に準拠） */}
-          <RightSideContent compact />
-          <div className="mt-3">
-            <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
+          {/* スクロール可能コンテナ（縦画面で4件以上でもスクロール可） */}
+          <div className="overflow-y-auto max-h-[70vh] pr-1">
+            {/* compact表示は維持。下部に管理コンテナ */}
+            <RemarkPanel compact />
+            <div className="mt-3">
+              <Button className="w-full" variant="outline" onClick={()=>{ setAsideOpen(false); setSearchOpen(true) }}>検索</Button>
+            </div>
+            {/* 管理：/scheduleではスタッフ/クリアのみ。ルート一覧設定は/shift側に限定 */}
+            <div className="mt-3">
+              <div className="font-semibold text-center text-xl mb-2">管理</div>
+              <div className="border rounded-md p-3 w-full break-words">
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" onClick={() => router.push('/staff')}>スタッフ一覧管理</Button>
+                  <Button variant="outline" onClick={clearAllNotes}>上段メモを全クリア</Button>
+                  <Button variant="destructive" onClick={clearAllLowers}>下段を全クリア</Button>
+                </div>
+              </div>
+            </div>
           </div>
+          {/* 重複していた管理コンテナを削除（上のスクロール領域内のみ表示） */}
         </DialogContent>
       </Dialog>
 
@@ -1308,12 +1344,14 @@ export default function SchedulePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+  {/* /scheduleではルート一覧設定ダイアログは非表示 */}
     </div>
   )
 }
 
 // 備考エリア コンポーネント（簡易実装）
-type Remark = { id: string; title: string; body: string }
+type Remark = { id: string; title: string; body: string; category?: 'common'|'sanchoku'|'esaki'|'maruno' }
 
 function useRemarks() {
   const [items, setItems] = useState<Remark[]>([])
@@ -1332,21 +1370,35 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
   const rest = items.slice(3)
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'create'|'edit'>('create')
+  const [viewMode, setViewMode] = useState<'view'|'edit'>('edit')
   const [target, setTarget] = useState<Remark | undefined>(undefined)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const openCreate = () => { if (!editorVerified) return; setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
-  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
+  const openCreate = () => { if (!editorVerified) return; setMode('create'); setViewMode('edit'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
+  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setViewMode('view'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
 
   const save = async () => {
-    const payload = { title: title.trim(), body: body.trim() }
+    const t = title.trim(); const b = body.trim()
+    const payload = { title: t, body: b }
     const url = mode==='create' ? '/api/remarks' : `/api/remarks/${target!.id}`
     const method = mode==='create' ? 'POST' : 'PATCH'
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-    if (!res.ok) { alert('保存に失敗しました'); return }
+    if (!res.ok) {
+      try {
+        const ct = res.headers.get('content-type') || ''
+        if (ct.includes('application/json')) {
+          const j = await res.json(); alert(j?.error || '保存に失敗しました')
+        } else {
+          const txt = await res.text(); alert(txt || '保存に失敗しました')
+        }
+      } catch {
+        alert('保存に失敗しました')
+      }
+      return
+    }
     setOpen(false); setRefresh(v=>v+1)
   }
 
@@ -1356,14 +1408,13 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
     setRefresh(v=>v+1)
   }
 
-  // ダイアログ表示時に自動フォーカス（新規=タイトル、編集=本文）
+  // ダイアログ表示時に自動フォーカス（編集モードのみ）
   useEffect(() => {
-    if (!open) return
+    if (!open || viewMode !== 'edit') return
     const focusTarget = mode === 'create' ? titleInputRef.current : bodyTextareaRef.current
-    // モーダルマウント直後のレイアウト確定後にフォーカス
     const id = setTimeout(() => focusTarget?.focus({ preventScroll: true }), 0)
     return () => clearTimeout(id)
-  }, [open, mode])
+  }, [open, mode, viewMode])
 
   return (
     <div>
@@ -1420,16 +1471,144 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
       <Dialog open={editorVerified && open} onOpenChange={setOpen}>
         <DialogContent className="bg-white">
           <DialogHeader>
+            <DialogTitle>{mode==='create' ? '備考を追加' : (viewMode==='view' ? '備考' : '備考を編集')}</DialogTitle>
+          </DialogHeader>
+          {viewMode === 'view' ? (
+            <div className="space-y-3" onClick={() => setViewMode('edit')}>
+              <div className="font-medium text-lg break-words">{title || <span className="text-gray-400">（タイトルなし）</span>}</div>
+              <div className="text-base text-gray-700 whitespace-pre-wrap break-words min-h-[8rem] border rounded-md p-3 bg-gray-50 relative">
+                <span className="absolute right-2 top-2 text-xs text-gray-500">タップで編集</span>
+                {body || <span className="text-gray-400">（本文なし）</span>}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="rtitle">タイトル</Label>
+                <Input id="rtitle" ref={titleInputRef} value={title} onChange={(e)=>setTitle(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="rbody">本文</Label>
+                <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 mt-3">
+            {mode==='edit' && target && (
+              <Button
+                variant="destructive"
+                onClick={async ()=>{ await del(target.id); setOpen(false) }}
+              >
+                削除
+              </Button>
+            )}
+            {viewMode === 'edit' && <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>}
+            {viewMode === 'edit' ? (
+              <Button onClick={save} disabled={!editorVerified}>完了</Button>
+            ) : (
+              <Button variant="outline" onClick={()=>setViewMode('edit')}>編集</Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function MobileRemarksGrid() {
+  const { data: session } = useSession()
+  const editorVerified = (session as any)?.editorVerified === true
+  const { items, setRefresh } = useRemarks()
+  const first3 = items.slice(0,3)
+  const rest = items.slice(3)
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'create'|'edit'>('create')
+  const [target, setTarget] = useState<Remark | undefined>(undefined)
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+
+  const openCreate = () => { if (!editorVerified) return; setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }
+  const openEdit = (r: Remark) => { if (!editorVerified) return; setMode('edit'); setTarget(r); setTitle(r.title); setBody(r.body); setOpen(true) }
+
+  const save = async () => {
+    const payload = { title: title.trim(), body: body.trim() }
+    const url = mode==='create' ? '/api/remarks' : `/api/remarks/${target!.id}`
+    const method = mode==='create' ? 'POST' : 'PATCH'
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) { alert('保存に失敗しました'); return }
+    setOpen(false); setRefresh(v=>v+1)
+  }
+
+  const del = async (id: string) => {
+    const res = await fetch(`/api/remarks/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('削除に失敗しました'); return }
+    setRefresh(v=>v+1)
+  }
+
+  // 全備考を単純に4等分（将来はタグ/種別でグルーピングも可）
+  const groups = [
+    { key: 'common', title: '共通' },
+    { key: 'sanchoku', title: '産直' },
+    { key: 'esaki', title: '江D' },
+    { key: 'maruno', title: '丸D' },
+  ] as const
+  const map: Record<string, Remark[]> = {
+    common: items.filter(r => (r as any).category === 'common' || !r.category),
+    sanchoku: items.filter(r => (r as any).category === 'sanchoku'),
+    esaki: items.filter(r => (r as any).category === 'esaki'),
+    maruno: items.filter(r => (r as any).category === 'maruno'),
+  }
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        {groups.map((g) => (
+          <div key={g.key} className="border rounded-md p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-lg">{g.title}</div>
+              {editorVerified && <Button size="sm" className="text-base" onClick={() => { setMode('create'); setTarget(undefined); setTitle(''); setBody(''); setOpen(true) }}>新規</Button>}
+            </div>
+            <div className="space-y-2">
+              {map[g.key].map(r => (
+                <div key={r.id} className="border rounded p-2 break-words" onClick={() => editorVerified && openEdit(r)}>
+                  <div className="font-medium text-base break-words">{r.title}</div>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{r.body}</div>
+                </div>
+              ))}
+              {map[g.key].length === 0 && (
+                <div className="text-sm text-gray-500">（項目なし）</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 備考作成/編集ダイアログ */}
+      <Dialog open={editorVerified && open} onOpenChange={setOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
             <DialogTitle>{mode==='create' ? '備考を追加' : '備考を編集'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="rtitle">タイトル</Label>
-              <Input id="rtitle" ref={titleInputRef} value={title} onChange={(e)=>setTitle(e.target.value)} autoFocus={mode==='create'} />
+              <Label htmlFor="rtitle2">タイトル</Label>
+              <Input id="rtitle2" value={title} onChange={(e)=>setTitle(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="rbody">本文</Label>
-              <textarea id="rbody" ref={bodyTextareaRef} className="w-full h-40 border rounded-md p-2 text-sm max-sm:text-lg" value={body} onChange={(e)=>setBody(e.target.value)} autoFocus={mode==='edit'} />
+              <Label htmlFor="rbody2">本文</Label>
+              <textarea id="rbody2" className="w-full h-40 border rounded-md p-2 text-sm" value={body} onChange={(e)=>setBody(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="rcat2">カテゴリ</Label>
+              <select id="rcat2" className="w-full border rounded-md p-2 text-sm" value={(target as any)?.category || ''} onChange={(e) => {
+                const v = e.target.value
+                setTarget(prev => prev ? ({ ...prev, category: v } as any) : ({ id: '', title, body, category: v } as any))
+              }}>
+                <option value="common">共通</option>
+                <option value="sanchoku">産直</option>
+                <option value="esaki">江D</option>
+                <option value="maruno">丸D</option>
+              </select>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -1442,12 +1621,21 @@ function RemarkPanel({ compact = false }: { compact?: boolean }) {
               </Button>
             )}
             <Button variant="outline" onClick={()=>setOpen(false)}>キャンセル</Button>
-            <Button onClick={save} disabled={!editorVerified}>完了</Button>
+            <Button onClick={async () => {
+              const payload = { title: title.trim(), body: body.trim(), category: (target as any)?.category || 'common' }
+              const url = mode==='create' ? '/api/remarks' : `/api/remarks/${target!.id}`
+              const method = mode==='create' ? 'POST' : 'PATCH'
+              const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+              if (!res.ok) { alert('保存に失敗しました'); return }
+              setOpen(false); setRefresh(v=>v+1)
+            }} disabled={!editorVerified}>完了</Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+
+// RouteDefsEditorは/shift側に限定
 
 

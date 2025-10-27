@@ -27,8 +27,25 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const data: any = {}
     if (typeof body?.title === 'string') data.title = body.title.trim()
     if (typeof body?.body === 'string') data.body = body.body.trim()
+    // 後方互換のため category の更新は無効化（将来スキーマ導入時に再検討）
     if (Object.keys(data).length === 0) return NextResponse.json({ error: '更新項目がありません' }, { status: 400 })
-    const updated = await prisma.remark.update({ where: { id }, data })
+    // 後方互換: raw UPDATEで列を限定
+    if (Object.prototype.hasOwnProperty.call(data, 'title') || Object.prototype.hasOwnProperty.call(data, 'body')) {
+      const titleVal = typeof data.title === 'string' ? data.title : undefined
+      const bodyVal = typeof data.body === 'string' ? data.body : undefined
+      if (titleVal != null && bodyVal != null) {
+        await prisma.$executeRaw`UPDATE "remarks" SET "title"=${titleVal}, "body"=${bodyVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
+      } else if (titleVal != null) {
+        await prisma.$executeRaw`UPDATE "remarks" SET "title"=${titleVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
+      } else if (bodyVal != null) {
+        await prisma.$executeRaw`UPDATE "remarks" SET "body"=${bodyVal}, "updatedAt"=${new Date()} WHERE "id"=${id}`
+      }
+      const rows = await prisma.$queryRaw`SELECT "id","title","body","createdAt","updatedAt" FROM "remarks" WHERE "id"=${id} LIMIT 1` as any[]
+      const updated = rows?.[0] || { id, title: titleVal, body: bodyVal }
+      return NextResponse.json({ remark: updated })
+    }
+    const rows = await prisma.$queryRaw`SELECT "id","title","body","createdAt","updatedAt" FROM "remarks" WHERE "id"=${id} LIMIT 1` as any[]
+    const updated = rows?.[0] || null
     return NextResponse.json({ remark: updated })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
@@ -50,7 +67,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     const prisma = await getPrisma()
     if (!prisma) return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
     const id = params.id
-    await prisma.remark.delete({ where: { id } })
+    // 後方互換: category列未導入DBでも確実に動作するようrawで削除
+    await prisma.$executeRaw`DELETE FROM "remarks" WHERE "id"=${id}`
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     const message = e?.message || 'Internal Error'
