@@ -117,17 +117,33 @@ export async function POST(req: Request) {
     deduped.push(it)
   }
 
-  // 置換保存（対象月を全削除→作成）
-  await prisma.$transaction(async (tx) => {
-    await tx.shiftAssignment.deleteMany({ where: { year, month } })
-    for (const a of deduped) {
-      await tx.shiftAssignment.create({
-        data: { year, month, day: a.day, staffId: a.staffId, route: a.route as any, carNumber: a.carNumber, noteBL: a.noteBL, noteBR: a.noteBR }
-      })
+  // 置換保存（対象月を全削除→createMany）
+  try {
+    const batch: any[] = [
+      prisma.shiftAssignment.deleteMany({ where: { year, month } }),
+    ]
+    if (deduped.length > 0) {
+      batch.push(
+        prisma.shiftAssignment.createMany({
+          data: deduped.map(a => ({
+            year,
+            month,
+            day: a.day,
+            staffId: a.staffId,
+            route: a.route as any,
+            carNumber: a.carNumber,
+            noteBL: a.noteBL,
+            noteBR: a.noteBR,
+          })),
+        })
+      )
     }
-  })
-
-  return NextResponse.json({ ok: true })
+    await prisma.$transaction(batch)
+    return NextResponse.json({ ok: true, count: deduped.length })
+  } catch (e: any) {
+    const message = e?.message || '保存に失敗しました'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
 
 
