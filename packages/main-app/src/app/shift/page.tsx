@@ -279,7 +279,8 @@ export default function ShiftAppPage() {
       const uniqueMap = new Map<string, Assignment>()
       for (const a of assignments) {
         const key = `${a.staffId}-${a.day}`
-        if (!uniqueMap.has(key)) uniqueMap.set(key, a)
+        // 直近の編集を優先して常に上書き
+        uniqueMap.set(key, a)
       }
       const body = {
         year,
@@ -298,10 +299,15 @@ export default function ShiftAppPage() {
         const t = await res.text()
         throw new Error(t || '保存に失敗しました')
       }
+      const j = await res.json().catch(()=>({}))
+      if (Array.isArray(j?.assignments)) {
+        setAssignments(j.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+      } else {
+        const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+        const aJson = await aRes.json()
+        setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+      }
       setDirty(false)
-      const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
-      const aJson = await aRes.json()
-      setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
       alert('保存しました')
     } catch (e) {
       console.error(e)
