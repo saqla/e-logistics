@@ -138,7 +138,12 @@ export async function POST(req: Request) {
         }))
       )
     }
-    return NextResponse.json({ ok: true, count: deduped.length })
+    const latest = await prisma.shiftAssignment.findMany({
+      where: { year, month },
+      orderBy: [{ day: 'asc' }],
+      select: { id: true, year: true, month: true, day: true, staffId: true, route: true, carNumber: true, noteBL: true, noteBR: true, updatedAt: true }
+    })
+    return NextResponse.json({ ok: true, count: deduped.length, assignments: latest })
   } catch (e: any) {
     const message = e?.message || '保存に失敗しました'
     return NextResponse.json({ error: message }, { status: 500 })
