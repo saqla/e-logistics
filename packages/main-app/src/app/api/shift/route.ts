@@ -92,6 +92,16 @@ export async function POST(req: Request) {
   const arr: any[] = Array.isArray(body?.assignments) ? body.assignments : []
   if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
 
+  // 空保存ガード：既存データがある月に対して、空配列での保存要求は無視（明示allowEmpty=1時のみ許可）
+  const { searchParams } = new URL(req.url)
+  const allowEmpty = searchParams.get('allowEmpty') === '1'
+  try {
+    const exists = await prisma.shiftAssignment.count({ where: { year, month } })
+    if (!allowEmpty && (!arr || arr.length === 0) && exists > 0) {
+      return NextResponse.json({ ok: true, noChange: true })
+    }
+  } catch {}
+
   // 初回は自動でテーブルを用意
   await ensureShiftSchema()
 

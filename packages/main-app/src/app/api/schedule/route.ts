@@ -108,15 +108,24 @@ export async function POST(req: Request) {
     // 非インタラクティブトランザクション（ロールバック版：アップサート中心）
     const ops: any[] = []
 
+    // 部分的な空保存ガード：
+    // - notesが空かつ他が非空で既存がある場合はnotesを変更しない
+    // - lowersが空かつ他が非空で既存がある場合はlowersを変更しない
+    const [existingNotes, _existingRoutes, existingLowers] = existingCounts
+    const skipNotes = (!allowEmpty) && (Array.isArray(notes) && notes.length === 0) && (routes.length > 0 || lowers.length > 0) && (existingNotes > 0)
+    const skipLowers = (!allowEmpty) && (Array.isArray(lowers) && lowers.length === 0) && (routes.length > 0 || notes.length > 0) && (existingLowers > 0)
+
     // DayNote 置換（当月分を削除→非空のものだけ作成）
-    ops.push(prisma.dayNote.deleteMany({ where: { year, month } }))
-    const filteredNotes = (notes as any[]).filter(n => (n?.text ?? '').toString().trim() !== '')
-    for (const n of filteredNotes) {
-      ops.push(
-        prisma.dayNote.create({
-          data: { year, month, day: Number(n.day), slot: Number(n.slot), text: String(n.text) },
-        })
-      )
+    if (!skipNotes) {
+      ops.push(prisma.dayNote.deleteMany({ where: { year, month } }))
+      const filteredNotes = (notes as any[]).filter(n => (n?.text ?? '').toString().trim() !== '')
+      for (const n of filteredNotes) {
+        ops.push(
+          prisma.dayNote.create({
+            data: { year, month, day: Number(n.day), slot: Number(n.slot), text: String(n.text) },
+          })
+        )
+      }
     }
 
     // RouteAssignment はupsertで更新/作成（全削除はしない）
@@ -139,7 +148,9 @@ export async function POST(req: Request) {
 
     // LowerAssignment 置換（当月分を削除→非空のみ作成、色も保存）
     // クライアント側の重複防止に依存せず、サーバー側でも同日同スタッフの重複を排除する
-    ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
+    if (!skipLowers) {
+      ops.push(prisma.lowerAssignment.deleteMany({ where: { year, month } }))
+    }
 
     // 正規化 + サーバーサイド重複排除（同一日×同一スタッフは最初の1件のみ採用）
     const normalizedLowers = (Array.isArray(lowers) ? (lowers as any[]) : [])
@@ -163,30 +174,32 @@ export async function POST(req: Request) {
     }
 
     const includeColorForCreate = await hasLowerColorColumn()
-    if (includeColorForCreate) {
-      for (const l of dedupedLowers) {
-        ops.push(
-          prisma.lowerAssignment.create({
-            data: {
-              year,
-              month,
-              day: l.day,
-              rowIndex: l.rowIndex,
-              staffId: l.staffId,
-              color: l.color,
-            },
-          })
-        )
-      }
-    } else {
-      // color列が存在しない古いDBに対してはraw insertで回避（id/createdAt/updatedAtも明示指定）
-      for (const l of dedupedLowers) {
-        const id = randomUUID()
-        const createdAt = new Date()
-        const updatedAt = createdAt
-        ops.push(
-          prisma.$executeRaw`INSERT INTO "lower_assignments" ("id","year","month","day","rowIndex","staffId","createdAt","updatedAt") VALUES (${id}, ${year}, ${month}, ${l.day}, ${l.rowIndex}, ${l.staffId}, ${createdAt}, ${updatedAt})`
-        )
+    if (!skipLowers) {
+      if (includeColorForCreate) {
+        for (const l of dedupedLowers) {
+          ops.push(
+            prisma.lowerAssignment.create({
+              data: {
+                year,
+                month,
+                day: l.day,
+                rowIndex: l.rowIndex,
+                staffId: l.staffId,
+                color: l.color,
+              },
+            })
+          )
+        }
+      } else {
+        // color列が存在しない古いDBに対してはraw insertで回避（id/createdAt/updatedAtも明示指定）
+        for (const l of dedupedLowers) {
+          const id = randomUUID()
+          const createdAt = new Date()
+          const updatedAt = createdAt
+          ops.push(
+            prisma.$executeRaw`INSERT INTO "lower_assignments" ("id","year","month","day","rowIndex","staffId","createdAt","updatedAt") VALUES (${id}, ${year}, ${month}, ${l.day}, ${l.rowIndex}, ${l.staffId}, ${createdAt}, ${updatedAt})`
+          )
+        }
       }
     }
 
