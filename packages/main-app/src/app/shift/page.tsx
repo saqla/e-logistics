@@ -318,12 +318,14 @@ export default function ShiftAppPage() {
     return () => window.removeEventListener('requestShiftSave', onReq)
   }, [])
 
-  // 連絡（備考扱い）ダイアログのオープンイベント
+  // 連絡（備考扱い）ダイアログのオープンイベント（ポートレート時のみダイアログを開く）
   useEffect(() => {
-    const onOpen = (_e: Event) => setContactOpen(true)
+    const onOpen = (_e: Event) => {
+      if (isPortrait) setContactOpen(true)
+    }
     window.addEventListener('openShiftContactDialog', onOpen)
     return () => window.removeEventListener('openShiftContactDialog', onOpen)
-  }, [])
+  }, [isPortrait])
 
   // 連絡のロード
   useEffect(() => {
@@ -405,6 +407,115 @@ export default function ShiftAppPage() {
     window.dispatchEvent(ev)
   }, [isSaving])
 
+  // 連絡パネル本体（ダイアログ/右サイド共通）
+  const ContactBody = () => (
+    <div className="overflow-y-auto max-h-[70vh] pr-1">
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { key:'common', title:'共通' },
+          { key:'sanchoku', title:'産直' },
+          { key:'esaki', title:'江D' },
+          { key:'maruno', title:'丸D' },
+        ].map(g => (
+          <div key={g.key} className="border rounded-md p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-lg">{g.title}</div>
+            </div>
+            <div className="space-y-2">
+              {contacts.filter(c => (c.category||'common')===g.key).map(c => (
+                <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
+                </div>
+              ))}
+              {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
+                <div className="text-sm text-gray-500">（項目なし）</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {!editingVisible && (
+        <div className="mt-3 flex justify-end">
+          <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+        </div>
+      )}
+      {editingVisible && (
+        <div className="mt-2">
+          <div className="grid grid-cols-1 gap-2">
+            <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+            <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+              <option value="common">共通</option>
+              <option value="sanchoku">産直</option>
+              <option value="esaki">江D</option>
+              <option value="maruno">丸D</option>
+            </select>
+            <div className="flex justify-end gap-2">
+              {cMode==='edit' && targetId && (
+                <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+              )}
+              <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
+              <Button onClick={saveContact}>完了</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ルート一覧（スタッフ一覧レイアウト参照） */}
+      <div className="mt-4">
+        <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
+        <div className="border rounded-md p-3 w-full break-words">
+          {routeLoading ? (
+            <div className="text-sm text-gray-600">読み込み中…</div>
+          ) : (
+            <div className="grid grid-cols-1 divide-y">
+              <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
+                <div>ルート名</div>
+                <div>操作</div>
+              </div>
+              {routeItems.map(it => (
+                <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
+                  <div>
+                    {routeEditId===it.id ? (
+                      <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                        <span>{it.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    {routeEditId===it.id ? (
+                      <>
+                        <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                        <Button onClick={saveRouteName}>保存</Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                    )}
+                  </div>
+                  {routeEditId===it.id && (
+                    <div className="col-span-2 mt-2">
+                      <div className="text-sm text-gray-600 mb-1">色を選択</div>
+                      <div className="grid grid-cols-6 gap-2">
+                        {palette.map((p, idx) => (
+                          <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {routeItems.length === 0 && (
+                <div className="text-sm text-gray-500 py-4">データがありません</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <SiteHeader
@@ -428,115 +539,244 @@ export default function ShiftAppPage() {
           <span className={`px-2 py-0.5 rounded ${getRouteColor('休み')}`}>休み</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('有給')}`}>有給</span>
         </div>
-        {/* モバイル縦: 週ごとに縦連結（7列固定） */}
-        {(isPortrait && vw > 0 && vw < 768) ? (
-          <div className="overflow-x-auto border rounded-md bg-white">
-            <table className="w-full text-sm table-fixed">
-              <thead>
-                {/* 曜日行：週ごとに7列繰り返し */}
-                <tr>
-                  <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
-                  {Array.from({ length: 7 }).map((_, i) => {
-                    const wd = ['日','月','火','水','木','金','土'][i]
-                    const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                    return (
-                      <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {weeks.map((week, wi) => (
-                  <Fragment key={`wkblk-${wi}`}>
-                    {/* 週のヘッダー（日付行） */}
-                    <tr>
-                      <td className="sticky left-0 bg-white z-20 border-b p-2 text-left" style={{ width: leftColPx }}></td>
-                      {week.map((d, i) => {
-                        const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                        const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
-                        return (
-                          <td key={`date-${wi}-${i}`} className={`border-b p-2 text-center ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</td>
-                        )
-                      })}
-                    </tr>
-                    {/* 週の明細（名前×7日） */}
-                    {staffs.map(st => (
-                      <tr key={`row-${wi}-${st.id}`}>
-                        <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+        {(() => {
+          // 週ごとの縦連結テーブルを共通化
+          const WeeklyTable = () => (
+            <div className="overflow-x-auto border rounded-md bg-white">
+              <table className="w-full text-sm table-fixed">
+                <thead>
+                  {/* 曜日行：7列 */}
+                  <tr>
+                    <th className="bg-white border-b p-1 text-center text-xs" style={{ width: leftColPx }}>曜</th>
+                    {Array.from({ length: 7 }).map((_, i) => {
+                      const wd = ['日','月','火','水','木','金','土'][i]
+                      const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
+                      return (
+                        <th key={`wd-${i}`} className={`border-b p-1 text-center text-xs ${color}`} style={{ width: dayColPx }}>{wd}</th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeks.map((week, wi) => (
+                    <Fragment key={`wkblk-${wi}`}>
+                      {/* 週のヘッダー（日付行） */}
+                      <tr>
+                        <td className="sticky left-0 bg-white z-20 border-b p-2 text-left" style={{ width: leftColPx }}></td>
                         {week.map((d, i) => {
-                          const a = d ? aMap.get(`${st.id}-${d}`) : undefined
-                          const label = a ? enumToRouteLabel(a.route) : null
                           const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                          const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                          const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                          const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                           return (
-                            <td key={`cell-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                              {d ? (
-                                <div className="grid grid-rows-2 h-16">
-                                  <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                                  <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                    {a?.noteBL ?? ''}
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="h-16" />
-                              )}
-                            </td>
+                            <td key={`date-${wi}-${i}`} className={`border-b p-2 text-center ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</td>
                           )
                         })}
                       </tr>
-                    ))}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-        <div className="overflow-x-auto border rounded-md bg-white">
-          <table className="min-w-[900px] w-full text-sm table-fixed">
-            <thead>
-              <tr>
-                <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
-                {Array.from({ length: monthDays }).map((_, i) => {
-                  const d = i + 1
-                  const dow = getDow(year, month, d)
-                  const isToday = todayInfo.isSameMonth && todayInfo.day === d
-                  const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
-                  return (
-                    <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{`${month}/${d}`}</th>
-                  )
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {staffs.map(st => (
-                <tr key={st.id}>
-                  <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
-                  {Array.from({ length: monthDays }).map((_, i) => {
-                    const d = i+1
-                    const a = aMap.get(`${st.id}-${d}`)
-                    const label = a ? enumToRouteLabel(a.route) : null
-                    const car = a?.carNumber ?? ''
-                    const isToday = todayInfo.isSameMonth && todayInfo.day === d
-                    const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                    const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                    return (
-                      <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                        <div className="grid grid-rows-2 h-16">
-                          <button onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                          <button onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                            {a?.noteBL ?? ''}
-                          </button>
+                      {/* 週の明細（名前×7日） */}
+                      {staffs.map(st => (
+                        <tr key={`row-${wi}-${st.id}`}>
+                          <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+                          {week.map((d, i) => {
+                            const a = d ? aMap.get(`${st.id}-${d}`) : undefined
+                            const label = a ? enumToRouteLabel(a.route) : null
+                            const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                            const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                            const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                            return (
+                              <td key={`cell-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                                {d ? (
+                                  <div className="grid grid-rows-2 h-16">
+                                    <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                                    <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                      {a?.noteBL ?? ''}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="h-16" />
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+
+          // 連絡パネル本体（ダイアログと共通利用）
+          const ContactBody = () => (
+            <div className="overflow-y-auto max-h-[70vh] pr-1">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key:'common', title:'共通' },
+                  { key:'sanchoku', title:'産直' },
+                  { key:'esaki', title:'江D' },
+                  { key:'maruno', title:'丸D' },
+                ].map(g => (
+                  <div key={g.key} className="border rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-lg">{g.title}</div>
+                    </div>
+                    <div className="space-y-2">
+                      {contacts.filter(c => (c.category||'common')===g.key).map(c => (
+                        <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
                         </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        )}
+                      ))}
+                      {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
+                        <div className="text-sm text-gray-500">（項目なし）</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {!editingVisible && (
+                <div className="mt-3 flex justify-end">
+                  <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
+                </div>
+              )}
+              {editingVisible && (
+                <div className="mt-2">
+                  <div className="grid grid-cols-1 gap-2">
+                    <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
+                    <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
+                      <option value="common">共通</option>
+                      <option value="sanchoku">産直</option>
+                      <option value="esaki">江D</option>
+                      <option value="maruno">丸D</option>
+                    </select>
+                    <div className="flex justify-end gap-2">
+                      {cMode==='edit' && targetId && (
+                        <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
+                      )}
+                      <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
+                      <Button onClick={saveContact}>完了</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ルート一覧 */}
+              <div className="mt-4">
+                <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
+                <div className="border rounded-md p-3 w-full break-words">
+                  {routeLoading ? (
+                    <div className="text-sm text-gray-600">読み込み中…</div>
+                  ) : (
+                    <div className="grid grid-cols-1 divide-y">
+                      <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
+                        <div>ルート名</div>
+                        <div>操作</div>
+                      </div>
+                      {routeItems.map(it => (
+                        <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
+                          <div>
+                            {routeEditId===it.id ? (
+                              <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                                <span>{it.name}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            {routeEditId===it.id ? (
+                              <>
+                                <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                                <Button onClick={saveRouteName}>保存</Button>
+                              </>
+                            ) : (
+                              <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                            )}
+                          </div>
+                          {routeEditId===it.id && (
+                            <div className="col-span-2 mt-2">
+                              <div className="text-sm text-gray-600 mb-1">色を選択</div>
+                              <div className="grid grid-cols-6 gap-2">
+                                {palette.map((p, idx) => (
+                                  <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {routeItems.length === 0 && (
+                        <div className="text-sm text-gray-500 py-4">データがありません</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+
+          if (isPortrait && vw > 0 && vw < 768) {
+            // スマホ縦: 週ごとに縦連結のみ
+            return <WeeklyTable />
+          }
+          if (!isPortrait) {
+            // 非ポートレート: 左に週テーブル、右に連絡パネル
+            return (
+              <div className="grid grid-cols-[1fr_420px] gap-4 items-start">
+                <WeeklyTable />
+                <div className="border rounded-md bg-white p-3">
+                  <div className="font-semibold text-lg mb-2">連絡</div>
+                  <ContactBody />
+                </div>
+              </div>
+            )
+          }
+          // それ以外（タブレット縦など）は従来の横長テーブル
+          return (
+            <div className="overflow-x-auto border rounded-md bg-white">
+              <table className="min-w-[900px] w-full text-sm table-fixed">
+                <thead>
+                  <tr>
+                    <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
+                    {Array.from({ length: monthDays }).map((_, i) => {
+                      const d = i + 1
+                      const dow = getDow(year, month, d)
+                      const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                      const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
+                      return (
+                        <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{`${month}/${d}`}</th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffs.map(st => (
+                    <tr key={st.id}>
+                      <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+                      {Array.from({ length: monthDays }).map((_, i) => {
+                        const d = i+1
+                        const a = aMap.get(`${st.id}-${d}`)
+                        const label = a ? enumToRouteLabel(a.route) : null
+                        const isToday = todayInfo.isSameMonth && todayInfo.day === d
+                        const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
+                        const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
+                        return (
+                          <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
+                            <div className="grid grid-rows-2 h-16">
+                              <button onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
+                              <button onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
+                                {a?.noteBL ?? ''}
+                              </button>
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })()}
 
         {/* 共有BottomBarを使用するためローカルのボトムメニューは撤去 */}
 
@@ -574,119 +814,13 @@ export default function ShiftAppPage() {
         </Dialog>
       </main>
 
-      {/* 連絡ダイアログ（モバイル縦想定の簡易UI） */}
+      {/* 連絡ダイアログ（ポートレート時） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
         <DialogContent className="max-w-3xl bg-white max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
-          {/* スクロール可能ラッパー */}
-          <div className="overflow-y-auto max-h-[70vh] pr-1">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { key:'common', title:'共通' },
-              { key:'sanchoku', title:'産直' },
-              { key:'esaki', title:'江D' },
-              { key:'maruno', title:'丸D' },
-            ].map(g => (
-              <div key={g.key} className="border rounded-md p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-lg">{g.title}</div>
-                </div>
-                <div className="space-y-2">
-                  {contacts.filter(c => (c.category||'common')===g.key).map(c => (
-                    <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
-                      {/* タイトルは不要。本文のみ表示 */}
-                      <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
-                    </div>
-                  ))}
-                  {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
-                    <div className="text-sm text-gray-500">（項目なし）</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {!editingVisible && (
-            <div className="mt-3 flex justify-end">
-              <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
-            </div>
-          )}
-          {editingVisible && (
-            <div className="mt-2">
-              <div className="grid grid-cols-1 gap-2">
-                <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
-                <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
-                  <option value="common">共通</option>
-                  <option value="sanchoku">産直</option>
-                  <option value="esaki">江D</option>
-                  <option value="maruno">丸D</option>
-                </select>
-                <div className="flex justify-end gap-2">
-                  {cMode==='edit' && targetId && (
-                    <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
-                  )}
-                  <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
-                  <Button onClick={saveContact}>完了</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ルート一覧（スタッフ一覧レイアウト参照） */}
-          <div className="mt-4">
-            <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
-            <div className="border rounded-md p-3 w-full break-words">
-              {routeLoading ? (
-                <div className="text-sm text-gray-600">読み込み中…</div>
-              ) : (
-                <div className="grid grid-cols-1 divide-y">
-                  <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
-                    <div>ルート名</div>
-                    <div>操作</div>
-                  </div>
-                  {routeItems.map(it => (
-                    <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
-                      <div>
-                        {routeEditId===it.id ? (
-                          <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
-                            <span>{it.name}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        {routeEditId===it.id ? (
-                          <>
-                            <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
-                            <Button onClick={saveRouteName}>保存</Button>
-                          </>
-                        ) : (
-                          <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
-                        )}
-                      </div>
-                      {routeEditId===it.id && (
-                        <div className="col-span-2 mt-2">
-                          <div className="text-sm text-gray-600 mb-1">色を選択</div>
-                          <div className="grid grid-cols-6 gap-2">
-                            {palette.map((p, idx) => (
-                              <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {routeItems.length === 0 && (
-                    <div className="text-sm text-gray-500 py-4">データがありません</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          </div>
+          <ContactBody />
         </DialogContent>
       </Dialog>
     </div>
