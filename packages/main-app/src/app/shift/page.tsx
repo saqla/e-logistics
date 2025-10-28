@@ -279,7 +279,8 @@ export default function ShiftAppPage() {
       const uniqueMap = new Map<string, Assignment>()
       for (const a of assignments) {
         const key = `${a.staffId}-${a.day}`
-        if (!uniqueMap.has(key)) uniqueMap.set(key, a)
+        // 直近の編集を優先して常に上書き
+        uniqueMap.set(key, a)
       }
       const body = {
         year,
@@ -295,17 +296,42 @@ export default function ShiftAppPage() {
       }
       const res = await fetch('/api/shift', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) {
-        const t = await res.text()
-        throw new Error(t || '保存に失敗しました')
+        let msg = '保存に失敗しました'
+        try {
+          const ct = res.headers.get('content-type') || ''
+          if (ct.includes('application/json')) {
+            const j = await res.json(); if (j?.error) msg = j.error
+          } else {
+            const t = await res.text(); if (t) msg = t
+          }
+          msg += ` (status ${res.status})`
+        } catch {}
+        throw new Error(msg)
+      }
+      const j = await res.json().catch(()=>({}))
+      const localCount = uniqueMap.size
+      if (Array.isArray(j?.assignments)) {
+        const serverAssigns = j.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null }))
+        setAssignments(serverAssigns)
+        // まれに反映が遅延する環境対策でリトライ（サーバ返却が極端に少ない場合のみ）
+        if (serverAssigns.length === 0 && localCount > 0) {
+          await new Promise(r => setTimeout(r, 300))
+          const aRes2 = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+          const aJson2 = await aRes2.json().catch(()=>({}))
+          if (Array.isArray(aJson2?.assignments) && aJson2.assignments.length > 0) {
+            setAssignments(aJson2.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+          }
+        }
+      } else {
+        const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+        const aJson = await aRes.json()
+        setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
       }
       setDirty(false)
-      const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
-      const aJson = await aRes.json()
-      setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
       alert('保存しました')
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
-      alert('保存に失敗しました。権限やネットワークを確認してください。')
+      alert(e?.message || '保存に失敗しました。権限やネットワークを確認してください。')
     } finally {
       setIsSaving(false)
     }
@@ -816,7 +842,7 @@ export default function ShiftAppPage() {
 
       {/* 連絡ダイアログ（ポートレート時） */}
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
-        <DialogContent className="max-w-3xl bg-white max-h-[85vh]">
+        <DialogContent className="max-w-3xl bg-white max-h-[85vh]" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
