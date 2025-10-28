@@ -1,3 +1,103 @@
+# App2: 箱車シフト表（Shift Schedule Management）
+
+このドキュメントは、App2（/shift）の最新仕様・運用・開発手順の要点を新規セッション用にまとめたものです。2025-10-27 時点の main/release 反映内容に準拠しています（アプリ版 0.7.0）。
+
+## 概要
+- 目的: 月間のシフト（上段：ルート/車番/メモ、下段：自由メモ）をスタッフ×日付で管理
+- 画面:
+  - 縦（portrait）: 1週間の曜日ヘッダー＋「日付行→スタッフ行×4人」を週単位で縦に連結
+  - 横/PC: 同レイアウトを左、右に「連絡（Contact）＋ルート一覧（RouteDefs）」パネルを常時表示
+- 連絡（Contact）: 共通/産直/江D/丸D の4グループ。本文のみ（タイトル不要）で新規/編集/削除
+- ルート一覧（RouteDefs）: 6ルート（産直/ドンキ福岡/ドンキ長崎/ユニック/休み/有給）。名称と色（パレット）を編集可
+
+## 主要エンドポイント
+- GET/POST `/api/shift`
+  - 保存フォーマット: `{ year, month, assignments: { day, staffId, route, carNumber, noteBL, noteBR }[] }`
+  - 保存後は当月の最新 assignments を返却（互換DBではrawで取得）。フロントはこれで即時再同期
+  - 空保存ガード: 既存がある月に assignments 空なら `noChange: true` を返却（データは保持）
+  - 古い本番DB対応: `role` 等の拡張列が無いDBでも保存失敗しないよう raw UPDATE/INSERT にフォールバック
+
+- GET/POST `/api/shift/contact`
+  - テーブル自動作成（ensure）。本文のみ必須。カテゴリ（common/sanchoku/esaki/maruno）で4分割
+
+- GET `/api/route-defs` ＋ PATCH `/api/route-defs/[id]`
+  - テーブル自動作成（ensure）。初回GETで6ルートを自動登録（enabled=true のみ画面に反映）
+
+- GET `/api/staff`
+  - アクティブなスタッフ一覧（並び: 田中→丸山→坂下→伊藤）
+
+## データ互換と互換対応
+- 本番DBに `role` 等の拡張列が未導入のため、/api/shift の保存は以下の順で動作:
+  1) 拡張列の有無をチェック
+  2) あれば Prisma の upsert
+  3) 無ければ raw UPDATE（無い場合は raw INSERT）
+- GET は enum を text 化して返却（Prisma enum/DB enum不一致の安全化）
+
+## 保存の挙動（重要）
+- 送信前に同一キー（`day-staffId`）は「最後の編集」を採用して集約
+- 保存後、APIの返却 assignments をそのまま state に反映（返却が空でローカル送信があった場合は短時間で再GETリトライ）
+- 空保存ガードにより、既存データを空で上書きしない
+
+## UIメモ
+- ルート/車番/メモはセルタップで編集。ポートレートは週単位レイアウト
+- 右側パネル（横/PC）は「連絡」＋「ルート一覧」。ポートレートはボトムバーの「連絡」からダイアログで開く
+- 入力フィールドのモバイルズームアップ防止（16px指定）
+- Dialog の aria 警告は抑止済み（`aria-describedby={undefined}`）
+
+## 既知事象と対処状況
+- Vercel 無料枠上限（`api-deployments-free-per-day`）でデプロイ/Promote不可: 解除まで待機が必要
+- 以前発生した「portraitのボトム保存後に新規が消える」事象は、
+  - サーバの互換保存（raw UPDATE/INSERT）と、保存後の即時再同期（返却→反映＋リトライ）で対処済み
+  - それでも残らない場合は、対象セル（年月/日付/スタッフ/どのセルか）を1つ特定し、サーバ/クライアントのログと照合
+
+## ローカル開発（Windows/Node 18+想定）
+```bash
+# ルート直下で
+pnpm i
+
+# Appの開発起動（ポート 3002）
+pnpm --filter @e-logistics/main-app dev
+```
+アクセス: `http://localhost:3002/shift`
+
+### スクリプト/設定
+- パッケージ: `packages/main-app`
+- Dev: `node scripts/dev-with-ip.js`
+- Next: 14.x、TypeScript: 5.x、Prisma: 6.x
+- 認証: NextAuth（エディタ権限: `editorVerified`）
+
+### 環境変数（参考）
+- `DATABASE_URL`（必須）
+- `NEXTAUTH_URL`, `NEXTAUTH_SECRET` など（App1と同様）
+
+## ブランチ/リリース運用
+- 通常作業: `main`
+- 本番: `release` に main をマージ（PR）
+- Vercel 事情でデプロイ不能時は、解除後に再Promote/再デプロイ
+
+## 主要ファイル
+- UI: `packages/main-app/src/app/shift/page.tsx`
+- API: `packages/main-app/src/app/api/shift/route.ts`
+- 連絡: `packages/main-app/src/app/api/shift/contact/*`
+- ルート一覧: `packages/main-app/src/app/api/route-defs/*`
+- BottomBar: `packages/main-app/src/components/BottomBar.tsx`
+- Prisma: `packages/main-app/prisma/schema.prisma`
+
+## ルートキー
+- 表示ラベル ↔ キー
+  - 産直 ↔ SANCHOKU
+  - ドンキ(福岡) ↔ DONKI_FUKUOKA（予定表側は ESAKI_DONKI）
+  - ドンキ(長崎) ↔ DONKI_NAGASAKI（予定表側は MARUNO_DONKI）
+  - ユニック ↔ UNIC / 休み ↔ OFF / 有給 ↔ PAID_LEAVE
+
+## 今後のメンテ
+- データ移行（本番DBに拡張列を導入）後は、/api/shift の Prisma 経路のみでも安定動作
+- 予定表（App1）自動生成API `/api/schedule/generate-from-shift` は土台実装済み（Map.entries → Array.from 対応済）
+- 見直し候補: 保存APIのバルク最適化（現行は安全性優先）
+
+---
+不明点や再現手順の共有が必要な場合は、対象の年月/日付/スタッフ/セル種別（ルート/車番/メモ）を合わせて連絡してください。
+
 ## App2 要点サマリ（技術/運用/仕様）
 
 この文書は `README-App1.md` をベースに、App2 の「差分」を中心に記載します。共通事項は `README-App1.md` を参照してください。
