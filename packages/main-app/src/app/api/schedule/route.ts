@@ -130,15 +130,17 @@ export async function POST(req: Request) {
 
     // RouteAssignment はupsertで更新/作成（全削除はしない）
     for (const r of routes as any[]) {
+      // DBの古いenum値(EZAKI_DONKI等)との不整合を回避するため、route値を正規化
+      const normalizedRoute = r.route === 'EZAKI_DONKI' ? 'ESAKI_DONKI' : r.route
       ops.push(
         prisma.routeAssignment.upsert({
-          where: { year_month_day_route: { year, month, day: Number(r.day), route: r.route } },
+          where: { year_month_day_route: { year, month, day: Number(r.day), route: normalizedRoute } },
           update: { staffId: r.staffId ?? null, special: r.special ?? null },
           create: {
             year,
             month,
             day: Number(r.day),
-            route: r.route,
+            route: normalizedRoute,
             staffId: r.staffId ?? null,
             special: r.special ?? null,
           },
