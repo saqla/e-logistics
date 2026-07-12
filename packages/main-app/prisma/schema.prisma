@@ -72,6 +72,7 @@ model Staff {
   routeAssignments RouteAssignment[]
   lowerAssignments LowerAssignment[]
   driverShiftAssignments ShiftAssignment[]
+  shiftRestDays ShiftRestDay[]
 
   @@index([name])
   @@map("staffs")
@@ -202,6 +203,22 @@ model Vehicle {
   assignments ShiftAssignment[]
 
   @@map("vehicles")
+}
+
+// 箱車シフト画面の「休み」固定行：1日に複数人を割当可能なので車両とは独立管理
+model ShiftRestDay {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int
+  day       Int
+  staffId   String
+  createdAt DateTime @default(now())
+
+  staff     Staff    @relation(fields: [staffId], references: [id])
+
+  @@unique([year, month, day, staffId])
+  @@index([year, month, day])
+  @@map("shift_rest_days")
 }
 
 // 箱車シフト：1日×車両ごとの割当（ルート＋担当ドライバー）

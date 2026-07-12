@@ -19,6 +19,7 @@ type Assignment = {
 }
 
 type Vehicle = { id: string; number: string; order: number; enabled: boolean }
+type RestDay = { id: string; day: number; staffId: string }
 type StaffLite = { id: string; name: string }
 
 export default function ShiftAppPage() {
@@ -51,7 +52,9 @@ export default function ShiftAppPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [staffs, setStaffs] = useState<StaffLite[]>([])
-  const [picker, setPicker] = useState<{ open: boolean; vehicleId: string | null; day: number | null; route: string | null; driverStaffId: string | null }>({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null })
+  const [picker, setPicker] = useState<{ open: boolean; vehicleId: string | null; day: number | null; route: string | null; driverStaffId: string | null; note: string }>({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null, note: '' })
+  const [restDays, setRestDays] = useState<RestDay[]>([])
+  const [restPicker, setRestPicker] = useState<{ open: boolean; day: number | null; selectedStaffIds: string[] }>({ open: false, day: null, selectedStaffIds: [] })
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
@@ -75,7 +78,7 @@ export default function ShiftAppPage() {
 
   const activeVehicles = useMemo(() => vehicles.filter(v => v.enabled).sort((a, b) => a.order - b.order), [vehicles])
 
-  const applyAssignment = (vehicleId: string, day: number, route: string | null, driverStaffId: string | null) => {
+  const applyAssignment = (vehicleId: string, day: number, route: string | null, driverStaffId: string | null, note: string) => {
     const key = `${vehicleId}-${day}`
     const existing = aMap.get(key)
     const next: Assignment = {
@@ -83,7 +86,7 @@ export default function ShiftAppPage() {
       vehicleId,
       route,
       driverStaffId,
-      noteBL: existing?.noteBL ?? null,
+      noteBL: note.trim() === '' ? null : note,
       noteBR: existing?.noteBR ?? null,
     }
     setAssignments(prev => {
@@ -104,6 +107,12 @@ export default function ShiftAppPage() {
     } finally { setVehicleLoading(false) }
   }
 
+  const loadRestDays = async () => {
+    const r = await fetch(`/api/shift/rest?year=${year}&month=${month}`, { cache: 'no-store' })
+    const j = await r.json().catch(()=>({items:[]}))
+    setRestDays(Array.isArray(j.items) ? j.items : [])
+  }
+
   useEffect(() => {
     const fetchAll = async () => {
       const [aRes, sRes] = await Promise.all([
@@ -117,6 +126,7 @@ export default function ShiftAppPage() {
     }
     fetchAll()
     loadVehicles()
+    loadRestDays()
   }, [year, month])
 
   const monthDays = useMemo(() => daysInMonth(year, month), [year, month])
@@ -131,6 +141,17 @@ export default function ShiftAppPage() {
     for (const a of assignments) m.set(`${a.vehicleId}-${a.day}`, a)
     return m
   }, [assignments])
+
+  // 「休み」固定行：日ごとに複数人の公休ドライバーを保持
+  const restByDay = useMemo(() => {
+    const m = new Map<number, RestDay[]>()
+    for (const r of restDays) {
+      const arr = m.get(r.day) ?? []
+      arr.push(r)
+      m.set(r.day, arr)
+    }
+    return m
+  }, [restDays])
 
   const staffName = (id: string | null) => id ? (staffs.find(s => s.id === id)?.name ?? '') : ''
 
@@ -415,6 +436,35 @@ export default function ShiftAppPage() {
     await loadVehicles()
   }
 
+  // 「休み」固定行：選択差分から追加/削除をまとめて反映
+  const openRestPicker = (day: number) => {
+    const current = (restByDay.get(day) ?? []).map(r => r.staffId)
+    setRestPicker({ open: true, day, selectedStaffIds: current })
+  }
+  const closeRestPicker = () => setRestPicker({ open: false, day: null, selectedStaffIds: [] })
+  const toggleRestStaff = (staffId: string) => {
+    setRestPicker(p => ({
+      ...p,
+      selectedStaffIds: p.selectedStaffIds.includes(staffId)
+        ? p.selectedStaffIds.filter(id => id !== staffId)
+        : [...p.selectedStaffIds, staffId],
+    }))
+  }
+  const confirmRestPicker = async () => {
+    const day = restPicker.day
+    if (!day) { closeRestPicker(); return }
+    const current = restByDay.get(day) ?? []
+    const currentIds = current.map(r => r.staffId)
+    const toAdd = restPicker.selectedStaffIds.filter(id => !currentIds.includes(id))
+    const toRemove = current.filter(r => !restPicker.selectedStaffIds.includes(r.staffId))
+    await Promise.all([
+      ...toAdd.map(staffId => fetch('/api/shift/rest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, month, day, staffId }) })),
+      ...toRemove.map(r => fetch(`/api/shift/rest/${r.id}`, { method: 'DELETE' })),
+    ])
+    await loadRestDays()
+    closeRestPicker()
+  }
+
   const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
   const openEditContact = (id: string) => {
     const t = contacts.find(x => x.id === id)
@@ -604,7 +654,7 @@ export default function ShiftAppPage() {
     </div>
   )
 
-  const closePicker = () => setPicker({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null })
+  const closePicker = () => setPicker({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null, note: '' })
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -631,25 +681,37 @@ export default function ShiftAppPage() {
           <span className="px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500">空車</span>
         </div>
         {(() => {
-          // セル1つ分の中身（ルートバッジ＋ドライバー名／空車表示）。
+          // セル1つ分の中身：田の字4分割（左上=ルート／右上=ドライバー／下段=備考、横結合）。
           // JSXコンポーネントとして定義すると親の再レンダリングごとに新しい型として
           // 扱われアンマウントされるため、ただの関数として呼び出す。
           const renderCell = (vehicleId: string, day: number) => {
             const a = aMap.get(`${vehicleId}-${day}`)
             const label = a?.route ? enumToRouteLabel(a.route) : null
             const driver = staffName(a?.driverStaffId ?? null)
-            const isEmpty = !label && !driver
-            const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null })
+            const note = a?.noteBL ?? ''
+            const isEmpty = !label && !driver && !note
+            const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null, note })
+            if (isEmpty) {
+              return (
+                <button onClick={open} className="w-full h-16 flex items-center justify-center text-xs text-gray-400 border border-dashed border-gray-300">空車</button>
+              )
+            }
             return (
-              <button onClick={open} className={`w-full h-16 flex flex-col text-xs ${isEmpty ? 'border border-dashed border-gray-300' : ''}`}>
-                {isEmpty ? (
-                  <span className="flex-1 flex items-center justify-center text-gray-400">空車</span>
-                ) : (
-                  <>
-                    <span className={`flex-1 flex items-center justify-center ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
-                    <span className="border-t p-1 text-gray-700 truncate">{driver}</span>
-                  </>
-                )}
+              <button onClick={open} className="w-full h-16 grid grid-cols-2 grid-rows-2 text-[10px] text-left">
+                <span className={`flex items-center justify-center border-b border-r px-1 truncate ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
+                <span className="flex items-center justify-center border-b px-1 truncate text-gray-800">{driver}</span>
+                <span className="col-span-2 flex items-center px-1 truncate text-gray-600">{note}</span>
+              </button>
+            )
+          }
+
+          // 「休み」固定行のセル：ルートは無く、その日の公休ドライバー（複数可）を表示
+          const renderRestCell = (day: number) => {
+            const names = (restByDay.get(day) ?? []).map(r => staffName(r.staffId)).filter(Boolean)
+            const open = () => openRestPicker(day)
+            return (
+              <button onClick={open} className={`w-full h-16 flex items-center justify-center text-center text-xs p-1 ${names.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border border-dashed border-gray-300'}`}>
+                <span className="line-clamp-3 break-words">{names.length ? names.join('、') : '—'}</span>
               </button>
             )
           }
@@ -696,6 +758,15 @@ export default function ShiftAppPage() {
                           ))}
                         </tr>
                       ))}
+                      {/* 「休み」固定行：一番下に常設 */}
+                      <tr key={`rest-${wi}`} className="bg-gray-50">
+                        <td className="sticky left-0 bg-gray-50 z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>休み</td>
+                        {week.map((d, i) => (
+                          <td key={`rest-cell-${wi}-${i}`} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                            {d ? renderRestCell(d) : <div className="h-16" />}
+                          </td>
+                        ))}
+                      </tr>
                     </Fragment>
                   ))}
                 </tbody>
@@ -751,6 +822,18 @@ export default function ShiftAppPage() {
                       })}
                     </tr>
                   ))}
+                  {/* 「休み」固定行：一番下に常設 */}
+                  <tr className="bg-gray-50">
+                    <td className="sticky left-0 bg-gray-50 z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>休み</td>
+                    {Array.from({ length: monthDays }).map((_, i) => {
+                      const d = i+1
+                      return (
+                        <td key={d} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                          {renderRestCell(d)}
+                        </td>
+                      )
+                    })}
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -762,7 +845,7 @@ export default function ShiftAppPage() {
         <Dialog open={picker.open} onOpenChange={(o) => { if (!o) closePicker() }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>ルート・ドライバーを選択</DialogTitle>
+              <DialogTitle>ルート・ドライバー・備考を選択</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div>
@@ -771,7 +854,7 @@ export default function ShiftAppPage() {
                   <button
                     onClick={() => setPicker(p => ({ ...p, route: null }))}
                     className={`px-3 py-2 rounded text-sm border border-dashed ${picker.route === null ? 'ring-2 ring-blue-500' : ''}`}
-                  >空車（未設定）</button>
+                  >未設定</button>
                   {ROUTE_LABELS.map(l => {
                     const enumVal = routeLabelToEnum(l)
                     return (
@@ -800,12 +883,48 @@ export default function ShiftAppPage() {
                   ))}
                 </div>
               </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">備考（時間など）</div>
+                <textarea
+                  value={picker.note}
+                  onChange={e => setPicker(p => ({ ...p, note: e.target.value }))}
+                  className="w-full h-16 border rounded p-2 text-sm"
+                  placeholder="例: 8:00発"
+                />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={closePicker}>キャンセル</Button>
                 <Button onClick={() => {
-                  if (picker.vehicleId && picker.day) applyAssignment(picker.vehicleId, picker.day, picker.route, picker.driverStaffId)
+                  if (picker.vehicleId && picker.day) applyAssignment(picker.vehicleId, picker.day, picker.route, picker.driverStaffId, picker.note)
                   closePicker()
                 }}>確定</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* 「休み」固定行：公休ドライバーの複数選択ダイアログ */}
+        <Dialog open={restPicker.open} onOpenChange={(o) => { if (!o) closeRestPicker() }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>公休ドライバーを選択（複数可）</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                {staffs.map(s => {
+                  const selected = restPicker.selectedStaffIds.includes(s.id)
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => toggleRestStaff(s.id)}
+                      className={`px-3 py-2 rounded text-sm border ${selected ? 'bg-blue-600 text-white border-blue-600' : ''}`}
+                    >{s.name}</button>
+                  )
+                })}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeRestPicker}>キャンセル</Button>
+                <Button onClick={confirmRestPicker}>確定</Button>
               </div>
             </div>
           </DialogContent>
