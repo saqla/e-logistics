@@ -776,7 +776,13 @@ export default function ShiftAppPage() {
                           const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
                           const color = i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-900'
                           return (
-                            <td key={`date-${wi}-${i}`} className={`border-b p-2 text-center ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{d ? `${month}/${d}` : ''}</td>
+                            <td key={`date-${wi}-${i}`} className={`border-b p-2 text-center ${isToday ? 'bg-blue-50' : ''} ${color}`} style={{ width: dayColPx }}>
+                              {d ? (
+                                isToday ? (
+                                  <span className="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-full bg-blue-600 text-white font-semibold">{month}/{d}</span>
+                                ) : `${month}/${d}`
+                              ) : ''}
+                            </td>
                           )
                         })}
                       </tr>
@@ -784,21 +790,27 @@ export default function ShiftAppPage() {
                       {activeVehicles.map(v => (
                         <tr key={`row-${wi}-${v.id}`}>
                           <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{v.number}</td>
-                          {week.map((d, i) => (
-                            <td key={`cell-${wi}-${v.id}-${i}`} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
-                              {d ? renderCell(v.id, d) : <div className="h-16" />}
-                            </td>
-                          ))}
+                          {week.map((d, i) => {
+                            const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                            return (
+                              <td key={`cell-${wi}-${v.id}-${i}`} className={`border-2 p-0 align-top ${isToday ? 'bg-blue-50' : ''}`} style={{ width: dayColPx }}>
+                                {d ? renderCell(v.id, d) : <div className="h-16" />}
+                              </td>
+                            )
+                          })}
                         </tr>
                       ))}
                       {/* 「休み」固定行：一番下に常設 */}
                       <tr key={`rest-${wi}`} className="bg-gray-50">
                         <td className="sticky left-0 bg-gray-50 z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>休み</td>
-                        {week.map((d, i) => (
-                          <td key={`rest-cell-${wi}-${i}`} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
-                            {d ? renderRestCell(d) : <div className="h-16" />}
-                          </td>
-                        ))}
+                        {week.map((d, i) => {
+                          const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
+                          return (
+                            <td key={`rest-cell-${wi}-${i}`} className={`border-2 p-0 align-top ${isToday ? 'bg-blue-50' : ''}`} style={{ width: dayColPx }}>
+                              {d ? renderRestCell(d) : <div className="h-16" />}
+                            </td>
+                          )
+                        })}
                       </tr>
                     </Fragment>
                   ))}
@@ -838,7 +850,11 @@ export default function ShiftAppPage() {
                       const isToday = todayInfo.isSameMonth && todayInfo.day === d
                       const color = dow === 0 ? 'text-red-600' : dow === 6 ? 'text-blue-600' : 'text-gray-900'
                       return (
-                        <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-sky-50' : ''} ${color}`} style={{ width: dayColPx }}>{`${month}/${d}`}</th>
+                        <th key={i} className={`sticky top-0 z-20 border-b p-2 text-center bg-white ${isToday ? 'bg-blue-50' : ''} ${color}`} style={{ width: dayColPx }}>
+                          {isToday ? (
+                            <span className="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-full bg-blue-600 text-white font-semibold">{month}/{d}</span>
+                          ) : `${month}/${d}`}
+                        </th>
                       )
                     })}
                   </tr>
@@ -849,8 +865,9 @@ export default function ShiftAppPage() {
                       <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{v.number}</td>
                       {Array.from({ length: monthDays }).map((_, i) => {
                         const d = i+1
+                        const isToday = todayInfo.isSameMonth && todayInfo.day === d
                         return (
-                          <td key={d} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
+                          <td key={d} className={`border-2 p-0 align-top ${isToday ? 'bg-blue-50' : ''}`} style={{ width: dayColPx }}>
                             {renderCell(v.id, d)}
                           </td>
                         )
@@ -862,8 +879,9 @@ export default function ShiftAppPage() {
                     <td className="sticky left-0 bg-gray-50 z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>休み</td>
                     {Array.from({ length: monthDays }).map((_, i) => {
                       const d = i+1
+                      const isToday = todayInfo.isSameMonth && todayInfo.day === d
                       return (
-                        <td key={d} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
+                        <td key={d} className={`border-2 p-0 align-top ${isToday ? 'bg-blue-50' : ''}`} style={{ width: dayColPx }}>
                           {renderRestCell(d)}
                         </td>
                       )
