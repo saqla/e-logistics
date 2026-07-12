@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { daysInMonth, getDow } from '@/lib/utils'
-import { enumToRouteLabel, getRouteColor, getRouteColorByKey, ROUTE_LABELS, routeLabelToEnum } from '@/lib/shift-constants'
+import { getRouteColorByKey } from '@/lib/shift-constants'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SiteHeader } from '@/components/site-header'
@@ -70,6 +70,7 @@ export default function ShiftAppPage() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeEditId, setRouteEditId] = useState<string | null>(null)
   const [routeEditName, setRouteEditName] = useState('')
+  const [routeNewName, setRouteNewName] = useState('')
   // 車両一覧（連絡ダイアログ内で表示・追加/編集/並び替え/無効化）
   const [vehicleLoading, setVehicleLoading] = useState(false)
   const [vehicleNewNumber, setVehicleNewNumber] = useState('')
@@ -154,6 +155,12 @@ export default function ShiftAppPage() {
   }, [restDays])
 
   const staffName = (id: string | null) => id ? (staffs.find(s => s.id === id)?.name ?? '') : ''
+  const routeName = (key: string | null) => key ? (routeItems.find(it => it.key === key)?.name ?? key) : null
+  const routeColorFor = (key: string | null) => {
+    if (!key) return ''
+    const it = routeItems.find(x => x.key === key)
+    return it ? getRouteColorByKey(it.key, it.bgClass, it.textClass) : ''
+  }
 
   // 週配列（日曜始まり、0はプレースホルダー）
   const weeks: number[][] = useMemo(() => {
@@ -359,20 +366,26 @@ export default function ShiftAppPage() {
   }, [])
 
   // ルート一覧のロード
-  useEffect(() => {
-    const load = async () => {
-      setRouteLoading(true)
-      try {
-        const r = await fetch('/api/route-defs', { cache: 'no-store' })
-        const j = await r.json().catch(()=>({items:[]}))
-        const arr = Array.isArray(j.items) ? j.items : []
-        arr.sort((a:any,b:any)=> (a.order??0)-(b.order??0))
-        setRouteItems(arr)
-      } finally { setRouteLoading(false) }
-    }
-    load()
-  }, [])
+  const loadRouteItems = async () => {
+    setRouteLoading(true)
+    try {
+      const r = await fetch('/api/route-defs', { cache: 'no-store' })
+      const j = await r.json().catch(()=>({items:[]}))
+      const arr = Array.isArray(j.items) ? j.items : []
+      arr.sort((a:any,b:any)=> (a.order??0)-(b.order??0))
+      setRouteItems(arr)
+    } finally { setRouteLoading(false) }
+  }
+  useEffect(() => { loadRouteItems() }, [])
 
+  const addRoute = async () => {
+    const name = routeNewName.trim()
+    if (!name) return
+    const r = await fetch('/api/route-defs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+    if (!r.ok) { let msg = '追加に失敗しました'; try { const j = await r.json(); if (j?.error) msg = j.error } catch {}; alert(msg); return }
+    setRouteNewName('')
+    await loadRouteItems()
+  }
   const startEditRoute = (id: string) => {
     const it = routeItems.find(x => x.id===id)
     if (!it) return
@@ -610,6 +623,10 @@ export default function ShiftAppPage() {
       <div className="mt-4">
         <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
         <div className="border rounded-md p-3 w-full break-words">
+          <div className="flex gap-2 mb-3">
+            <input className="flex-1 border rounded h-9 px-2 text-sm" placeholder="ルート名を入力" value={routeNewName} onChange={e=>setRouteNewName(e.target.value)} />
+            <Button size="sm" onClick={addRoute}>追加</Button>
+          </div>
           {routeLoading ? (
             <div className="text-sm text-gray-600">読み込み中…</div>
           ) : (
@@ -625,7 +642,7 @@ export default function ShiftAppPage() {
                       <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key)}`}>表示例</span>
+                        <span className={`px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key, it.bgClass, it.textClass)}`}>表示例</span>
                         <span>{it.name}</span>
                       </div>
                     )}
@@ -672,12 +689,9 @@ export default function ShiftAppPage() {
       />
       <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className={`px-2 py-0.5 rounded ${getRouteColor('産直')}`}>産直</span>
-          <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(福岡)')}`}>ドンキ(福岡)</span>
-          <span className={`px-2 py-0.5 rounded ${getRouteColor('ドンキ(長崎)')}`}>ドンキ(長崎)</span>
-          <span className={`px-2 py-0.5 rounded ${getRouteColor('ユニック')}`}>ユニック</span>
-          <span className={`px-2 py-0.5 rounded ${getRouteColor('休み')}`}>休み</span>
-          <span className={`px-2 py-0.5 rounded ${getRouteColor('有給')}`}>有給</span>
+          {routeItems.filter(it => it.enabled).map(it => (
+            <span key={it.id} className={`px-2 py-0.5 rounded ${getRouteColorByKey(it.key, it.bgClass, it.textClass)}`}>{it.name}</span>
+          ))}
           <span className="px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500">空車</span>
         </div>
         {(() => {
@@ -686,7 +700,7 @@ export default function ShiftAppPage() {
           // 扱われアンマウントされるため、ただの関数として呼び出す。
           const renderCell = (vehicleId: string, day: number) => {
             const a = aMap.get(`${vehicleId}-${day}`)
-            const label = a?.route ? enumToRouteLabel(a.route) : null
+            const label = routeName(a?.route ?? null)
             const driver = staffName(a?.driverStaffId ?? null)
             const note = a?.noteBL ?? ''
             const isEmpty = !label && !driver && !note
@@ -700,14 +714,14 @@ export default function ShiftAppPage() {
             if (!note) {
               return (
                 <button onClick={open} className="w-full h-20 flex flex-col text-left">
-                  <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
+                  <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
                   <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 </button>
               )
             }
             return (
               <button onClick={open} className="w-full h-20 grid grid-cols-2 grid-rows-2 text-left">
-                <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
+                <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
                 <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 <span className="col-span-2 flex items-center px-1 truncate text-xs sm:text-sm text-gray-600">{note}</span>
               </button>
@@ -864,16 +878,13 @@ export default function ShiftAppPage() {
                     onClick={() => setPicker(p => ({ ...p, route: null }))}
                     className={`px-3 py-2 rounded text-sm border border-dashed ${picker.route === null ? 'ring-2 ring-blue-500' : ''}`}
                   >未設定</button>
-                  {ROUTE_LABELS.map(l => {
-                    const enumVal = routeLabelToEnum(l)
-                    return (
-                      <button
-                        key={l}
-                        onClick={() => setPicker(p => ({ ...p, route: enumVal }))}
-                        className={`px-3 py-2 rounded text-sm ${getRouteColor(l)} ${picker.route === enumVal ? 'ring-2 ring-offset-1 ring-blue-500' : ''}`}
-                      >{l}</button>
-                    )
-                  })}
+                  {routeItems.filter(it => it.enabled).map(it => (
+                    <button
+                      key={it.id}
+                      onClick={() => setPicker(p => ({ ...p, route: it.key }))}
+                      className={`px-3 py-2 rounded text-sm ${getRouteColorByKey(it.key, it.bgClass, it.textClass)} ${picker.route === it.key ? 'ring-2 ring-offset-1 ring-blue-500' : ''}`}
+                    >{it.name}</button>
+                  ))}
                 </div>
               </div>
               <div>

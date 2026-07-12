@@ -11,9 +11,9 @@ export async function POST(req: Request) {
     }
 
     const colRows = await prisma.$queryRawUnsafe<any[]>(
-      "SELECT 1 FROM information_schema.columns WHERE table_name='shift_assignments' AND column_name='vehicleId' LIMIT 1"
+      "SELECT data_type FROM information_schema.columns WHERE table_name='shift_assignments' AND column_name='route' LIMIT 1"
     )
-    const migrated = Array.isArray(colRows) && colRows.length > 0
+    const migrated = Array.isArray(colRows) && colRows.length > 0 && colRows[0].data_type === 'text'
 
     if (!migrated) {
       await prisma.$transaction([
@@ -26,18 +26,13 @@ export async function POST(req: Request) {
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );`),
         prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "shift_assignments" CASCADE;`),
-        prisma.$executeRawUnsafe(`DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ShiftRouteKind') THEN
-            CREATE TYPE "ShiftRouteKind" AS ENUM ('SANCHOKU','DONKI_FUKUOKA','DONKI_NAGASAKI','UNIC','OFF','PAID_LEAVE');
-          END IF;
-        END $$;`),
         prisma.$executeRawUnsafe(`CREATE TABLE "shift_assignments" (
           "id" TEXT PRIMARY KEY,
           "year" INTEGER NOT NULL,
           "month" INTEGER NOT NULL,
           "day" INTEGER NOT NULL,
           "vehicleId" TEXT NOT NULL,
-          "route" "ShiftRouteKind",
+          "route" TEXT,
           "driverStaffId" TEXT,
           "noteBL" TEXT,
           "noteBR" TEXT,

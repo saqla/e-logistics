@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
+import { EXTRA_ROUTE_COLOR_PALETTE } from '@/lib/shift-constants'
 
 async function ensureSchema() {
   try {
@@ -60,15 +62,38 @@ export async function POST(req: Request) {
   }
   await ensureSchema()
   const body = await req.json().catch(() => ({}))
-  const key = (body?.key||'').toString().trim()
   const name = (body?.name||'').toString().trim()
-  const order = Number(body?.order ?? 0)
-  const bgClass = (body?.bgClass||'').toString()
-  const textClass = (body?.textClass||'').toString()
-  const enabled = !!body?.enabled
-  if (!key || !name) return NextResponse.json({ error: 'keyとnameは必須です' }, { status: 400 })
-  const created = await prisma.routeDefinition.create({ data: { key, name, order, bgClass, textClass, enabled } })
-  return NextResponse.json({ item: created })
+  if (!name) return NextResponse.json({ error: 'nameは必須です' }, { status: 400 })
+
+  // key未指定時は自動生成（画面からの「追加」はnameのみで呼べる）
+  const key = (body?.key||'').toString().trim() || `custom_${randomUUID().replace(/-/g, '')}`
+
+  // order未指定時は既存の最大値+10を自動採番（末尾に追加）
+  let order = Number(body?.order)
+  if (!Number.isFinite(order)) {
+    const agg = await prisma.routeDefinition.aggregate({ _max: { order: true } })
+    order = (agg._max.order ?? 0) + 10
+  }
+
+  const enabled = body?.enabled == null ? true : !!body.enabled
+
+  // 色未指定時は共通の予備パレットから自動割当（既存カラーマップと衝突しないように既存カスタム数で巡回）
+  let bgClass = (body?.bgClass||'').toString()
+  let textClass = (body?.textClass||'').toString()
+  if (!bgClass || !textClass) {
+    const customCount = await prisma.routeDefinition.count({ where: { key: { startsWith: 'custom_' } } })
+    const palette = EXTRA_ROUTE_COLOR_PALETTE[customCount % EXTRA_ROUTE_COLOR_PALETTE.length]
+    bgClass = bgClass || palette.bg
+    textClass = textClass || palette.text
+  }
+
+  try {
+    const created = await prisma.routeDefinition.create({ data: { key, name, order, bgClass, textClass, enabled } })
+    return NextResponse.json({ item: created })
+  } catch (e: any) {
+    if (e?.code === 'P2002') return NextResponse.json({ error: '同じキーが既に存在します' }, { status: 409 })
+    return NextResponse.json({ error: e?.message || '作成に失敗しました' }, { status: 500 })
+  }
 }
 
 

@@ -3,13 +3,13 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-// 車両ベースのシフトスキーマに未移行なら、旧スタッフベースのテーブルを作り直す。
-// （車番ベースへの全面刷新に伴い、旧shift_assignmentsのデータはリセットする方針）
+// 車両ベース＋自由追加可能なルート文字列に未移行なら、テーブルを作り直す。
+// （routeを固定enumから可変のRouteDefinition.key文字列に変更するため、旧データはリセットする方針）
 async function ensureShiftSchema(): Promise<void> {
   const colRows = await prisma.$queryRawUnsafe<any[]>(
-    "SELECT 1 FROM information_schema.columns WHERE table_name='shift_assignments' AND column_name='vehicleId' LIMIT 1"
+    "SELECT data_type FROM information_schema.columns WHERE table_name='shift_assignments' AND column_name='route' LIMIT 1"
   )
-  const migrated = Array.isArray(colRows) && colRows.length > 0
+  const migrated = Array.isArray(colRows) && colRows.length > 0 && colRows[0].data_type === 'text'
   if (migrated) return
 
   await prisma.$transaction([
@@ -22,18 +22,13 @@ async function ensureShiftSchema(): Promise<void> {
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     );`),
     prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "shift_assignments" CASCADE;`),
-    prisma.$executeRawUnsafe(`DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ShiftRouteKind') THEN
-        CREATE TYPE "ShiftRouteKind" AS ENUM ('SANCHOKU','DONKI_FUKUOKA','DONKI_NAGASAKI','UNIC','OFF','PAID_LEAVE');
-      END IF;
-    END $$;`),
     prisma.$executeRawUnsafe(`CREATE TABLE "shift_assignments" (
       "id" TEXT PRIMARY KEY,
       "year" INTEGER NOT NULL,
       "month" INTEGER NOT NULL,
       "day" INTEGER NOT NULL,
       "vehicleId" TEXT NOT NULL,
-      "route" "ShiftRouteKind",
+      "route" TEXT,
       "driverStaffId" TEXT,
       "noteBL" TEXT,
       "noteBR" TEXT,

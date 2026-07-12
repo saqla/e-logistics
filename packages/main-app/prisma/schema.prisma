@@ -10,16 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 箱車シフト：上段左のルート種別
-enum ShiftRouteKind {
-  SANCHOKU      // 産直
-  DONKI_FUKUOKA // ドンキ(福岡)
-  DONKI_NAGASAKI// ドンキ(長崎)
-  UNIC          // ユニック
-  OFF           // 休み
-  PAID_LEAVE    // 有給
-}
-
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -228,7 +218,7 @@ model ShiftAssignment {
   month     Int
   day       Int
   vehicleId String
-  route     ShiftRouteKind? // 未割当（空車）時はnull
+  route     String?         // RouteDefinition.key を直接保持（未割当/空車時はnull）
   driverStaffId String?     // 未割当（空車）時はnull
   noteBL    String?         // 左下セル（自由入力）
   noteBR    String?         // 右下セル（自由入力）
