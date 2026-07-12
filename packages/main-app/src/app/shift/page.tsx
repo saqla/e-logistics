@@ -693,14 +693,23 @@ export default function ShiftAppPage() {
             const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null, note })
             if (isEmpty) {
               return (
-                <button onClick={open} className="w-full h-16 flex items-center justify-center text-xs text-gray-400 border border-dashed border-gray-300">空車</button>
+                <button onClick={open} className="w-full h-20 flex items-center justify-center text-sm sm:text-base text-gray-400 border-2 border-dashed border-gray-300">空車</button>
+              )
+            }
+            // 備考が空なら下段を消し、ルート／ドライバーを上下2段いっぱいに広げる（可変レイアウト）
+            if (!note) {
+              return (
+                <button onClick={open} className="w-full h-20 flex flex-col text-left">
+                  <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
+                  <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
+                </button>
               )
             }
             return (
-              <button onClick={open} className="w-full h-16 grid grid-cols-2 grid-rows-2 text-[10px] text-left">
-                <span className={`flex items-center justify-center border-b border-r px-1 truncate ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
-                <span className="flex items-center justify-center border-b px-1 truncate text-gray-800">{driver}</span>
-                <span className="col-span-2 flex items-center px-1 truncate text-gray-600">{note}</span>
+              <button onClick={open} className="w-full h-20 grid grid-cols-2 grid-rows-2 text-left">
+                <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
+                <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
+                <span className="col-span-2 flex items-center px-1 truncate text-xs sm:text-sm text-gray-600">{note}</span>
               </button>
             )
           }
@@ -710,7 +719,7 @@ export default function ShiftAppPage() {
             const names = (restByDay.get(day) ?? []).map(r => staffName(r.staffId)).filter(Boolean)
             const open = () => openRestPicker(day)
             return (
-              <button onClick={open} className={`w-full h-16 flex items-center justify-center text-center text-xs p-1 ${names.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border border-dashed border-gray-300'}`}>
+              <button onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 ${names.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border-2 border-dashed border-gray-300'}`}>
                 <span className="line-clamp-3 break-words">{names.length ? names.join('、') : '—'}</span>
               </button>
             )
@@ -752,7 +761,7 @@ export default function ShiftAppPage() {
                         <tr key={`row-${wi}-${v.id}`}>
                           <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{v.number}</td>
                           {week.map((d, i) => (
-                            <td key={`cell-${wi}-${v.id}-${i}`} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                            <td key={`cell-${wi}-${v.id}-${i}`} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
                               {d ? renderCell(v.id, d) : <div className="h-16" />}
                             </td>
                           ))}
@@ -762,7 +771,7 @@ export default function ShiftAppPage() {
                       <tr key={`rest-${wi}`} className="bg-gray-50">
                         <td className="sticky left-0 bg-gray-50 z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>休み</td>
                         {week.map((d, i) => (
-                          <td key={`rest-cell-${wi}-${i}`} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                          <td key={`rest-cell-${wi}-${i}`} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
                             {d ? renderRestCell(d) : <div className="h-16" />}
                           </td>
                         ))}
@@ -815,7 +824,7 @@ export default function ShiftAppPage() {
                       {Array.from({ length: monthDays }).map((_, i) => {
                         const d = i+1
                         return (
-                          <td key={d} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                          <td key={d} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
                             {renderCell(v.id, d)}
                           </td>
                         )
@@ -828,7 +837,7 @@ export default function ShiftAppPage() {
                     {Array.from({ length: monthDays }).map((_, i) => {
                       const d = i+1
                       return (
-                        <td key={d} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                        <td key={d} className={`border-2 p-0 align-top`} style={{ width: dayColPx }}>
                           {renderRestCell(d)}
                         </td>
                       )
