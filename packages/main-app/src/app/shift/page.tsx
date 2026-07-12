@@ -568,7 +568,7 @@ export default function ShiftAppPage() {
 
   // 連絡パネル本体（ダイアログ/右サイド共通）。VehicleManagementBodyと同じ理由でJSX値として保持する。
   const contactBody = (
-    <div className="overflow-y-auto max-h-[70vh] pr-1">
+    <div className="overflow-y-auto max-h-[80vh] pr-1">
       <div className="grid grid-cols-2 gap-3">
         {[
           { key:'common', title:'共通' },
@@ -806,7 +806,7 @@ export default function ShiftAppPage() {
             return (
               <div className="grid grid-cols-[1fr_420px] gap-4 items-start">
                 {weeklyTable}
-                <div className="border rounded-md bg-white p-3">
+                <div className="border rounded-md bg-white p-3 min-h-[80vh]">
                   <div className="font-semibold text-lg mb-2">連絡</div>
                   {contactBody}
                 </div>
