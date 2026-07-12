@@ -24,36 +24,21 @@ export async function POST(req: Request) {
     ? body.routes
     : ['ESAKI_DONKI','SANCHOKU','MARUNO_DONKI']
 
-  // 対象月のシフト取得
+  // 対象月のシフト取得（空車＝driverStaffId未設定の車両は生成対象から除外）
   const shifts = await prisma.shiftAssignment.findMany({
-    where: { year, month },
-    select: { day: true, staffId: true, route: true, scheduleRouteKey: true, role: true, priority: true, noteBL: true, noteBR: true },
+    where: { year, month, driverStaffId: { not: null } },
+    select: { day: true, driverStaffId: true, route: true, scheduleRouteKey: true, noteBL: true, noteBR: true },
   })
 
-  // 日×scheduleRouteKeyの担当を決定
-  type Cand = { staffId: string; role?: string | null; priority?: number | null }
-  const pick = (cands: Cand[]): Cand | null => {
-    if (cands.length === 0) return null
-    // role優先 (driver>assistant>) -> priority (asc) -> 先頭
-    const roleRank = (r?: string | null) => r === 'driver' ? 0 : r === 'assistant' ? 1 : 2
-    cands.sort((a, b) => (roleRank(a.role) - roleRank(b.role)) || ((a.priority ?? 0) - (b.priority ?? 0)))
-    return cands[0]
-  }
-
-  const byDayRoute = new Map<string, string>() // key: `${day}-${routeKey}` -> staffId
+  // 日×scheduleRouteKeyの担当を決定（同日同ルートキーが複数車両で衝突した場合は先勝ち）
+  const byDayRoute = new Map<string, string>() // key: `${day}-${routeKey}` -> driverStaffId
   for (const s of shifts) {
-    const routeKey = s.scheduleRouteKey ?? SHIFT_TO_SCHEDULE_ROUTE[String(s.route)]
+    if (!s.driverStaffId) continue
+    const routeKey = s.scheduleRouteKey ?? (s.route ? SHIFT_TO_SCHEDULE_ROUTE[String(s.route)] : null)
     if (!routeKey || !routes.includes(routeKey as any)) continue
     const key = `${s.day}-${routeKey}`
-    const prev = byDayRoute.get(key)
-    if (!prev) {
-      byDayRoute.set(key, s.staffId)
-    } else {
-      // 衝突時はrole/priorityで決定
-      // 実装簡易化のため、後勝ちではなく比較
-      const current = { staffId: byDayRoute.get(key)! } as Cand
-      const cand = pick([current, { staffId: s.staffId, role: s.role, priority: s.priority }])
-      if (cand) byDayRoute.set(key, cand.staffId)
+    if (!byDayRoute.has(key)) {
+      byDayRoute.set(key, s.driverStaffId)
     }
   }
 

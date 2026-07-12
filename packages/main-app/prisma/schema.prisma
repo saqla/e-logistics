@@ -71,7 +71,7 @@ model Staff {
   // relations
   routeAssignments RouteAssignment[]
   lowerAssignments LowerAssignment[]
-  shiftAssignments ShiftAssignment[]
+  driverShiftAssignments ShiftAssignment[]
 
   @@index([name])
   @@map("staffs")
@@ -190,28 +190,39 @@ model RouteDefinition {
   @@map("route_definitions")
 }
 
-// 箱車シフト：1日×スタッフごとの4セル（左上/右上/左下/右下）
+// 箱車の車両マスタ（管理画面から追加・編集する固定の車番一覧）
+model Vehicle {
+  id        String   @id @default(cuid())
+  number    String   @unique // 表示名兼キー: '0514' | 'ユニック' など
+  order     Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments ShiftAssignment[]
+
+  @@map("vehicles")
+}
+
+// 箱車シフト：1日×車両ごとの割当（ルート＋担当ドライバー）
 model ShiftAssignment {
   id        String          @id @default(cuid())
   year      Int
   month     Int
   day       Int
-  staffId   String
-  route     ShiftRouteKind  // 左上セル
-  carNumber String?         // 右上セル（8514/3717/4825/?/空白）
+  vehicleId String
+  route     ShiftRouteKind? // 未割当（空車）時はnull
+  driverStaffId String?     // 未割当（空車）時はnull
   noteBL    String?         // 左下セル（自由入力）
   noteBR    String?         // 右下セル（自由入力）
-  // 自動生成補助
-  role      String?         // 'driver' | 'assistant' など（将来enum化予定）
-  priority  Int?            // 小さいほど優先、未指定は0扱い
-  ignoreInSchedule Boolean? // 予定表投影から除外
-  scheduleRouteKey RouteKind? // 予定表の3ルート種別に直接マップ
+  scheduleRouteKey RouteKind? // 予定表の3ルート種別への明示上書き
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
-  staff     Staff           @relation(fields: [staffId], references: [id])
+  vehicle   Vehicle         @relation(fields: [vehicleId], references: [id])
+  driver    Staff?          @relation(fields: [driverStaffId], references: [id])
 
-  @@unique([year, month, day, staffId])
+  @@unique([year, month, day, vehicleId])
   @@index([year, month, day])
   @@map("shift_assignments")
 }

@@ -9,9 +9,6 @@ export const ROUTE_LABELS = [
 
 export type RouteLabel = typeof ROUTE_LABELS[number]
 
-export const CAR_LABELS = ['8514', '3717', '4825', '?', ''] as const
-export type CarLabel = typeof CAR_LABELS[number]
-
 export function routeLabelToEnum(label: string): 'SANCHOKU'|'DONKI_FUKUOKA'|'DONKI_NAGASAKI'|'UNIC'|'OFF'|'PAID_LEAVE' {
   switch (label) {
     case '産直': return 'SANCHOKU'
@@ -55,16 +52,6 @@ export function getRouteColor(label: RouteLabel): string {
 export function getRouteColorByKey(key: string): string {
   const c = (ROUTE_COLOR_CLASSES as Record<string, { bg: string; text: string } | undefined>)[key]
   return c ? `${c.bg} ${c.text}` : ''
-}
-
-export function getCarColor(car: string): string {
-  switch (car) {
-    case '8514': return 'bg-purple-600 text-white'
-    case '3717': return 'bg-orange-500 text-white'
-    case '4825': return 'bg-violet-400 text-white'
-    case '?': return 'bg-gray-400 text-white'
-    default: return 'bg-gray-200 text-gray-700'
-  }
 }
 
 // 予定表投影用ルートキー（必要に応じてUI/DBから直接設定）

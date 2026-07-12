@@ -4,19 +4,22 @@ import { useEffect, useMemo, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { daysInMonth, getDow } from '@/lib/utils'
-import { enumToRouteLabel, getCarColor, getRouteColor, getRouteColorByKey, ROUTE_LABELS, routeLabelToEnum, CAR_LABELS } from '@/lib/shift-constants'
+import { enumToRouteLabel, getRouteColor, getRouteColorByKey, ROUTE_LABELS, routeLabelToEnum } from '@/lib/shift-constants'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SiteHeader } from '@/components/site-header'
 
 type Assignment = {
   day: number
-  staffId: string
-  route: string
-  carNumber: string | null
+  vehicleId: string
+  route: string | null
+  driverStaffId: string | null
   noteBL?: string | null
   noteBR?: string | null
 }
+
+type Vehicle = { id: string; number: string; order: number; enabled: boolean }
+type StaffLite = { id: string; name: string }
 
 export default function ShiftAppPage() {
   const { status, data: session } = useSession()
@@ -46,9 +49,9 @@ export default function ShiftAppPage() {
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [staffs, setStaffs] = useState<{id: string; name: string;}[]>([])
-  const [picker, setPicker] = useState<{open: boolean; staffId: string | null; day: number | null; mode: 'route' | 'car' | 'noteBL' | 'noteBR'}>({ open: false, staffId: null, day: null, mode: 'route' })
-  const [tempText, setTempText] = useState('')
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [staffs, setStaffs] = useState<StaffLite[]>([])
+  const [picker, setPicker] = useState<{ open: boolean; vehicleId: string | null; day: number | null; route: string | null; driverStaffId: string | null }>({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null })
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
@@ -64,78 +67,56 @@ export default function ShiftAppPage() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeEditId, setRouteEditId] = useState<string | null>(null)
   const [routeEditName, setRouteEditName] = useState('')
-  const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
-    const key = `${staffId}-${day}`
+  // 車両一覧（連絡ダイアログ内で表示・追加/編集/並び替え/無効化）
+  const [vehicleLoading, setVehicleLoading] = useState(false)
+  const [vehicleNewNumber, setVehicleNewNumber] = useState('')
+  const [vehicleEditId, setVehicleEditId] = useState<string | null>(null)
+  const [vehicleEditNumber, setVehicleEditNumber] = useState('')
+
+  const activeVehicles = useMemo(() => vehicles.filter(v => v.enabled).sort((a, b) => a.order - b.order), [vehicles])
+
+  const applyAssignment = (vehicleId: string, day: number, route: string | null, driverStaffId: string | null) => {
+    const key = `${vehicleId}-${day}`
     const existing = aMap.get(key)
     const next: Assignment = {
       day,
-      staffId,
-      route: routeLabelToEnum(label) as any,
-      carNumber: existing?.carNumber ?? null,
+      vehicleId,
+      route,
+      driverStaffId,
       noteBL: existing?.noteBL ?? null,
       noteBR: existing?.noteBR ?? null,
     }
     setAssignments(prev => {
-      const others = prev.filter(x => !(x.staffId === next.staffId && x.day === next.day))
+      const others = prev.filter(x => !(x.vehicleId === next.vehicleId && x.day === next.day))
       return [...others, next]
     })
     setDirty(true)
   }
 
-  const applyCar = (staffId: string, day: number, carLabel: string) => {
-    const key = `${staffId}-${day}`
-    const existing = aMap.get(key)
-    const next: Assignment = {
-      day,
-      staffId,
-      route: existing?.route ?? routeLabelToEnum('産直') as any, // 既存なければ暫定
-      carNumber: carLabel === '' ? null : carLabel,
-      noteBL: existing?.noteBL ?? null,
-      noteBR: existing?.noteBR ?? null,
-    }
-    setAssignments(prev => {
-      const others = prev.filter(x => !(x.staffId === next.staffId && x.day === next.day))
-      return [...others, next]
-    })
-    setDirty(true)
-  }
-
-  const applyNote = (staffId: string, day: number, side: 'noteBL' | 'noteBR', text: string) => {
-    const key = `${staffId}-${day}`
-    const existing = aMap.get(key)
-    const next: Assignment = {
-      day,
-      staffId,
-      route: existing?.route ?? routeLabelToEnum('産直') as any,
-      carNumber: existing?.carNumber ?? null,
-      noteBL: side === 'noteBL' ? (text || null) : (existing?.noteBL ?? null),
-      noteBR: side === 'noteBR' ? (text || null) : (existing?.noteBR ?? null),
-    }
-    setAssignments(prev => {
-      const others = prev.filter(x => !(x.staffId === next.staffId && x.day === next.day))
-      return [...others, next]
-    })
-    setDirty(true)
+  const loadVehicles = async () => {
+    setVehicleLoading(true)
+    try {
+      const r = await fetch('/api/vehicles', { cache: 'no-store' })
+      const j = await r.json().catch(()=>({items:[]}))
+      const arr = Array.isArray(j.items) ? j.items : []
+      arr.sort((a:any,b:any)=> (a.order??0)-(b.order??0))
+      setVehicles(arr)
+    } finally { setVehicleLoading(false) }
   }
 
   useEffect(() => {
     const fetchAll = async () => {
       const [aRes, sRes] = await Promise.all([
         fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' }),
-        fetch(`/api/staff?year=${year}&month=${month}`, { cache: 'no-store' }),
+        fetch(`/api/staff`, { cache: 'no-store' }),
       ])
       const aJson = await aRes.json()
       const sJson = await sRes.json()
-      setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
-      // 表示順は固定：田中→丸山→坂下→伊藤（存在しない場合はスキップ）
-      const order = ['田中','丸山','坂下','伊藤']
-      const sorted = (sJson?.staffs || [])
-        .filter((s: any) => order.includes(s.name))
-        .sort((a: any, b: any) => order.indexOf(a.name) - order.indexOf(b.name))
-        .map((s: any) => ({ id: s.id, name: s.name }))
-      setStaffs(sorted)
+      setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, vehicleId: x.vehicleId, route: x.route ?? null, driverStaffId: x.driverStaffId ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+      setStaffs((sJson?.staffs || []).map((s: any) => ({ id: s.id, name: s.name })))
     }
     fetchAll()
+    loadVehicles()
   }, [year, month])
 
   const monthDays = useMemo(() => daysInMonth(year, month), [year, month])
@@ -147,9 +128,11 @@ export default function ShiftAppPage() {
 
   const aMap = useMemo(() => {
     const m = new Map<string, Assignment>()
-    for (const a of assignments) m.set(`${a.staffId}-${a.day}`, a)
+    for (const a of assignments) m.set(`${a.vehicleId}-${a.day}`, a)
     return m
   }, [assignments])
+
+  const staffName = (id: string | null) => id ? (staffs.find(s => s.id === id)?.name ?? '') : ''
 
   // 週配列（日曜始まり、0はプレースホルダー）
   const weeks: number[][] = useMemo(() => {
@@ -269,7 +252,7 @@ export default function ShiftAppPage() {
       setIsSaving(true)
       const uniqueMap = new Map<string, Assignment>()
       for (const a of assignments) {
-        const key = `${a.staffId}-${a.day}`
+        const key = `${a.vehicleId}-${a.day}`
         // 直近の編集を優先して常に上書き
         uniqueMap.set(key, a)
       }
@@ -278,9 +261,9 @@ export default function ShiftAppPage() {
         month,
         assignments: Array.from(uniqueMap.values()).map(a => ({
           day: a.day,
-          staffId: a.staffId,
+          vehicleId: a.vehicleId,
           route: a.route,
-          carNumber: a.carNumber ?? null,
+          driverStaffId: a.driverStaffId,
           noteBL: a.noteBL ?? null,
           noteBR: a.noteBR ?? null,
         })),
@@ -302,7 +285,7 @@ export default function ShiftAppPage() {
       const j = await res.json().catch(()=>({}))
       const localCount = uniqueMap.size
       if (Array.isArray(j?.assignments)) {
-        const serverAssigns = j.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null }))
+        const serverAssigns = j.assignments.map((x: any) => ({ day: x.day, vehicleId: x.vehicleId, route: x.route ?? null, driverStaffId: x.driverStaffId ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null }))
         setAssignments(serverAssigns)
         // まれに反映が遅延する環境対策でリトライ（サーバ返却が極端に少ない場合のみ）
         if (serverAssigns.length === 0 && localCount > 0) {
@@ -310,13 +293,13 @@ export default function ShiftAppPage() {
           const aRes2 = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
           const aJson2 = await aRes2.json().catch(()=>({}))
           if (Array.isArray(aJson2?.assignments) && aJson2.assignments.length > 0) {
-            setAssignments(aJson2.assignments.map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+            setAssignments(aJson2.assignments.map((x: any) => ({ day: x.day, vehicleId: x.vehicleId, route: x.route ?? null, driverStaffId: x.driverStaffId ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
           }
         }
       } else {
         const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
         const aJson = await aRes.json()
-        setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, staffId: x.staffId, route: x.route, carNumber: x.carNumber ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+        setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, vehicleId: x.vehicleId, route: x.route ?? null, driverStaffId: x.driverStaffId ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
       }
       setDirty(false)
       alert('保存しました')
@@ -384,6 +367,54 @@ export default function ShiftAppPage() {
     if (j?.item) setRouteItems(prev => prev.map(x => x.id===routeEditId ? j.item : x))
     cancelEditRoute()
   }
+
+  // 車両マスタ操作
+  const addVehicle = async () => {
+    const number = vehicleNewNumber.trim()
+    if (!number) return
+    const maxOrder = vehicles.reduce((m, v) => Math.max(m, v.order), 0)
+    const r = await fetch('/api/vehicles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, order: maxOrder + 10 }) })
+    if (!r.ok) { let msg = '追加に失敗しました'; try { const j = await r.json(); if (j?.error) msg = j.error } catch {}; alert(msg); return }
+    setVehicleNewNumber('')
+    await loadVehicles()
+  }
+  const startEditVehicle = (id: string) => {
+    const v = vehicles.find(x => x.id === id)
+    if (!v) return
+    setVehicleEditId(id)
+    setVehicleEditNumber(v.number)
+  }
+  const cancelEditVehicle = () => { setVehicleEditId(null); setVehicleEditNumber('') }
+  const saveVehicleEdit = async () => {
+    if (!vehicleEditId) return
+    const r = await fetch(`/api/vehicles/${vehicleEditId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: vehicleEditNumber.trim() }) })
+    if (!r.ok) { let msg = '保存に失敗しました'; try { const j = await r.json(); if (j?.error) msg = j.error } catch {}; alert(msg); return }
+    cancelEditVehicle()
+    await loadVehicles()
+  }
+  const toggleVehicleEnabled = async (id: string, enabled: boolean) => {
+    const r = await fetch(`/api/vehicles/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !enabled }) })
+    if (!r.ok) { alert('更新に失敗しました'); return }
+    await loadVehicles()
+  }
+  const deleteVehicle = async (id: string) => {
+    const r = await fetch(`/api/vehicles/${id}`, { method: 'DELETE' })
+    if (!r.ok) { alert('削除に失敗しました'); return }
+    await loadVehicles()
+  }
+  const moveVehicle = async (id: string, direction: -1 | 1) => {
+    const sorted = [...vehicles].sort((a, b) => a.order - b.order)
+    const idx = sorted.findIndex(v => v.id === id)
+    const swapIdx = idx + direction
+    if (idx < 0 || swapIdx < 0 || swapIdx >= sorted.length) return
+    const a = sorted[idx], b = sorted[swapIdx]
+    await Promise.all([
+      fetch(`/api/vehicles/${a.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: b.order }) }),
+      fetch(`/api/vehicles/${b.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: a.order }) }),
+    ])
+    await loadVehicles()
+  }
+
   const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
   const openEditContact = (id: string) => {
     const t = contacts.find(x => x.id === id)
@@ -416,6 +447,57 @@ export default function ShiftAppPage() {
     const ev = new CustomEvent('shiftSavingState', { detail: { saving: isSaving } })
     window.dispatchEvent(ev)
   }, [isSaving])
+
+  // 車両一覧（管理）本体（連絡ダイアログ/右サイド共通）
+  const VehicleManagementBody = () => (
+    <div className="mt-4">
+      <div className="font-semibold text-center text-xl mb-2">車両一覧</div>
+      <div className="border rounded-md p-3 w-full break-words">
+        <div className="flex gap-2 mb-3">
+          <input className="flex-1 border rounded h-9 px-2 text-sm" placeholder="車番を入力（例: 0514, ユニック）" value={vehicleNewNumber} onChange={e=>setVehicleNewNumber(e.target.value)} />
+          <Button size="sm" onClick={addVehicle}>追加</Button>
+        </div>
+        {vehicleLoading ? (
+          <div className="text-sm text-gray-600">読み込み中…</div>
+        ) : (
+          <div className="grid grid-cols-1 divide-y">
+            {vehicles.sort((a,b)=>a.order-b.order).map(v => (
+              <div key={v.id} className={`grid grid-cols-[auto_1fr_auto] items-center gap-2 py-2 ${!v.enabled ? 'opacity-50' : ''}`}>
+                <div className="flex flex-col">
+                  <button className="text-xs px-1" onClick={()=>moveVehicle(v.id, -1)}>▲</button>
+                  <button className="text-xs px-1" onClick={()=>moveVehicle(v.id, 1)}>▼</button>
+                </div>
+                <div>
+                  {vehicleEditId===v.id ? (
+                    <input className="w-full border rounded h-9 px-2 text-sm" value={vehicleEditNumber} onChange={e=>setVehicleEditNumber(e.target.value)} />
+                  ) : (
+                    <span>{v.number}{!v.enabled ? '（無効）' : ''}</span>
+                  )}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  {vehicleEditId===v.id ? (
+                    <>
+                      <Button size="sm" variant="outline" onClick={cancelEditVehicle}>キャンセル</Button>
+                      <Button size="sm" onClick={saveVehicleEdit}>保存</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => startEditVehicle(v.id)}>編集</Button>
+                      <Button size="sm" variant="outline" onClick={() => toggleVehicleEnabled(v.id, v.enabled)}>{v.enabled ? '無効化' : '有効化'}</Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteVehicle(v.id)}>削除</Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            {vehicles.length === 0 && (
+              <div className="text-sm text-gray-500 py-4">車両が登録されていません</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   // 連絡パネル本体（ダイアログ/右サイド共通）
   const ContactBody = () => (
@@ -470,7 +552,7 @@ export default function ShiftAppPage() {
         </div>
       )}
 
-      {/* ルート一覧（スタッフ一覧レイアウト参照） */}
+      {/* ルート一覧 */}
       <div className="mt-4">
         <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
         <div className="border rounded-md p-3 w-full break-words">
@@ -513,8 +595,12 @@ export default function ShiftAppPage() {
           )}
         </div>
       </div>
+
+      <VehicleManagementBody />
     </div>
   )
+
+  const closePicker = () => setPicker({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null })
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -538,8 +624,30 @@ export default function ShiftAppPage() {
           <span className={`px-2 py-0.5 rounded ${getRouteColor('ユニック')}`}>ユニック</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('休み')}`}>休み</span>
           <span className={`px-2 py-0.5 rounded ${getRouteColor('有給')}`}>有給</span>
+          <span className="px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500">空車</span>
         </div>
         {(() => {
+          // セル1つ分の中身（ルートバッジ＋ドライバー名／空車表示）
+          const Cell = ({ vehicleId, day }: { vehicleId: string; day: number }) => {
+            const a = aMap.get(`${vehicleId}-${day}`)
+            const label = a?.route ? enumToRouteLabel(a.route) : null
+            const driver = staffName(a?.driverStaffId ?? null)
+            const isEmpty = !label && !driver
+            const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null })
+            return (
+              <button onClick={open} className={`w-full h-16 flex flex-col text-xs ${isEmpty ? 'border border-dashed border-gray-300' : ''}`}>
+                {isEmpty ? (
+                  <span className="flex-1 flex items-center justify-center text-gray-400">空車</span>
+                ) : (
+                  <>
+                    <span className={`flex-1 flex items-center justify-center ${label ? getRouteColor(label) : ''}`}>{label ?? ''}</span>
+                    <span className="border-t p-1 text-gray-700 truncate">{driver}</span>
+                  </>
+                )}
+              </button>
+            )
+          }
+
           // 週ごとの縦連結テーブルを共通化
           const WeeklyTable = () => (
             <div className="overflow-x-auto border rounded-md bg-white">
@@ -571,136 +679,21 @@ export default function ShiftAppPage() {
                           )
                         })}
                       </tr>
-                      {/* 週の明細（名前×7日） */}
-                      {staffs.map(st => (
-                        <tr key={`row-${wi}-${st.id}`}>
-                          <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
-                          {week.map((d, i) => {
-                            const a = d ? aMap.get(`${st.id}-${d}`) : undefined
-                            const label = a ? enumToRouteLabel(a.route) : null
-                            const isToday = d ? (todayInfo.isSameMonth && todayInfo.day === d) : false
-                            const openRoutePicker = () => d && setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                            const openNoteBL = () => { setTempText(a?.noteBL ?? ''); if (d) setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
-                            return (
-                              <td key={`cell-${wi}-${st.id}-${i}`} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                                {d ? (
-                                  <div className="grid grid-rows-2 h-16">
-                                    <button disabled={!d} onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                                    <button disabled={!d} onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                      {a?.noteBL ?? ''}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="h-16" />
-                                )}
-                              </td>
-                            )
-                          })}
+                      {/* 週の明細（車番×7日） */}
+                      {activeVehicles.map(v => (
+                        <tr key={`row-${wi}-${v.id}`}>
+                          <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{v.number}</td>
+                          {week.map((d, i) => (
+                            <td key={`cell-${wi}-${v.id}-${i}`} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                              {d ? <Cell vehicleId={v.id} day={d} /> : <div className="h-16" />}
+                            </td>
+                          ))}
                         </tr>
                       ))}
                     </Fragment>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )
-
-          // 連絡パネル本体（ダイアログと共通利用）
-          const ContactBody = () => (
-            <div className="overflow-y-auto max-h-[70vh] pr-1">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key:'common', title:'共通' },
-                  { key:'sanchoku', title:'産直' },
-                  { key:'esaki', title:'江D' },
-                  { key:'maruno', title:'丸D' },
-                ].map(g => (
-                  <div key={g.key} className="border rounded-md p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold text-lg">{g.title}</div>
-                    </div>
-                    <div className="space-y-2">
-                      {contacts.filter(c => (c.category||'common')===g.key).map(c => (
-                        <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
-                          <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
-                        </div>
-                      ))}
-                      {contacts.filter(c => (c.category||'common')===g.key).length === 0 && (
-                        <div className="text-sm text-gray-500">（項目なし）</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {!editingVisible && (
-                <div className="mt-3 flex justify-end">
-                  <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
-                </div>
-              )}
-              {editingVisible && (
-                <div className="mt-2">
-                  <div className="grid grid-cols-1 gap-2">
-                    <textarea className="border rounded p-2 text-base h-28" placeholder="本文" value={cBody} onChange={e=>setCBody(e.target.value)} />
-                    <select className="border rounded p-2 text-base" value={cCategory} onChange={e=>setCCategory(e.target.value as any)}>
-                      <option value="common">共通</option>
-                      <option value="sanchoku">産直</option>
-                      <option value="esaki">江D</option>
-                      <option value="maruno">丸D</option>
-                    </select>
-                    <div className="flex justify-end gap-2">
-                      {cMode==='edit' && targetId && (
-                        <Button variant="destructive" onClick={()=>deleteContact(targetId)}>削除</Button>
-                      )}
-                      <Button variant="outline" onClick={()=>{ setEditingVisible(false) }}>キャンセル</Button>
-                      <Button onClick={saveContact}>完了</Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ルート一覧 */}
-              <div className="mt-4">
-                <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
-                <div className="border rounded-md p-3 w-full break-words">
-                  {routeLoading ? (
-                    <div className="text-sm text-gray-600">読み込み中…</div>
-                  ) : (
-                    <div className="grid grid-cols-1 divide-y">
-                      <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
-                        <div>ルート名</div>
-                        <div>操作</div>
-                      </div>
-                      {routeItems.map(it => (
-                        <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
-                          <div>
-                            {routeEditId===it.id ? (
-                              <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key)}`}>表示例</span>
-                                <span>{it.name}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex gap-2 justify-end">
-                            {routeEditId===it.id ? (
-                              <>
-                                <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
-                                <Button onClick={saveRouteName}>保存</Button>
-                              </>
-                            ) : (
-                              <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {routeItems.length === 0 && (
-                        <div className="text-sm text-gray-500 py-4">データがありません</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           )
 
@@ -726,7 +719,7 @@ export default function ShiftAppPage() {
               <table className="min-w-[900px] w-full text-sm table-fixed">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>名前</th>
+                    <th className="sticky left-0 top-0 bg-white z-30 border-b p-2 text-left" style={{ width: leftColPx }}>車番</th>
                     {Array.from({ length: monthDays }).map((_, i) => {
                       const d = i + 1
                       const dow = getDow(year, month, d)
@@ -739,24 +732,14 @@ export default function ShiftAppPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {staffs.map(st => (
-                    <tr key={st.id}>
-                      <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{st.name}</td>
+                  {activeVehicles.map(v => (
+                    <tr key={v.id}>
+                      <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{v.number}</td>
                       {Array.from({ length: monthDays }).map((_, i) => {
                         const d = i+1
-                        const a = aMap.get(`${st.id}-${d}`)
-                        const label = a ? enumToRouteLabel(a.route) : null
-                        const isToday = todayInfo.isSameMonth && todayInfo.day === d
-                        const openRoutePicker = () => setPicker({ open: true, staffId: st.id, day: d, mode: 'route' })
-                        const openNoteBL = () => { setTempText(a?.noteBL ?? ''); setPicker({ open: true, staffId: st.id, day: d, mode: 'noteBL' }) }
                         return (
-                          <td key={d} className={`border p-0 align-top ${isToday ? 'bg-sky-50' : ''}`} style={{ width: dayColPx }}>
-                            <div className="grid grid-rows-2 h-16">
-                              <button onClick={openRoutePicker} className={`row-span-1 flex items-center justify-center text-xs w-full h-full ${label?getRouteColor(label):''}`}>{label ?? ''}</button>
-                              <button onClick={openNoteBL} className="row-span-1 border-t p-1 text-xs text-gray-700 whitespace-pre-wrap text-left">
-                                {a?.noteBL ?? ''}
-                              </button>
-                            </div>
+                          <td key={d} className={`border p-0 align-top`} style={{ width: dayColPx }}>
+                            <Cell vehicleId={v.id} day={d} />
                           </td>
                         )
                       })}
@@ -770,36 +753,55 @@ export default function ShiftAppPage() {
 
         {/* 共有BottomBarを使用するためローカルのボトムメニューは撤去 */}
 
-        <Dialog open={picker.open} onOpenChange={(o) => { if (!o) { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>
+        <Dialog open={picker.open} onOpenChange={(o) => { if (!o) closePicker() }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                {picker.mode === 'route' ? 'ルートを選択' : picker.mode === 'car' ? '車番を選択' : (picker.mode === 'noteBL' ? '左下セルを編集' : '右下セルを編集')}
-              </DialogTitle>
+              <DialogTitle>ルート・ドライバーを選択</DialogTitle>
             </DialogHeader>
-            {picker.mode === 'route' ? (
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {ROUTE_LABELS.map(l => (
-                  <button key={l} onClick={() => { if (picker.staffId && picker.day) { applyRoute(picker.staffId, picker.day, l); setPicker({ open: false, staffId: null, day: null, mode: 'route' }) } }} className={`px-3 py-2 rounded text-sm ${getRouteColor(l)}`}>{l}</button>
-                ))}
+            <div className="space-y-4 mt-2">
+              <div>
+                <div className="text-sm text-gray-600 mb-1">ルート</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPicker(p => ({ ...p, route: null }))}
+                    className={`px-3 py-2 rounded text-sm border border-dashed ${picker.route === null ? 'ring-2 ring-blue-500' : ''}`}
+                  >空車（未設定）</button>
+                  {ROUTE_LABELS.map(l => {
+                    const enumVal = routeLabelToEnum(l)
+                    return (
+                      <button
+                        key={l}
+                        onClick={() => setPicker(p => ({ ...p, route: enumVal }))}
+                        className={`px-3 py-2 rounded text-sm ${getRouteColor(l)} ${picker.route === enumVal ? 'ring-2 ring-offset-1 ring-blue-500' : ''}`}
+                      >{l}</button>
+                    )
+                  })}
+                </div>
               </div>
-            ) : (
-              picker.mode === 'car' ? (
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {CAR_LABELS.map(c => (
-                    <button key={c} onClick={() => { if (picker.staffId && picker.day) { applyCar(picker.staffId, picker.day, c); setPicker({ open: false, staffId: null, day: null, mode: 'route' }) } }} className={`px-3 py-2 rounded text-sm ${getCarColor(c)}`}>{c || '空白'}</button>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">ドライバー</div>
+                <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                  <button
+                    onClick={() => setPicker(p => ({ ...p, driverStaffId: null }))}
+                    className={`px-3 py-2 rounded text-sm border ${picker.driverStaffId === null ? 'ring-2 ring-blue-500' : ''}`}
+                  >未割当</button>
+                  {staffs.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setPicker(p => ({ ...p, driverStaffId: s.id }))}
+                      className={`px-3 py-2 rounded text-sm border ${picker.driverStaffId === s.id ? 'bg-blue-600 text-white border-blue-600' : ''}`}
+                    >{s.name}</button>
                   ))}
                 </div>
-              ) : (
-                <div className="mt-2 space-y-2">
-                  <textarea value={tempText} onChange={e => setTempText(e.target.value)} className="w-full h-24 border rounded p-2 text-sm" placeholder="テキストを入力" />
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => { setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') }}>キャンセル</Button>
-                    <Button onClick={() => { if (picker.staffId && picker.day) { applyNote(picker.staffId, picker.day, picker.mode as ('noteBL'|'noteBR'), tempText); setPicker({ open: false, staffId: null, day: null, mode: 'route' }); setTempText('') } }}>保存</Button>
-                  </div>
-                </div>
-              )
-            )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closePicker}>キャンセル</Button>
+                <Button onClick={() => {
+                  if (picker.vehicleId && picker.day) applyAssignment(picker.vehicleId, picker.day, picker.route, picker.driverStaffId)
+                  closePicker()
+                }}>確定</Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </main>
@@ -816,5 +818,3 @@ export default function ShiftAppPage() {
     </div>
   )
 }
-
-
