@@ -449,7 +449,11 @@ export default function ShiftAppPage() {
   }, [isSaving])
 
   // 車両一覧（管理）本体（連絡ダイアログ/右サイド共通）
-  const VehicleManagementBody = () => (
+  // 注意: これをコンポーネント関数として定義し <VehicleManagementBody /> の形で呼ぶと、
+  // 親の再レンダリングのたびに「新しい型」を生成したとReactに解釈され、
+  // 内部のinputがアンマウント→再マウントされてフォーカスとスクロール位置が失われる。
+  // そのためJSX値としてそのまま埋め込む。
+  const vehicleManagementBody = (
     <div className="mt-4">
       <div className="font-semibold text-center text-xl mb-2">車両一覧</div>
       <div className="border rounded-md p-3 w-full break-words">
@@ -499,8 +503,8 @@ export default function ShiftAppPage() {
     </div>
   )
 
-  // 連絡パネル本体（ダイアログ/右サイド共通）
-  const ContactBody = () => (
+  // 連絡パネル本体（ダイアログ/右サイド共通）。VehicleManagementBodyと同じ理由でJSX値として保持する。
+  const contactBody = (
     <div className="overflow-y-auto max-h-[70vh] pr-1">
       <div className="grid grid-cols-2 gap-3">
         {[
@@ -596,7 +600,7 @@ export default function ShiftAppPage() {
         </div>
       </div>
 
-      <VehicleManagementBody />
+      {vehicleManagementBody}
     </div>
   )
 
@@ -627,8 +631,10 @@ export default function ShiftAppPage() {
           <span className="px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500">空車</span>
         </div>
         {(() => {
-          // セル1つ分の中身（ルートバッジ＋ドライバー名／空車表示）
-          const Cell = ({ vehicleId, day }: { vehicleId: string; day: number }) => {
+          // セル1つ分の中身（ルートバッジ＋ドライバー名／空車表示）。
+          // JSXコンポーネントとして定義すると親の再レンダリングごとに新しい型として
+          // 扱われアンマウントされるため、ただの関数として呼び出す。
+          const renderCell = (vehicleId: string, day: number) => {
             const a = aMap.get(`${vehicleId}-${day}`)
             const label = a?.route ? enumToRouteLabel(a.route) : null
             const driver = staffName(a?.driverStaffId ?? null)
@@ -648,8 +654,8 @@ export default function ShiftAppPage() {
             )
           }
 
-          // 週ごとの縦連結テーブルを共通化
-          const WeeklyTable = () => (
+          // 週ごとの縦連結テーブルを共通化（同上の理由でJSX値として保持）
+          const weeklyTable = (
             <div className="overflow-x-auto border rounded-md bg-white">
               <table className="w-full text-sm table-fixed">
                 <thead>
@@ -685,7 +691,7 @@ export default function ShiftAppPage() {
                           <td className="sticky left-0 bg-white z-10 border-r p-2 font-medium" style={{ width: leftColPx }}>{v.number}</td>
                           {week.map((d, i) => (
                             <td key={`cell-${wi}-${v.id}-${i}`} className={`border p-0 align-top`} style={{ width: dayColPx }}>
-                              {d ? <Cell vehicleId={v.id} day={d} /> : <div className="h-16" />}
+                              {d ? renderCell(v.id, d) : <div className="h-16" />}
                             </td>
                           ))}
                         </tr>
@@ -699,16 +705,16 @@ export default function ShiftAppPage() {
 
           if (isPortrait && vw > 0 && vw < 768) {
             // スマホ縦: 週ごとに縦連結のみ
-            return <WeeklyTable />
+            return weeklyTable
           }
           if (!isPortrait) {
             // 非ポートレート: 左に週テーブル、右に連絡パネル
             return (
               <div className="grid grid-cols-[1fr_420px] gap-4 items-start">
-                <WeeklyTable />
+                {weeklyTable}
                 <div className="border rounded-md bg-white p-3">
                   <div className="font-semibold text-lg mb-2">連絡</div>
-                  <ContactBody />
+                  {contactBody}
                 </div>
               </div>
             )
@@ -739,7 +745,7 @@ export default function ShiftAppPage() {
                         const d = i+1
                         return (
                           <td key={d} className={`border p-0 align-top`} style={{ width: dayColPx }}>
-                            <Cell vehicleId={v.id} day={d} />
+                            {renderCell(v.id, d)}
                           </td>
                         )
                       })}
@@ -812,7 +818,7 @@ export default function ShiftAppPage() {
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
-          <ContactBody />
+          {contactBody}
         </DialogContent>
       </Dialog>
     </div>
