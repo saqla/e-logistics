@@ -131,12 +131,6 @@ export default function Home() {
         name: "箱車シフト表",
         description: "箱車のシフト管理",
         status: "開発中"
-      },
-      {
-        id: "time-management",
-        name: "労働時間管理",
-        description: "個人の労働時間や概算給与確認",
-        status: "開発中"
       }
     ]
 
