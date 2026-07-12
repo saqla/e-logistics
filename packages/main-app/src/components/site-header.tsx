@@ -14,6 +14,7 @@ type SiteHeaderProps = {
   showSave?: boolean
   onBack?: () => void
   showBack?: boolean
+  containerClassName?: string
 }
 
 export function SiteHeader({
@@ -27,13 +28,14 @@ export function SiteHeader({
   showSave = true,
   onBack,
   showBack = true,
+  containerClassName = 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
 }: SiteHeaderProps) {
   const router = useRouter()
   const back = () => (onBack ? onBack() : router.push('/'))
 
   return (
     <header className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={containerClassName}>
         <div className="flex justify-between items-center py-3">
           <div className="text-lg font-semibold text-gray-900">{appName}</div>
           <div className="flex items-center gap-2 whitespace-nowrap">

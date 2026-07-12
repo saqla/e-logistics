@@ -234,7 +234,7 @@ export default function ShiftAppPage() {
     if (w >= 1536) {
       const availableForDays = w - sidePadding - left
       let perDay = Math.floor(availableForDays / 20)
-      perDay = Math.max(24, Math.min(perDay, 56))
+      perDay = Math.max(24, Math.min(perDay, 110))
       setLeftColPx(left)
       setDayColPx(perDay)
       return
@@ -242,7 +242,7 @@ export default function ShiftAppPage() {
     if (w >= 1440) {
       const availableForDays = w - sidePadding - left
       let perDay = Math.floor(availableForDays / 15)
-      perDay = Math.max(28, Math.min(perDay, 56))
+      perDay = Math.max(28, Math.min(perDay, 100))
       setLeftColPx(left)
       setDayColPx(perDay)
       return
@@ -250,7 +250,7 @@ export default function ShiftAppPage() {
     if (w >= 1200) {
       const availableForDays = w - sidePadding - left
       let perDay = Math.floor(availableForDays / 12)
-      perDay = Math.max(28, Math.min(perDay, 56))
+      perDay = Math.max(28, Math.min(perDay, 90))
       setLeftColPx(left)
       setDayColPx(perDay)
       return
@@ -259,7 +259,7 @@ export default function ShiftAppPage() {
     if (w >= 768) {
       const availableForDays = w - sidePadding - left
       let perDay = Math.floor(availableForDays / 15)
-      perDay = Math.max(24, Math.min(perDay, 50))
+      perDay = Math.max(24, Math.min(perDay, 80))
       setLeftColPx(left)
       setDayColPx(perDay)
       return
@@ -684,8 +684,9 @@ export default function ShiftAppPage() {
         showSave={!isPortrait}
         onBack={() => router.push('/')}
         showBack={!isPortrait}
+        containerClassName="max-w-full mx-auto px-2"
       />
-      <main className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
+      <main className="max-w-full mx-auto py-4 px-2">
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
           {routeItems.filter(it => it.enabled).map(it => (
             <span key={it.id} className={`px-2 py-0.5 rounded ${getRouteColorByKey(it.key, it.bgClass, it.textClass)}`}>{it.name}</span>
