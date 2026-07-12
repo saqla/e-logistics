@@ -803,9 +803,11 @@ export default function ShiftAppPage() {
           if (!isPortrait) {
             // 非ポートレート: 左に週テーブル、右に連絡パネル
             return (
-              <div className="grid grid-cols-[1fr_320px] gap-4 items-start">
-                {weeklyTable}
-                <div className="border rounded-md bg-white p-3 min-h-[80vh]">
+              <div className="flex gap-4 items-start">
+                <div className="flex-1 min-w-0">
+                  {weeklyTable}
+                </div>
+                <div className="w-[360px] shrink-0 border rounded-md bg-white p-3 min-h-[80vh]">
                   <div className="font-semibold text-lg mb-2">連絡</div>
                   {contactBody}
                 </div>
