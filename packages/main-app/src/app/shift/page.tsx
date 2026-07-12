@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { daysInMonth, getDow } from '@/lib/utils'
-import { enumToRouteLabel, getCarColor, getRouteColor, ROUTE_LABELS, routeLabelToEnum, CAR_LABELS } from '@/lib/shift-constants'
+import { enumToRouteLabel, getCarColor, getRouteColor, getRouteColorByKey, ROUTE_LABELS, routeLabelToEnum, CAR_LABELS } from '@/lib/shift-constants'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SiteHeader } from '@/components/site-header'
@@ -64,15 +64,6 @@ export default function ShiftAppPage() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeEditId, setRouteEditId] = useState<string | null>(null)
   const [routeEditName, setRouteEditName] = useState('')
-  const palette = [
-    { bg: 'bg-purple-600', text: 'text-white' },
-    { bg: 'bg-orange-500', text: 'text-white' },
-    { bg: 'bg-violet-400', text: 'text-white' },
-    { bg: 'bg-green-500', text: 'text-white' },
-    { bg: 'bg-red-500', text: 'text-white' },
-    { bg: 'bg-gray-200', text: 'text-gray-800' },
-  ] as const
-
   const applyRoute = (staffId: string, day: number, label: typeof ROUTE_LABELS[number]) => {
     const key = `${staffId}-${day}`
     const existing = aMap.get(key)
@@ -393,13 +384,6 @@ export default function ShiftAppPage() {
     if (j?.item) setRouteItems(prev => prev.map(x => x.id===routeEditId ? j.item : x))
     cancelEditRoute()
   }
-  const applyRouteColorInline = async (id: string, bg: string, text: string) => {
-    const r = await fetch(`/api/route-defs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bgClass: bg, textClass: text }) })
-    if (!r.ok) { alert('保存に失敗しました'); return }
-    const j = await r.json().catch(()=>({}))
-    if (j?.item) setRouteItems(prev => prev.map(x => x.id===id ? j.item : x))
-  }
-
   const openCreateContact = () => { setCMode('create'); setTargetId(undefined); setCTitle(''); setCBody(''); setCCategory('common'); setContactOpen(true); setEditingVisible(true) }
   const openEditContact = (id: string) => {
     const t = contacts.find(x => x.id === id)
@@ -505,7 +489,7 @@ export default function ShiftAppPage() {
                       <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                        <span className={`px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key)}`}>表示例</span>
                         <span>{it.name}</span>
                       </div>
                     )}
@@ -520,16 +504,6 @@ export default function ShiftAppPage() {
                       <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
                     )}
                   </div>
-                  {routeEditId===it.id && (
-                    <div className="col-span-2 mt-2">
-                      <div className="text-sm text-gray-600 mb-1">色を選択</div>
-                      <div className="grid grid-cols-6 gap-2">
-                        {palette.map((p, idx) => (
-                          <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
               {routeItems.length === 0 && (
@@ -703,7 +677,7 @@ export default function ShiftAppPage() {
                               <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
                             ) : (
                               <div className="flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded text-xs ${it.bgClass} ${it.textClass}`}>表示例</span>
+                                <span className={`px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key)}`}>表示例</span>
                                 <span>{it.name}</span>
                               </div>
                             )}
@@ -718,16 +692,6 @@ export default function ShiftAppPage() {
                               <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
                             )}
                           </div>
-                          {routeEditId===it.id && (
-                            <div className="col-span-2 mt-2">
-                              <div className="text-sm text-gray-600 mb-1">色を選択</div>
-                              <div className="grid grid-cols-6 gap-2">
-                                {palette.map((p, idx) => (
-                                  <button key={idx} className={`h-7 rounded ${p.bg} ${p.text}`} onClick={()=>applyRouteColorInline(it.id, p.bg, p.text)}>Aa</button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       ))}
                       {routeItems.length === 0 && (

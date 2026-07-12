@@ -36,16 +36,25 @@ export function enumToRouteLabel(e: string): RouteLabel {
   }
 }
 
-// 色マッピング
+// 色マッピング（ルート種別ごとの統一カラー。/shift 画面全体でこのマップを唯一の情報源とする）
+export const ROUTE_COLOR_CLASSES: Record<ReturnType<typeof routeLabelToEnum>, { bg: string; text: string }> = {
+  SANCHOKU: { bg: 'bg-green-100', text: 'text-green-800' },
+  DONKI_FUKUOKA: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
+  DONKI_NAGASAKI: { bg: 'bg-orange-100', text: 'text-orange-800' },
+  UNIC: { bg: 'bg-blue-100', text: 'text-blue-800' },
+  OFF: { bg: 'bg-red-100', text: 'text-red-800' },
+  PAID_LEAVE: { bg: 'bg-purple-100', text: 'text-purple-800' },
+}
+
 export function getRouteColor(label: RouteLabel): string {
-  switch (label) {
-    case '産直': return 'bg-purple-600 text-white'
-    case 'ドンキ(福岡)': return 'bg-orange-500 text-white'
-    case 'ドンキ(長崎)': return 'bg-violet-400 text-white'
-    case 'ユニック': return 'bg-green-500 text-white'
-    case '休み': return 'bg-red-500 text-white'
-    case '有給': return 'bg-red-500 text-white'
-  }
+  const { bg, text } = ROUTE_COLOR_CLASSES[routeLabelToEnum(label)]
+  return `${bg} ${text}`
+}
+
+// route-defs API の key（'SANCHOKU' 等のenum文字列）から直接色を引く場合はこちら
+export function getRouteColorByKey(key: string): string {
+  const c = (ROUTE_COLOR_CLASSES as Record<string, { bg: string; text: string } | undefined>)[key]
+  return c ? `${c.bg} ${c.text}` : ''
 }
 
 export function getCarColor(car: string): string {
