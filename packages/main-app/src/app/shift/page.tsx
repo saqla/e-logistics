@@ -195,25 +195,17 @@ export default function ShiftAppPage() {
     const sidePadding = isMobile ? 16 : 32
     const left = 56
 
+    // スマホ（縦・横問わず）は1日分を潰さず、最小幅を固定して横スクロールに任せる
+    const MOBILE_DAY_COL_MIN = 100
     if (isPortrait && isMobile) {
-      // スマホ縦は1週間表示
-      const visibleDays = 7
-      const availableForDays = w - sidePadding - left
-      let perDay = Math.floor(availableForDays / visibleDays)
-      perDay = Math.max(14, Math.min(perDay, 56))
       setLeftColPx(left)
-      setDayColPx(perDay)
+      setDayColPx(MOBILE_DAY_COL_MIN)
       return
     }
 
-    // スマホ横（低い高さ）は7日表示
     if (!isPortrait && h > 0 && h < 500) {
-      const visibleDays = 7
-      const availableForDays = w - sidePadding - left
-      let perDay = Math.floor(availableForDays / visibleDays)
-      perDay = Math.max(16, Math.min(perDay, 56))
       setLeftColPx(left)
-      setDayColPx(perDay)
+      setDayColPx(MOBILE_DAY_COL_MIN)
       return
     }
 
