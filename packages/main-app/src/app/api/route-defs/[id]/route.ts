@@ -31,8 +31,20 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
   }
   const id = params.id
-  await prisma.routeDefinition.delete({ where: { id } })
-  return NextResponse.json({ ok: true })
+  try {
+    const target = await prisma.routeDefinition.findUnique({ where: { id }, select: { key: true } })
+    if (!target) return NextResponse.json({ error: '対象のルートが見つかりません' }, { status: 404 })
+
+    // このルートを使っているシフト割当は「未割り当て（空車）」に戻してから削除する
+    await prisma.$transaction([
+      prisma.shiftAssignment.updateMany({ where: { route: target.key }, data: { route: null } }),
+      prisma.routeDefinition.delete({ where: { id } }),
+    ])
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    if (e?.code === 'P2025') return NextResponse.json({ error: '対象のルートが見つかりません' }, { status: 404 })
+    return NextResponse.json({ error: e?.message || '削除に失敗しました' }, { status: 500 })
+  }
 }
 
 

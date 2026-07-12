@@ -114,18 +114,20 @@ export default function ShiftAppPage() {
     setRestDays(Array.isArray(j.items) ? j.items : [])
   }
 
+  const loadAssignments = async () => {
+    const aRes = await fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' })
+    const aJson = await aRes.json().catch(()=>({assignments:[]}))
+    setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, vehicleId: x.vehicleId, route: x.route ?? null, driverStaffId: x.driverStaffId ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+  }
+
   useEffect(() => {
     const fetchAll = async () => {
-      const [aRes, sRes] = await Promise.all([
-        fetch(`/api/shift?year=${year}&month=${month}`, { cache: 'no-store' }),
-        fetch(`/api/staff`, { cache: 'no-store' }),
-      ])
-      const aJson = await aRes.json()
-      const sJson = await sRes.json()
-      setAssignments((aJson?.assignments || []).map((x: any) => ({ day: x.day, vehicleId: x.vehicleId, route: x.route ?? null, driverStaffId: x.driverStaffId ?? null, noteBL: x.noteBL ?? null, noteBR: x.noteBR ?? null })))
+      const sRes = await fetch(`/api/staff`, { cache: 'no-store' })
+      const sJson = await sRes.json().catch(()=>({staffs:[]}))
       setStaffs((sJson?.staffs || []).map((s: any) => ({ id: s.id, name: s.name })))
     }
     fetchAll()
+    loadAssignments()
     loadVehicles()
     loadRestDays()
   }, [year, month])
@@ -399,6 +401,12 @@ export default function ShiftAppPage() {
     if (j?.item) setRouteItems(prev => prev.map(x => x.id===routeEditId ? j.item : x))
     cancelEditRoute()
   }
+  const deleteRoute = async (id: string) => {
+    const r = await fetch(`/api/route-defs/${id}`, { method: 'DELETE' })
+    if (!r.ok) { let msg = '削除に失敗しました'; try { const j = await r.json(); if (j?.error) msg = j.error } catch {}; alert(msg); return }
+    // サーバー側でこのルートを使っていたセルは空車に戻されているため、カレンダー表示も最新化する
+    await Promise.all([loadRouteItems(), loadAssignments()])
+  }
 
   // 車両マスタ操作
   const addVehicle = async () => {
@@ -629,13 +637,13 @@ export default function ShiftAppPage() {
             <div className="text-sm text-gray-600">読み込み中…</div>
           ) : (
             <div className="grid grid-cols-1 divide-y">
-              <div className="grid grid-cols-[1fr_140px] text-sm text-gray-500 py-2">
+              <div className="grid grid-cols-[1fr_auto] text-sm text-gray-500 py-2">
                 <div>ルート名</div>
                 <div>操作</div>
               </div>
               {routeItems.map(it => (
-                <div key={it.id} className="grid grid-cols-[1fr_140px] items-center py-2">
-                  <div>
+                <div key={it.id} className="grid grid-cols-[1fr_auto] items-center py-2 gap-2">
+                  <div className="min-w-0">
                     {routeEditId===it.id ? (
                       <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
                     ) : (
@@ -648,11 +656,14 @@ export default function ShiftAppPage() {
                   <div className="flex gap-2 justify-end">
                     {routeEditId===it.id ? (
                       <>
-                        <Button variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
-                        <Button onClick={saveRouteName}>保存</Button>
+                        <Button size="sm" variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                        <Button size="sm" onClick={saveRouteName}>保存</Button>
                       </>
                     ) : (
-                      <Button variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                        <Button size="sm" variant="destructive" onClick={() => deleteRoute(it.id)}>削除</Button>
+                      </>
                     )}
                   </div>
                 </div>
