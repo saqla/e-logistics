@@ -639,9 +639,9 @@ export default function ShiftAppPage() {
                     {routeEditId===it.id ? (
                       <input className="w-full border rounded h-9 px-2 text-sm" value={routeEditName} onChange={e=>setRouteEditName(e.target.value)} />
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key, it.bgClass, it.textClass)}`}>表示例</span>
-                        <span>{it.name}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`shrink-0 px-2 py-0.5 rounded text-xs ${getRouteColorByKey(it.key, it.bgClass, it.textClass)}`}>表示例</span>
+                        <span className="truncate">{it.name}</span>
                       </div>
                     )}
                   </div>
@@ -803,7 +803,7 @@ export default function ShiftAppPage() {
           if (!isPortrait) {
             // 非ポートレート: 左に週テーブル、右に連絡パネル
             return (
-              <div className="grid grid-cols-[1fr_288px] gap-4 items-start">
+              <div className="grid grid-cols-[1fr_320px] gap-4 items-start">
                 {weeklyTable}
                 <div className="border rounded-md bg-white p-3 min-h-[80vh]">
                   <div className="font-semibold text-lg mb-2">連絡</div>
