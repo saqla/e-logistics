@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, Fragment } from 'react'
+import { useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { daysInMonth, getDow } from '@/lib/utils'
@@ -332,8 +332,14 @@ export default function ShiftAppPage() {
   }
 
   // BottomBar からの保存要求に応答
+  // saveAllは毎レンダーで作り直されるため、依存配列を空にしたままだと
+  // マウント時点の古いassignments/year/monthを閉じ込めたsaveAllが呼ばれ続け、
+  // スマホでBottomBarから保存すると後から追加した内容が反映されない（保存時に消える）
+  // 不具合が起きていた。refで常に最新のsaveAllを参照するようにする。
+  const saveAllRef = useRef(saveAll)
+  useEffect(() => { saveAllRef.current = saveAll })
   useEffect(() => {
-    const onReq = (_e: Event) => { saveAll() }
+    const onReq = (_e: Event) => { saveAllRef.current() }
     window.addEventListener('requestShiftSave', onReq)
     return () => window.removeEventListener('requestShiftSave', onReq)
   }, [])
