@@ -173,6 +173,18 @@ export default function ShiftAppPage() {
     return m
   }, [vehicles, aMap, monthDays])
 
+  // 選択中ドライバーの当月「休み（公休）」日数（休み行のShiftRestDayベース）
+  const highlightRestDayCount = useMemo(() => {
+    if (!highlightStaffId) return 0
+    return restDays.filter(r => r.staffId === highlightStaffId).length
+  }, [restDays, highlightStaffId])
+
+  // 選択中ドライバーの当月「有給」日数（車両セルのroute==='PAID_LEAVE'ベース）
+  const highlightPaidLeaveCount = useMemo(() => {
+    if (!highlightStaffId) return 0
+    return assignments.filter(a => a.driverStaffId === highlightStaffId && a.route === 'PAID_LEAVE').length
+  }, [assignments, highlightStaffId])
+
   const staffName = (id: string | null) => id ? (staffs.find(s => s.id === id)?.name ?? '') : ''
   const routeName = (key: string | null) => key ? (routeItems.find(it => it.key === key)?.name ?? key) : null
   const routeColorFor = (key: string | null) => {
@@ -610,9 +622,14 @@ export default function ShiftAppPage() {
             ))}
           </select>
           {highlightStaffId && (
-            <div className="mt-2 text-xs text-gray-600">
-              休みの日は赤、出勤しているセルはオレンジの枠でハイライトしています。
-            </div>
+            <>
+              <div className="mt-2 text-sm font-semibold text-gray-800">
+                今月の休み: {highlightRestDayCount}日 / 有給: {highlightPaidLeaveCount}日
+              </div>
+              <div className="mt-1 text-xs text-gray-600">
+                休みの日は赤、出勤しているセルはオレンジの枠、有給のセルは紫の太枠でハイライトしています。
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -757,6 +774,10 @@ export default function ShiftAppPage() {
             const note = a?.noteBL ?? ''
             const isEmpty = !label && !driver && !note
             const isHighlighted = highlightStaffId !== '' && a?.driverStaffId === highlightStaffId
+            const isPaidLeaveHighlighted = isHighlighted && a?.route === 'PAID_LEAVE'
+            const highlightRing = isPaidLeaveHighlighted
+              ? 'border-4 border-purple-500'
+              : isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''
             const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null, note })
             if (isEmpty) {
               return (
@@ -766,16 +787,20 @@ export default function ShiftAppPage() {
             // 備考が空なら下段を消し、ルート／ドライバーを上下2段いっぱいに広げる（可変レイアウト）
             if (!note) {
               return (
-                <button onClick={open} className={`w-full h-20 flex flex-col text-left ${isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''}`}>
+                <button onClick={open} className={`w-full h-20 flex flex-col text-left ${highlightRing}`}>
                   <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
-                  <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
+                  <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">
+                    {driver}{isPaidLeaveHighlighted ? <span className="ml-1 text-purple-600">★（有給）</span> : null}
+                  </span>
                 </button>
               )
             }
             return (
-              <button onClick={open} className={`w-full h-20 grid grid-cols-2 grid-rows-2 text-left ${isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''}`}>
+              <button onClick={open} className={`w-full h-20 grid grid-cols-2 grid-rows-2 text-left ${highlightRing}`}>
                 <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
-                <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
+                <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">
+                  {driver}{isPaidLeaveHighlighted ? <span className="ml-1 text-purple-600">★</span> : null}
+                </span>
                 <span className="col-span-2 flex items-center px-1 truncate text-xs sm:text-sm text-gray-600">{note}</span>
               </button>
             )
