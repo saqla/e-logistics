@@ -71,6 +71,8 @@ export default function ShiftAppPage() {
   const [routeEditId, setRouteEditId] = useState<string | null>(null)
   const [routeEditName, setRouteEditName] = useState('')
   const [routeNewName, setRouteNewName] = useState('')
+  // 個人スケジュール・ハイライト（ドライバー選択）
+  const [highlightStaffId, setHighlightStaffId] = useState<string>('')
   // 車両一覧（連絡ダイアログ内で表示・追加/編集/並び替え/無効化）
   const [vehicleLoading, setVehicleLoading] = useState(false)
   const [vehicleNewNumber, setVehicleNewNumber] = useState('')
@@ -593,6 +595,28 @@ export default function ShiftAppPage() {
   // 連絡パネル本体（ダイアログ/右サイド共通）。VehicleManagementBodyと同じ理由でJSX値として保持する。
   const contactBody = (
     <div className="pr-1">
+      {/* 個人スケジュール・ハイライト（ドライバー選択） */}
+      <div className="mb-4">
+        <div className="font-semibold text-center text-xl mb-2">ドライバー選択</div>
+        <div className="border rounded-md p-3 w-full">
+          <select
+            className="w-full border rounded h-9 px-2 text-sm"
+            value={highlightStaffId}
+            onChange={e => setHighlightStaffId(e.target.value)}
+          >
+            <option value="">未選択（通常表示）</option>
+            {staffs.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          {highlightStaffId && (
+            <div className="mt-2 text-xs text-gray-600">
+              休みの日は赤、出勤しているセルはオレンジの枠でハイライトしています。
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         {[
           { key:'common', title:'共通' },
@@ -732,6 +756,7 @@ export default function ShiftAppPage() {
             const driver = staffName(a?.driverStaffId ?? null)
             const note = a?.noteBL ?? ''
             const isEmpty = !label && !driver && !note
+            const isHighlighted = highlightStaffId !== '' && a?.driverStaffId === highlightStaffId
             const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null, note })
             if (isEmpty) {
               return (
@@ -741,14 +766,14 @@ export default function ShiftAppPage() {
             // 備考が空なら下段を消し、ルート／ドライバーを上下2段いっぱいに広げる（可変レイアウト）
             if (!note) {
               return (
-                <button onClick={open} className="w-full h-20 flex flex-col text-left">
+                <button onClick={open} className={`w-full h-20 flex flex-col text-left ${isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''}`}>
                   <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
                   <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 </button>
               )
             }
             return (
-              <button onClick={open} className="w-full h-20 grid grid-cols-2 grid-rows-2 text-left">
+              <button onClick={open} className={`w-full h-20 grid grid-cols-2 grid-rows-2 text-left ${isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''}`}>
                 <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
                 <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 <span className="col-span-2 flex items-center px-1 truncate text-xs sm:text-sm text-gray-600">{note}</span>
@@ -758,10 +783,15 @@ export default function ShiftAppPage() {
 
           // 「休み」固定行のセル：ルートは無く、その日の公休ドライバー（複数可）を表示
           const renderRestCell = (day: number) => {
-            const names = (restByDay.get(day) ?? []).map(r => staffName(r.staffId)).filter(Boolean)
+            const entries = restByDay.get(day) ?? []
+            const names = entries.map(r => staffName(r.staffId)).filter(Boolean)
+            const isHighlighted = highlightStaffId !== '' && entries.some(r => r.staffId === highlightStaffId)
             const open = () => openRestPicker(day)
+            const stateClass = isHighlighted
+              ? 'bg-red-200 text-red-900 font-bold ring-4 ring-inset ring-red-500'
+              : names.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border-2 border-dashed border-gray-300'
             return (
-              <button onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 ${names.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border-2 border-dashed border-gray-300'}`}>
+              <button onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 ${stateClass}`}>
                 <span className="line-clamp-3 break-words">{names.length ? names.join('、') : '—'}</span>
               </button>
             )
