@@ -15,6 +15,7 @@ type PaidLeaveItem = {
   tenureYears: number | null
   nextGrantMonth: string | null
   totalDays: number
+  totalDaysIsOverride: boolean
   usedDays: number
   remainingDays: number
 }
@@ -81,12 +82,13 @@ export default function PaidLeavesPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [editStaffId, setEditStaffId] = useState<string | null>(null)
   const [editHireDate, setEditHireDate] = useState('')
-  const [editTotalDays, setEditTotalDays] = useState('0')
+  // 空文字列 = 自動計算（法定スケジュール）に任せる。数値が入っていれば手動上書き。
+  const [editTotalDays, setEditTotalDays] = useState('')
 
   const openEdit = (item: PaidLeaveItem) => {
     setEditStaffId(item.staffId)
     setEditHireDate(toDateInputValue(item.hireDate))
-    setEditTotalDays(String(item.totalDays))
+    setEditTotalDays(item.totalDaysIsOverride ? String(item.totalDays) : '')
     setEditOpen(true)
   }
 
@@ -97,7 +99,7 @@ export default function PaidLeavesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         hireDate: editHireDate ? editHireDate : null,
-        paidLeaveTotalDays: Number(editTotalDays) || 0,
+        paidLeaveTotalDays: editTotalDays === '' ? null : (Number(editTotalDays) || 0),
       }),
     })
     if (!r.ok) {
@@ -141,7 +143,7 @@ export default function PaidLeavesPage() {
                     <div>{fmtHireDate(item.hireDate)}</div>
                     <div>{item.tenureYears != null ? `${item.tenureYears}年` : '—'}</div>
                     <div>{item.nextGrantMonth ?? '—'}</div>
-                    <div>{item.totalDays}日</div>
+                    <div>{item.totalDays}日<span className="text-xs text-gray-400 ml-1">{item.totalDaysIsOverride ? '(手動)' : '(自動)'}</span></div>
                     <div>{item.usedDays}日</div>
                     <div className={item.remainingDays < 0 ? 'text-red-600 font-bold' : ''}>{item.remainingDays}日</div>
                     <div className="flex gap-2">
@@ -188,8 +190,13 @@ export default function PaidLeavesPage() {
                 <Input id="hireDate" type="date" value={editHireDate} onChange={e => setEditHireDate(e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="totalDays">今年度の総付与日数</Label>
-                <Input id="totalDays" type="number" min={0} value={editTotalDays} onChange={e => setEditTotalDays(e.target.value)} />
+                <Label htmlFor="totalDays">今年度の総付与日数（空欄で法定スケジュールから自動計算）</Label>
+                <div className="flex gap-2 items-center">
+                  <Input id="totalDays" type="number" min={0} value={editTotalDays} placeholder="自動計算" onChange={e => setEditTotalDays(e.target.value)} />
+                  {editTotalDays !== '' && (
+                    <Button type="button" size="sm" variant="outline" onClick={() => setEditTotalDays('')}>自動計算に戻す</Button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ensurePaidLeaveColumns, currentPaidLeavePeriod, formatNextGrantMonth, isDateInPeriod } from '@/lib/paid-leave'
+import { ensurePaidLeaveColumns, currentPaidLeavePeriod, formatNextGrantMonth, isDateInPeriod, resolveTotalDays } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,8 +27,8 @@ export async function GET() {
 
     const today = new Date()
     const items = staffs.map(s => {
-      const totalDays = s.paidLeaveTotalDays ?? 0
       if (!s.hireDate) {
+        const totalDays = s.paidLeaveTotalDays ?? 0
         return {
           staffId: s.id,
           name: s.name,
@@ -36,19 +36,22 @@ export async function GET() {
           tenureYears: null,
           nextGrantMonth: null,
           totalDays,
+          totalDaysIsOverride: s.paidLeaveTotalDays != null,
           usedDays: 0,
           remainingDays: totalDays,
         }
       }
       const period = currentPaidLeavePeriod(new Date(s.hireDate), today)
       const usedDays = paidRows.filter(r => r.staffId === s.id && isDateInPeriod(r.year, r.month, r.day, period)).length
+      const totalDays = resolveTotalDays(s.paidLeaveTotalDays, period)
       return {
         staffId: s.id,
         name: s.name,
         hireDate: s.hireDate,
         tenureYears: period.tenureYears,
-        nextGrantMonth: formatNextGrantMonth(period.periodEnd),
+        nextGrantMonth: formatNextGrantMonth(period.nextGrantDate),
         totalDays,
+        totalDaysIsOverride: s.paidLeaveTotalDays != null,
         usedDays,
         remainingDays: totalDays - usedDays,
       }

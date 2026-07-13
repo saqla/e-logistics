@@ -44,7 +44,7 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
       }
     }
 
-    const data: { name?: string; kind?: StaffKind; hireDate?: Date | null; paidLeaveTotalDays?: number } = {}
+    const data: { name?: string; kind?: StaffKind; hireDate?: Date | null; paidLeaveTotalDays?: number | null } = {}
     if (name) data.name = name
     if (kind) {
       const upper = String(kind).toUpperCase()
@@ -57,7 +57,10 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
       data.hireDate = hireDateRaw ? new Date(hireDateRaw) : null
     }
     if (hasPaidLeaveTotalDays) {
-      data.paidLeaveTotalDays = Number(body.paidLeaveTotalDays) || 0
+      // null/空文字は「自動計算に戻す」（上書き解除）。それ以外は手動上書きの日数として保存
+      data.paidLeaveTotalDays = (body.paidLeaveTotalDays === null || body.paidLeaveTotalDays === '')
+        ? null
+        : (Number(body.paidLeaveTotalDays) || 0)
     }
 
     const updated = await prisma.staff.update({

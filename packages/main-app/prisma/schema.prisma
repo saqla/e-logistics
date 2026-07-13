@@ -60,7 +60,7 @@ model Staff {
 
   // 有給管理
   hireDate           DateTime? // 入社日
-  paidLeaveTotalDays Int?      @default(0) // 今年度の総付与日数（手動管理）
+  paidLeaveTotalDays Int?      // 総付与日数の手動上書き（未設定なら法定スケジュールから自動計算）
 
   // relations
   routeAssignments RouteAssignment[]
