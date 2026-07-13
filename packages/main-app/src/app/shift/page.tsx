@@ -510,11 +510,28 @@ export default function ShiftAppPage() {
     const current = restByDay.get(day) ?? []
     const selectedIds = Object.keys(restPicker.selections)
     const toRemove = current.filter(r => !(r.staffId in restPicker.selections))
-    await Promise.all([
-      ...selectedIds.map(staffId => fetch('/api/shift/rest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, month, day, staffId, kind: restPicker.selections[staffId] }) })),
-      ...toRemove.map(r => fetch(`/api/shift/rest/${r.id}`, { method: 'DELETE' })),
+    const results = await Promise.all([
+      ...selectedIds.map(async staffId => {
+        const r = await fetch('/api/shift/rest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, month, day, staffId, kind: restPicker.selections[staffId] }) })
+        if (r.ok) return null
+        let msg = `${staffName(staffId)}の保存に失敗しました`
+        try { const j = await r.json(); if (j?.error) msg = `${staffName(staffId)}: ${j.error}` } catch {}
+        return msg
+      }),
+      ...toRemove.map(async r => {
+        const res = await fetch(`/api/shift/rest/${r.id}`, { method: 'DELETE' })
+        if (res.ok) return null
+        let msg = `${staffName(r.staffId)}の削除に失敗しました`
+        try { const j = await res.json(); if (j?.error) msg = `${staffName(r.staffId)}: ${j.error}` } catch {}
+        return msg
+      }),
     ])
+    const errors = results.filter((m): m is string => m != null)
     await loadRestDays()
+    if (errors.length > 0) {
+      alert(`一部の保存/削除に失敗しました:\n${errors.join('\n')}\n（編集権限が切れている可能性があります。再ログインしてもう一度お試しください）`)
+      return
+    }
     closeRestPicker()
   }
 
