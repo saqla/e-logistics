@@ -43,7 +43,8 @@ export default function PaidLeavesPage() {
     if (status === 'unauthenticated') router.push('/')
   }, [status, router])
 
-  const editorVerified = (session as any)?.editorVerified === true
+  // /shiftと同様、Google編集ログイン済みかつ「個別ログアウト」していないことを条件にする
+  const editorVerified = !!((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '')))
 
   const [items, setItems] = useState<PaidLeaveItem[]>([])
   const [loading, setLoading] = useState(false)

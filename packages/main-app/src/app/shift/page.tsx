@@ -26,6 +26,8 @@ type StaffLite = { id: string; name: string }
 export default function ShiftAppPage() {
   const { status, data: session } = useSession()
   const router = useRouter()
+  // 編集権限（Google編集ログイン、かつ個別ログアウトしていない）を一箇所に集約
+  const editorVerified = !!((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || '')))
   const now = new Date()
   const [isPortrait, setPortrait] = useState(true)
   const [vw, setVw] = useState(0)
@@ -577,10 +579,12 @@ export default function ShiftAppPage() {
     <div className="mt-4">
       <div className="font-semibold text-center text-xl mb-2">車両一覧</div>
       <div className="border rounded-md p-3 w-full break-words">
-        <div className="flex gap-2 mb-3">
-          <input className="flex-1 border rounded h-9 px-2 text-sm" placeholder="車番を入力（例: 0514, ユニック）" value={vehicleNewNumber} onChange={e=>setVehicleNewNumber(e.target.value)} />
-          <Button size="sm" onClick={addVehicle}>追加</Button>
-        </div>
+        {editorVerified && (
+          <div className="flex gap-2 mb-3">
+            <input className="flex-1 border rounded h-9 px-2 text-sm" placeholder="車番を入力（例: 0514, ユニック）" value={vehicleNewNumber} onChange={e=>setVehicleNewNumber(e.target.value)} />
+            <Button size="sm" onClick={addVehicle}>追加</Button>
+          </div>
+        )}
         {vehicleLoading ? (
           <div className="text-sm text-gray-600">読み込み中…</div>
         ) : (
@@ -588,8 +592,12 @@ export default function ShiftAppPage() {
             {vehicles.sort((a,b)=>a.order-b.order).map(v => (
               <div key={v.id} className={`grid grid-cols-[auto_1fr_auto] items-center gap-2 py-2 ${!v.enabled ? 'opacity-50' : ''}`}>
                 <div className="flex flex-col">
-                  <button className="text-xs px-1" onClick={()=>moveVehicle(v.id, -1)}>▲</button>
-                  <button className="text-xs px-1" onClick={()=>moveVehicle(v.id, 1)}>▼</button>
+                  {editorVerified && (
+                    <>
+                      <button className="text-xs px-1" onClick={()=>moveVehicle(v.id, -1)}>▲</button>
+                      <button className="text-xs px-1" onClick={()=>moveVehicle(v.id, 1)}>▼</button>
+                    </>
+                  )}
                 </div>
                 <div>
                   {vehicleEditId===v.id ? (
@@ -602,17 +610,19 @@ export default function ShiftAppPage() {
                   )}
                 </div>
                 <div className="flex gap-2 justify-end">
-                  {vehicleEditId===v.id ? (
-                    <>
-                      <Button size="sm" variant="outline" onClick={cancelEditVehicle}>キャンセル</Button>
-                      <Button size="sm" onClick={saveVehicleEdit}>保存</Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => startEditVehicle(v.id)}>編集</Button>
-                      <Button size="sm" variant="outline" onClick={() => toggleVehicleEnabled(v.id, v.enabled)}>{v.enabled ? '無効化' : '有効化'}</Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteVehicle(v.id)}>削除</Button>
-                    </>
+                  {editorVerified && (
+                    vehicleEditId===v.id ? (
+                      <>
+                        <Button size="sm" variant="outline" onClick={cancelEditVehicle}>キャンセル</Button>
+                        <Button size="sm" onClick={saveVehicleEdit}>保存</Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => startEditVehicle(v.id)}>編集</Button>
+                        <Button size="sm" variant="outline" onClick={() => toggleVehicleEnabled(v.id, v.enabled)}>{v.enabled ? '無効化' : '有効化'}</Button>
+                        <Button size="sm" variant="destructive" onClick={() => deleteVehicle(v.id)}>削除</Button>
+                      </>
+                    )
                   )}
                 </div>
               </div>
@@ -669,7 +679,11 @@ export default function ShiftAppPage() {
             </div>
             <div className="space-y-2">
               {contacts.filter(c => (c.category||'common')===g.key).map(c => (
-                <div key={c.id} className="border rounded p-2 break-words" onClick={()=>openEditContact(c.id)}>
+                <div
+                  key={c.id}
+                  className={`border rounded p-2 break-words ${editorVerified ? 'cursor-pointer' : ''}`}
+                  onClick={editorVerified ? () => openEditContact(c.id) : undefined}
+                >
                   <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.body}</div>
                 </div>
               ))}
@@ -680,7 +694,7 @@ export default function ShiftAppPage() {
           </div>
         ))}
       </div>
-      {!editingVisible && (
+      {editorVerified && !editingVisible && (
         <div className="mt-3 flex justify-end">
           <Button size="sm" className="text-base" onClick={openCreateContact}>新規</Button>
         </div>
@@ -710,10 +724,12 @@ export default function ShiftAppPage() {
       <div className="mt-4">
         <div className="font-semibold text-center text-xl mb-2">ルート一覧</div>
         <div className="border rounded-md p-3 w-full break-words">
-          <div className="flex gap-2 mb-3">
-            <input className="flex-1 border rounded h-9 px-2 text-sm" placeholder="ルート名を入力" value={routeNewName} onChange={e=>setRouteNewName(e.target.value)} />
-            <Button size="sm" onClick={addRoute}>追加</Button>
-          </div>
+          {editorVerified && (
+            <div className="flex gap-2 mb-3">
+              <input className="flex-1 border rounded h-9 px-2 text-sm" placeholder="ルート名を入力" value={routeNewName} onChange={e=>setRouteNewName(e.target.value)} />
+              <Button size="sm" onClick={addRoute}>追加</Button>
+            </div>
+          )}
           {routeLoading ? (
             <div className="text-sm text-gray-600">読み込み中…</div>
           ) : (
@@ -735,16 +751,18 @@ export default function ShiftAppPage() {
                     )}
                   </div>
                   <div className="flex gap-2 justify-end">
-                    {routeEditId===it.id ? (
-                      <>
-                        <Button size="sm" variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
-                        <Button size="sm" onClick={saveRouteName}>保存</Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
-                        <Button size="sm" variant="destructive" onClick={() => deleteRoute(it.id)}>削除</Button>
-                      </>
+                    {editorVerified && (
+                      routeEditId===it.id ? (
+                        <>
+                          <Button size="sm" variant="outline" onClick={cancelEditRoute}>キャンセル</Button>
+                          <Button size="sm" onClick={saveRouteName}>保存</Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => startEditRoute(it.id)}>編集</Button>
+                          <Button size="sm" variant="destructive" onClick={() => deleteRoute(it.id)}>削除</Button>
+                        </>
+                      )
                     )}
                   </div>
                 </div>
@@ -771,13 +789,13 @@ export default function ShiftAppPage() {
         month={month}
         onPrev={() => setMonth(m => (m===1 ? (setYear(y=>y-1), 12) : m-1))}
         onNext={() => setMonth(m => (m===12 ? (setYear(y=>y+1), 1) : m+1))}
-        onSave={((session as any)?.editorVerified && (typeof document === 'undefined' || !/(?:^|;\s*)editor_disabled=1(?:;|$)/.test(document.cookie || ''))) ? saveAll : undefined}
+        onSave={editorVerified ? saveAll : undefined}
         saveDisabled={isSaving || !isDirty}
         showSave={!isPortrait}
         onBack={() => router.push('/')}
         showBack={!isPortrait}
         containerClassName="max-w-full mx-auto px-2"
-        extraAction={{ label: '有給管理', onClick: () => router.push('/paid-leaves') }}
+        extraAction={editorVerified ? { label: '有給管理', onClick: () => router.push('/paid-leaves') } : undefined}
       />
       <main className="max-w-full mx-auto py-4 px-2">
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">
@@ -801,20 +819,20 @@ export default function ShiftAppPage() {
             const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null, note })
             if (isEmpty) {
               return (
-                <button onClick={open} className="w-full h-20 flex items-center justify-center text-sm sm:text-base text-gray-400 border-2 border-dashed border-gray-300">空車</button>
+                <button disabled={!editorVerified} onClick={open} className="w-full h-20 flex items-center justify-center text-sm sm:text-base text-gray-400 border-2 border-dashed border-gray-300 disabled:cursor-default">空車</button>
               )
             }
             // 備考が空なら下段を消し、ルート／ドライバーを上下2段いっぱいに広げる（可変レイアウト）
             if (!note) {
               return (
-                <button onClick={open} className={`w-full h-20 flex flex-col text-left ${highlightRing}`}>
+                <button disabled={!editorVerified} onClick={open} className={`w-full h-20 flex flex-col text-left disabled:cursor-default ${highlightRing}`}>
                   <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
                   <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 </button>
               )
             }
             return (
-              <button onClick={open} className={`w-full h-20 grid grid-cols-2 grid-rows-2 text-left ${highlightRing}`}>
+              <button disabled={!editorVerified} onClick={open} className={`w-full h-20 grid grid-cols-2 grid-rows-2 text-left disabled:cursor-default ${highlightRing}`}>
                 <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
                 <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 <span className="col-span-2 flex items-center px-1 truncate text-xs sm:text-sm text-gray-600">{note}</span>
@@ -842,7 +860,7 @@ export default function ShiftAppPage() {
               ? (highlightedEntry.kind === 'PAID' ? 'ring-4 ring-inset ring-purple-600 font-bold' : 'ring-4 ring-inset ring-red-500 font-bold')
               : ''
             return (
-              <button onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 ${baseClass} ${highlightRing}`}>
+              <button disabled={!editorVerified} onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 disabled:cursor-default ${baseClass} ${highlightRing}`}>
                 <span className="line-clamp-3 break-words">{labels.length ? labels.join('、') : '—'}</span>
               </button>
             )
