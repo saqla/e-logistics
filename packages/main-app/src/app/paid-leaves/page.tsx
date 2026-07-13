@@ -14,7 +14,8 @@ type PaidLeaveItem = {
   hireDate: string | null
   tenureYears: number | null
   nextGrantMonth: string | null
-  totalDays: number
+  nextGrantDays: number | null      // 「総付与日数」欄に表示：次回付与日に付与される予定日数（常に自動計算）
+  currentPeriodTotalDays: number    // 実使用日数・残り日数の計算に使う今期の付与日数（手動上書き可）
   totalDaysIsOverride: boolean
   usedDays: number
   remainingDays: number
@@ -88,7 +89,7 @@ export default function PaidLeavesPage() {
   const openEdit = (item: PaidLeaveItem) => {
     setEditStaffId(item.staffId)
     setEditHireDate(toDateInputValue(item.hireDate))
-    setEditTotalDays(item.totalDaysIsOverride ? String(item.totalDays) : '')
+    setEditTotalDays(item.totalDaysIsOverride ? String(item.currentPeriodTotalDays) : '')
     setEditOpen(true)
   }
 
@@ -132,7 +133,7 @@ export default function PaidLeavesPage() {
                   <div>入社日</div>
                   <div>継続年数</div>
                   <div>次回追加年月</div>
-                  <div>総付与日数</div>
+                  <div>総付与日数（次回）</div>
                   <div>実使用日数</div>
                   <div>残り日数</div>
                   <div>操作</div>
@@ -143,9 +144,12 @@ export default function PaidLeavesPage() {
                     <div>{fmtHireDate(item.hireDate)}</div>
                     <div>{item.tenureYears != null ? `${item.tenureYears}年` : '—'}</div>
                     <div>{item.nextGrantMonth ?? '—'}</div>
-                    <div>{item.totalDays}日<span className="text-xs text-gray-400 ml-1">{item.totalDaysIsOverride ? '(手動)' : '(自動)'}</span></div>
+                    <div>{item.nextGrantDays != null ? `${item.nextGrantDays}日` : '—'}</div>
                     <div>{item.usedDays}日</div>
-                    <div className={item.remainingDays < 0 ? 'text-red-600 font-bold' : ''}>{item.remainingDays}日</div>
+                    <div>
+                      <span className={item.remainingDays < 0 ? 'text-red-600 font-bold' : ''}>{item.remainingDays}日</span>
+                      <span className="text-xs text-gray-400 ml-1">（今期{item.currentPeriodTotalDays}日中{item.totalDaysIsOverride ? '・手動' : '・自動'}）</span>
+                    </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => openHistory(item)}>詳細</Button>
                       {editorVerified && <Button size="sm" variant="outline" onClick={() => openEdit(item)}>編集</Button>}
@@ -190,7 +194,7 @@ export default function PaidLeavesPage() {
                 <Input id="hireDate" type="date" value={editHireDate} onChange={e => setEditHireDate(e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="totalDays">今年度の総付与日数（空欄で法定スケジュールから自動計算）</Label>
+                <Label htmlFor="totalDays">今期の付与日数（残り日数の計算に使用。空欄で法定スケジュールから自動計算）</Label>
                 <div className="flex gap-2 items-center">
                   <Input id="totalDays" type="number" min={0} value={editTotalDays} placeholder="自動計算" onChange={e => setEditTotalDays(e.target.value)} />
                   {editTotalDays !== '' && (

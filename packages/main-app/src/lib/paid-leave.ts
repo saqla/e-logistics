@@ -83,7 +83,14 @@ export function isDateInPeriod(year: number, month: number, day: number, period:
   return d.getTime() >= period.periodStart.getTime() && d.getTime() < period.periodEnd.getTime()
 }
 
-// 総付与日数を解決する：管理者が手動で上書きしていればその値、無ければ法定スケジュールの自動計算値
+// 今期の付与日数を解決する（実使用日数・残り日数の計算に使う）：
+// 管理者が手動で上書きしていればその値、無ければ法定スケジュールの自動計算値
 export function resolveTotalDays(override: number | null | undefined, period: PaidLeavePeriod): number {
   return override != null ? override : period.statutoryTotalDays
+}
+
+// 次回付与日に付与される予定の法定日数（表示専用のプレビュー値。手動上書きの対象外）
+export function nextGrantDays(period: PaidLeavePeriod): number {
+  const nextIndex = period.grantIndex == null ? 0 : period.grantIndex + 1
+  return grantDaysForIndex(nextIndex)
 }
