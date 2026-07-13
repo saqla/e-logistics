@@ -156,6 +156,21 @@ export default function ShiftAppPage() {
     return m
   }, [restDays])
 
+  // 車両ごとの当月「空車」日数（ルート・ドライバー・備考のいずれも未設定の日をカウント）
+  const emptyDaysByVehicle = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const v of vehicles) {
+      let count = 0
+      for (let d = 1; d <= monthDays; d++) {
+        const a = aMap.get(`${v.id}-${d}`)
+        const isEmpty = !a || (!a.route && !a.driverStaffId && !a.noteBL)
+        if (isEmpty) count++
+      }
+      m.set(v.id, count)
+    }
+    return m
+  }, [vehicles, aMap, monthDays])
+
   const staffName = (id: string | null) => id ? (staffs.find(s => s.id === id)?.name ?? '') : ''
   const routeName = (key: string | null) => key ? (routeItems.find(it => it.key === key)?.name ?? key) : null
   const routeColorFor = (key: string | null) => {
@@ -544,7 +559,10 @@ export default function ShiftAppPage() {
                   {vehicleEditId===v.id ? (
                     <input className="w-full border rounded h-9 px-2 text-sm" value={vehicleEditNumber} onChange={e=>setVehicleEditNumber(e.target.value)} />
                   ) : (
-                    <span>{v.number}{!v.enabled ? '（無効）' : ''}</span>
+                    <div>
+                      <span>{v.number}{!v.enabled ? '（無効）' : ''}</span>
+                      <div className="text-xs text-gray-500">空車: {emptyDaysByVehicle.get(v.id) ?? 0}日</div>
+                    </div>
                   )}
                 </div>
                 <div className="flex gap-2 justify-end">
@@ -574,7 +592,7 @@ export default function ShiftAppPage() {
 
   // 連絡パネル本体（ダイアログ/右サイド共通）。VehicleManagementBodyと同じ理由でJSX値として保持する。
   const contactBody = (
-    <div className="overflow-y-auto max-h-[80vh] pr-1">
+    <div className="pr-1">
       <div className="grid grid-cols-2 gap-3">
         {[
           { key:'common', title:'共通' },
@@ -826,11 +844,11 @@ export default function ShiftAppPage() {
           if (!isPortrait) {
             // 非ポートレート: 左に週テーブル、右に連絡パネル
             return (
-              <div className="flex gap-4 items-start">
+              <div className="flex gap-4 items-stretch">
                 <div className="flex-1 min-w-0">
                   {weeklyTable}
                 </div>
-                <div className="w-[360px] shrink-0 border rounded-md bg-white p-3 min-h-[80vh]">
+                <div className="w-[360px] shrink-0 border rounded-md bg-white p-3 overflow-y-auto">
                   <div className="font-semibold text-lg mb-2">連絡</div>
                   {contactBody}
                 </div>
@@ -987,7 +1005,9 @@ export default function ShiftAppPage() {
           <DialogHeader>
             <DialogTitle>連絡</DialogTitle>
           </DialogHeader>
-          {contactBody}
+          <div className="overflow-y-auto max-h-[70vh]">
+            {contactBody}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
