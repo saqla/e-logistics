@@ -777,6 +777,7 @@ export default function ShiftAppPage() {
         onBack={() => router.push('/')}
         showBack={!isPortrait}
         containerClassName="max-w-full mx-auto px-2"
+        extraAction={{ label: '有給管理', onClick: () => router.push('/paid-leaves') }}
       />
       <main className="max-w-full mx-auto py-4 px-2">
         <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 text-xs">

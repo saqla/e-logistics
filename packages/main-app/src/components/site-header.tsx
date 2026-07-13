@@ -15,6 +15,7 @@ type SiteHeaderProps = {
   onBack?: () => void
   showBack?: boolean
   containerClassName?: string
+  extraAction?: { label: string; onClick: () => void }
 }
 
 export function SiteHeader({
@@ -29,6 +30,7 @@ export function SiteHeader({
   onBack,
   showBack = true,
   containerClassName = 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
+  extraAction,
 }: SiteHeaderProps) {
   const router = useRouter()
   const back = () => (onBack ? onBack() : router.push('/'))
@@ -46,6 +48,10 @@ export function SiteHeader({
             {/* 保存 */}
             {onSave && showSave ? (
               <Button className="ml-1 text-base sm:text-lg" onClick={onSave} disabled={saveDisabled}>保存</Button>
+            ) : null}
+            {/* 追加ナビゲーション（任意） */}
+            {extraAction ? (
+              <Button className="text-base sm:text-lg" variant="outline" onClick={extraAction.onClick}>{extraAction.label}</Button>
             ) : null}
             {/* アプリ選択に戻る */}
             {showBack ? (

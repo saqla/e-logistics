@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { StaffKind } from '@prisma/client'
+import { ensurePaidLeaveColumns } from '@/lib/paid-leave'
 
 const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV !== 'production'
 
@@ -13,6 +14,7 @@ export async function GET(req: Request) {
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not set')
     }
+    await ensurePaidLeaveColumns()
     const { searchParams } = new URL(req.url)
     const year = Number(searchParams.get('year')) || null
     const month = Number(searchParams.get('month')) || null
@@ -27,6 +29,8 @@ export async function GET(req: Request) {
         deletedAt: true,
         createdAt: true,
         updatedAt: true,
+        hireDate: true,
+        paidLeaveTotalDays: true,
       }
     })
 

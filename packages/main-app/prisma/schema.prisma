@@ -58,6 +58,10 @@ model Staff {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
+  // 有給管理
+  hireDate           DateTime? // 入社日
+  paidLeaveTotalDays Int?      @default(0) // 今年度の総付与日数（手動管理）
+
   // relations
   routeAssignments RouteAssignment[]
   lowerAssignments LowerAssignment[]

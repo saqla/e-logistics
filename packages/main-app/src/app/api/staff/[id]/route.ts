@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { StaffKind } from '@prisma/client'
+import { ensurePaidLeaveColumns } from '@/lib/paid-leave'
 
 const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV !== 'production'
 
@@ -18,6 +19,7 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not set')
     }
+    await ensurePaidLeaveColumns()
     const id = params.id
     let body: any
     try {
@@ -27,8 +29,11 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
     }
     const name: string | undefined = body?.name?.trim()
     const kind: string | undefined = body?.kind
+    const hireDateRaw = body?.hireDate
+    const hasHireDate = hireDateRaw !== undefined
+    const hasPaidLeaveTotalDays = body?.paidLeaveTotalDays !== undefined
 
-    if (!name && !kind) {
+    if (!name && !kind && !hasHireDate && !hasPaidLeaveTotalDays) {
       return NextResponse.json({ error: '更新項目がありません' }, { status: 400 })
     }
 
@@ -39,7 +44,7 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
       }
     }
 
-    const data: { name?: string; kind?: StaffKind } = {}
+    const data: { name?: string; kind?: StaffKind; hireDate?: Date | null; paidLeaveTotalDays?: number } = {}
     if (name) data.name = name
     if (kind) {
       const upper = String(kind).toUpperCase()
@@ -48,11 +53,17 @@ export async function PATCH(_req: Request, { params }: { params: { id: string } 
       }
       data.kind = upper as StaffKind
     }
+    if (hasHireDate) {
+      data.hireDate = hireDateRaw ? new Date(hireDateRaw) : null
+    }
+    if (hasPaidLeaveTotalDays) {
+      data.paidLeaveTotalDays = Number(body.paidLeaveTotalDays) || 0
+    }
 
     const updated = await prisma.staff.update({
       where: { id },
       data,
-      select: { id: true, name: true, kind: true, deletedAt: true, createdAt: true, updatedAt: true }
+      select: { id: true, name: true, kind: true, deletedAt: true, createdAt: true, updatedAt: true, hireDate: true, paidLeaveTotalDays: true }
     })
     return NextResponse.json({ staff: updated })
   } catch (err) {
