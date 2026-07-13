@@ -130,7 +130,7 @@ export default function Home() {
         id: "shift",
         name: "箱車シフト表",
         description: "箱車のシフト管理",
-        status: "開発中"
+        status: "利用可"
       }
     ]
 
