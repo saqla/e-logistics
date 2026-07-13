@@ -202,6 +202,7 @@ model ShiftRestDay {
   month     Int
   day       Int
   staffId   String
+  kind      String   @default("PUBLIC") // 'PUBLIC'(公休) | 'PAID'(有給)
   createdAt DateTime @default(now())
 
   staff     Staff    @relation(fields: [staffId], references: [id])

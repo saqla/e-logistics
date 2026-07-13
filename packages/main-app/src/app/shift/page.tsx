@@ -19,7 +19,8 @@ type Assignment = {
 }
 
 type Vehicle = { id: string; number: string; order: number; enabled: boolean }
-type RestDay = { id: string; day: number; staffId: string }
+type RestKind = 'PUBLIC' | 'PAID'
+type RestDay = { id: string; day: number; staffId: string; kind: RestKind }
 type StaffLite = { id: string; name: string }
 
 export default function ShiftAppPage() {
@@ -54,7 +55,7 @@ export default function ShiftAppPage() {
   const [staffs, setStaffs] = useState<StaffLite[]>([])
   const [picker, setPicker] = useState<{ open: boolean; vehicleId: string | null; day: number | null; route: string | null; driverStaffId: string | null; note: string }>({ open: false, vehicleId: null, day: null, route: null, driverStaffId: null, note: '' })
   const [restDays, setRestDays] = useState<RestDay[]>([])
-  const [restPicker, setRestPicker] = useState<{ open: boolean; day: number | null; selectedStaffIds: string[] }>({ open: false, day: null, selectedStaffIds: [] })
+  const [restPicker, setRestPicker] = useState<{ open: boolean; day: number | null; selections: Record<string, RestKind> }>({ open: false, day: null, selections: {} })
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setDirty] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
@@ -176,14 +177,14 @@ export default function ShiftAppPage() {
   // 選択中ドライバーの当月「休み（公休）」日数（休み行のShiftRestDayベース）
   const highlightRestDayCount = useMemo(() => {
     if (!highlightStaffId) return 0
-    return restDays.filter(r => r.staffId === highlightStaffId).length
+    return restDays.filter(r => r.staffId === highlightStaffId && r.kind !== 'PAID').length
   }, [restDays, highlightStaffId])
 
-  // 選択中ドライバーの当月「有給」日数（車両セルのroute==='PAID_LEAVE'ベース）
+  // 選択中ドライバーの当月「有給」日数（休み行のkind==='PAID'ベース）
   const highlightPaidLeaveCount = useMemo(() => {
     if (!highlightStaffId) return 0
-    return assignments.filter(a => a.driverStaffId === highlightStaffId && a.route === 'PAID_LEAVE').length
-  }, [assignments, highlightStaffId])
+    return restDays.filter(r => r.staffId === highlightStaffId && r.kind === 'PAID').length
+  }, [restDays, highlightStaffId])
 
   const staffName = (id: string | null) => id ? (staffs.find(s => s.id === id)?.name ?? '') : ''
   const routeName = (key: string | null) => key ? (routeItems.find(it => it.key === key)?.name ?? key) : null
@@ -486,27 +487,31 @@ export default function ShiftAppPage() {
 
   // 「休み」固定行：選択差分から追加/削除をまとめて反映
   const openRestPicker = (day: number) => {
-    const current = (restByDay.get(day) ?? []).map(r => r.staffId)
-    setRestPicker({ open: true, day, selectedStaffIds: current })
+    const current = restByDay.get(day) ?? []
+    const selections: Record<string, RestKind> = {}
+    for (const r of current) selections[r.staffId] = r.kind
+    setRestPicker({ open: true, day, selections })
   }
-  const closeRestPicker = () => setRestPicker({ open: false, day: null, selectedStaffIds: [] })
+  const closeRestPicker = () => setRestPicker({ open: false, day: null, selections: {} })
   const toggleRestStaff = (staffId: string) => {
-    setRestPicker(p => ({
-      ...p,
-      selectedStaffIds: p.selectedStaffIds.includes(staffId)
-        ? p.selectedStaffIds.filter(id => id !== staffId)
-        : [...p.selectedStaffIds, staffId],
-    }))
+    setRestPicker(p => {
+      const next = { ...p.selections }
+      if (staffId in next) delete next[staffId]
+      else next[staffId] = 'PUBLIC'
+      return { ...p, selections: next }
+    })
+  }
+  const setRestKind = (staffId: string, kind: RestKind) => {
+    setRestPicker(p => ({ ...p, selections: { ...p.selections, [staffId]: kind } }))
   }
   const confirmRestPicker = async () => {
     const day = restPicker.day
     if (!day) { closeRestPicker(); return }
     const current = restByDay.get(day) ?? []
-    const currentIds = current.map(r => r.staffId)
-    const toAdd = restPicker.selectedStaffIds.filter(id => !currentIds.includes(id))
-    const toRemove = current.filter(r => !restPicker.selectedStaffIds.includes(r.staffId))
+    const selectedIds = Object.keys(restPicker.selections)
+    const toRemove = current.filter(r => !(r.staffId in restPicker.selections))
     await Promise.all([
-      ...toAdd.map(staffId => fetch('/api/shift/rest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, month, day, staffId }) })),
+      ...selectedIds.map(staffId => fetch('/api/shift/rest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, month, day, staffId, kind: restPicker.selections[staffId] }) })),
       ...toRemove.map(r => fetch(`/api/shift/rest/${r.id}`, { method: 'DELETE' })),
     ])
     await loadRestDays()
@@ -774,10 +779,7 @@ export default function ShiftAppPage() {
             const note = a?.noteBL ?? ''
             const isEmpty = !label && !driver && !note
             const isHighlighted = highlightStaffId !== '' && a?.driverStaffId === highlightStaffId
-            const isPaidLeaveHighlighted = isHighlighted && a?.route === 'PAID_LEAVE'
-            const highlightRing = isPaidLeaveHighlighted
-              ? 'border-4 border-purple-500'
-              : isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''
+            const highlightRing = isHighlighted ? 'ring-4 ring-inset ring-amber-400' : ''
             const open = () => setPicker({ open: true, vehicleId, day, route: a?.route ?? null, driverStaffId: a?.driverStaffId ?? null, note })
             if (isEmpty) {
               return (
@@ -789,18 +791,14 @@ export default function ShiftAppPage() {
               return (
                 <button onClick={open} className={`w-full h-20 flex flex-col text-left ${highlightRing}`}>
                   <span className={`flex-1 flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
-                  <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">
-                    {driver}{isPaidLeaveHighlighted ? <span className="ml-1 text-purple-600">★（有給）</span> : null}
-                  </span>
+                  <span className="flex-1 flex items-center justify-center px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 </button>
               )
             }
             return (
               <button onClick={open} className={`w-full h-20 grid grid-cols-2 grid-rows-2 text-left ${highlightRing}`}>
                 <span className={`flex items-center justify-center border-b-2 border-r-2 px-1 truncate text-sm sm:text-base font-semibold ${routeColorFor(a?.route ?? null)}`}>{label ?? ''}</span>
-                <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">
-                  {driver}{isPaidLeaveHighlighted ? <span className="ml-1 text-purple-600">★</span> : null}
-                </span>
+                <span className="flex items-center justify-center border-b-2 px-1 truncate text-sm sm:text-base text-gray-800">{driver}</span>
                 <span className="col-span-2 flex items-center px-1 truncate text-xs sm:text-sm text-gray-600">{note}</span>
               </button>
             )
@@ -809,15 +807,25 @@ export default function ShiftAppPage() {
           // 「休み」固定行のセル：ルートは無く、その日の公休ドライバー（複数可）を表示
           const renderRestCell = (day: number) => {
             const entries = restByDay.get(day) ?? []
-            const names = entries.map(r => staffName(r.staffId)).filter(Boolean)
-            const isHighlighted = highlightStaffId !== '' && entries.some(r => r.staffId === highlightStaffId)
+            const labels = entries.map(r => {
+              const name = staffName(r.staffId)
+              return name ? `${name}${r.kind === 'PAID' ? '（有給）' : ''}` : ''
+            }).filter(Boolean)
+            const kinds = new Set(entries.map(r => r.kind))
+            const uniformKind = kinds.size === 1 ? Array.from(kinds)[0] : null
+            const highlightedEntry = highlightStaffId !== '' ? entries.find(r => r.staffId === highlightStaffId) : undefined
             const open = () => openRestPicker(day)
-            const stateClass = isHighlighted
-              ? 'bg-red-200 text-red-900 font-bold ring-4 ring-inset ring-red-500'
-              : names.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border-2 border-dashed border-gray-300'
+            const baseClass = uniformKind === 'PAID'
+              ? 'bg-purple-100 text-purple-800'
+              : uniformKind === 'PUBLIC'
+              ? 'bg-red-100 text-red-800'
+              : entries.length ? 'bg-gray-100 text-gray-800' : 'text-gray-300 border-2 border-dashed border-gray-300'
+            const highlightRing = highlightedEntry
+              ? (highlightedEntry.kind === 'PAID' ? 'ring-4 ring-inset ring-purple-600 font-bold' : 'ring-4 ring-inset ring-red-500 font-bold')
+              : ''
             return (
-              <button onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 ${stateClass}`}>
-                <span className="line-clamp-3 break-words">{names.length ? names.join('、') : '—'}</span>
+              <button onClick={open} className={`w-full h-20 flex items-center justify-center text-center text-sm sm:text-base p-1 ${baseClass} ${highlightRing}`}>
+                <span className="line-clamp-3 break-words">{labels.length ? labels.join('、') : '—'}</span>
               </button>
             )
           }
@@ -1030,25 +1038,37 @@ export default function ShiftAppPage() {
         <Dialog open={restPicker.open} onOpenChange={(o) => { if (!o) closeRestPicker() }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>公休ドライバーを選択（複数可）</DialogTitle>
+              <DialogTitle>休みのドライバーを選択（複数可・公休/有給）</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-                {staffs.map(s => {
-                  const selected = restPicker.selectedStaffIds.includes(s.id)
-                  return (
+            <div className="space-y-2 mt-2 max-h-60 overflow-y-auto">
+              {staffs.map(s => {
+                const kind = restPicker.selections[s.id]
+                const selected = kind != null
+                return (
+                  <div key={s.id} className="flex items-center gap-2">
                     <button
-                      key={s.id}
                       onClick={() => toggleRestStaff(s.id)}
-                      className={`px-3 py-2 rounded text-sm border ${selected ? 'bg-blue-600 text-white border-blue-600' : ''}`}
+                      className={`flex-1 px-3 py-2 rounded text-sm border text-left ${selected ? 'bg-blue-600 text-white border-blue-600' : ''}`}
                     >{s.name}</button>
-                  )
-                })}
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={closeRestPicker}>キャンセル</Button>
-                <Button onClick={confirmRestPicker}>確定</Button>
-              </div>
+                    {selected && (
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => setRestKind(s.id, 'PUBLIC')}
+                          className={`px-2 py-2 rounded text-xs border ${kind === 'PUBLIC' ? 'bg-red-100 border-red-500 text-red-800 font-semibold' : ''}`}
+                        >公休</button>
+                        <button
+                          onClick={() => setRestKind(s.id, 'PAID')}
+                          className={`px-2 py-2 rounded text-xs border ${kind === 'PAID' ? 'bg-purple-100 border-purple-500 text-purple-800 font-semibold' : ''}`}
+                        >有給</button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={closeRestPicker}>キャンセル</Button>
+              <Button onClick={confirmRestPicker}>確定</Button>
             </div>
           </DialogContent>
         </Dialog>

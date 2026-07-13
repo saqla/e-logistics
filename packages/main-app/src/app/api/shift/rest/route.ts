@@ -9,29 +9,34 @@ async function ensureSchema() {
       "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='shift_rest_days' LIMIT 1"
     )
     const exists = Array.isArray(rows) && rows.length > 0
-    if (exists) return
-    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "shift_rest_days" (
-      "id" TEXT PRIMARY KEY,
-      "year" INTEGER NOT NULL,
-      "month" INTEGER NOT NULL,
-      "day" INTEGER NOT NULL,
-      "staffId" TEXT NOT NULL,
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );`)
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "shift_rest_days_year_month_day_staffId_key"
-      ON "shift_rest_days" ("year","month","day","staffId");`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "shift_rest_days_year_month_day_idx"
-      ON "shift_rest_days" ("year","month","day");`)
-    await prisma.$executeRawUnsafe(`DO $$ BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints
-        WHERE constraint_name = 'shift_rest_days_staffId_fkey'
-      ) THEN
-        ALTER TABLE "shift_rest_days"
-        ADD CONSTRAINT "shift_rest_days_staffId_fkey"
-        FOREIGN KEY ("staffId") REFERENCES "staffs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-      END IF;
-    END $$;`)
+    if (!exists) {
+      await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "shift_rest_days" (
+        "id" TEXT PRIMARY KEY,
+        "year" INTEGER NOT NULL,
+        "month" INTEGER NOT NULL,
+        "day" INTEGER NOT NULL,
+        "staffId" TEXT NOT NULL,
+        "kind" TEXT NOT NULL DEFAULT 'PUBLIC',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`)
+      await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "shift_rest_days_year_month_day_staffId_key"
+        ON "shift_rest_days" ("year","month","day","staffId");`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "shift_rest_days_year_month_day_idx"
+        ON "shift_rest_days" ("year","month","day");`)
+      await prisma.$executeRawUnsafe(`DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'shift_rest_days_staffId_fkey'
+        ) THEN
+          ALTER TABLE "shift_rest_days"
+          ADD CONSTRAINT "shift_rest_days_staffId_fkey"
+          FOREIGN KEY ("staffId") REFERENCES "staffs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$;`)
+      return
+    }
+    // 既存テーブルに kind 列が無ければ追加（先行デプロイ分との互換）
+    await prisma.$executeRawUnsafe(`ALTER TABLE "shift_rest_days" ADD COLUMN IF NOT EXISTS "kind" TEXT NOT NULL DEFAULT 'PUBLIC';`)
   } catch {}
 }
 
@@ -42,10 +47,11 @@ export async function GET(req: Request) {
   const month = Number(searchParams.get('month'))
   if (!year || !month) return NextResponse.json({ error: 'year, month は必須' }, { status: 400 })
   try {
+    await ensureSchema()
     const items = await prisma.shiftRestDay.findMany({
       where: { year, month },
       orderBy: [{ day: 'asc' }],
-      select: { id: true, day: true, staffId: true },
+      select: { id: true, day: true, staffId: true, kind: true },
     })
     return NextResponse.json({ items })
   } catch {
@@ -53,7 +59,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/shift/rest  { year, month, day, staffId }
+// POST /api/shift/rest  { year, month, day, staffId, kind }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions as any)
   const cookie = req.headers.get('cookie') || ''
@@ -67,14 +73,15 @@ export async function POST(req: Request) {
   const month = Number(body?.month)
   const day = Number(body?.day)
   const staffId = (body?.staffId || '').toString()
+  const kind = body?.kind === 'PAID' ? 'PAID' : 'PUBLIC'
   if (!year || !month || !day || !staffId) {
     return NextResponse.json({ error: 'year, month, day, staffId は必須' }, { status: 400 })
   }
   try {
     const item = await prisma.shiftRestDay.upsert({
       where: { year_month_day_staffId: { year, month, day, staffId } },
-      update: {},
-      create: { year, month, day, staffId },
+      update: { kind },
+      create: { year, month, day, staffId, kind },
     })
     return NextResponse.json({ item })
   } catch (e: any) {

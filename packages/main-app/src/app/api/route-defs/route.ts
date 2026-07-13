@@ -27,14 +27,14 @@ async function ensureSchema() {
 }
 
 async function ensureDefaults() {
-  // シフト予定表の既定6ルートのみを保証（不足分だけupsert）
+  // シフト予定表の既定ルートのみを保証（不足分だけupsert）。
+  // 「有給」は運行ルートではなく休み行側の種別として扱うため、ここには含めない。
   const defaults: { key: string; name: string; order: number; bgClass: string; textClass: string; enabled: boolean }[] = [
     { key: 'SANCHOKU',       name: '産直',       order: 20, bgClass: 'bg-green-500',  textClass: 'text-white',     enabled: true },
     { key: 'DONKI_FUKUOKA',  name: 'ドンキ(福岡)', order: 40, bgClass: 'bg-orange-500', textClass: 'text-white',     enabled: true },
     { key: 'DONKI_NAGASAKI', name: 'ドンキ(長崎)', order: 50, bgClass: 'bg-violet-400', textClass: 'text-white',     enabled: true },
     { key: 'UNIC',           name: 'ユニック',   order: 60, bgClass: 'bg-blue-500',   textClass: 'text-white',     enabled: true },
     { key: 'OFF',            name: '休み',       order: 70, bgClass: 'bg-gray-200',   textClass: 'text-gray-900',  enabled: true },
-    { key: 'PAID_LEAVE',     name: '有給',       order: 80, bgClass: 'bg-yellow-300', textClass: 'text-yellow-900',enabled: true },
   ]
   for (const d of defaults) {
     await prisma.routeDefinition.upsert({
@@ -45,10 +45,23 @@ async function ensureDefaults() {
   }
 }
 
+// 過去に既定ルートとして作られていた「有給」を除去し、それを使っていた割当は空車に戻す
+async function removeObsoletePaidLeaveRoute() {
+  try {
+    const existing = await prisma.routeDefinition.findUnique({ where: { key: 'PAID_LEAVE' } })
+    if (!existing) return
+    await prisma.$transaction([
+      prisma.shiftAssignment.updateMany({ where: { route: 'PAID_LEAVE' }, data: { route: null } }),
+      prisma.routeDefinition.delete({ where: { key: 'PAID_LEAVE' } }),
+    ])
+  } catch {}
+}
+
 export async function GET() {
   await ensureSchema()
   // シフト用の不足分のみ作成（毎回冪等upsert）
   await ensureDefaults()
+  await removeObsoletePaidLeaveRoute()
   const items = await prisma.routeDefinition.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] })
   return NextResponse.json({ items })
 }

@@ -109,7 +109,8 @@ export async function POST(req: Request) {
     .map(a => ({
       day: Number(a.day),
       vehicleId: String(a.vehicleId),
-      route: a.route == null || String(a.route).trim() === '' ? null : String(a.route),
+      // 「有給」は運行ルートではない（休み行側の種別）ため、車両セルへは保存させない
+      route: a.route == null || String(a.route).trim() === '' || String(a.route) === 'PAID_LEAVE' ? null : String(a.route),
       driverStaffId: a.driverStaffId == null || String(a.driverStaffId).trim() === '' ? null : String(a.driverStaffId),
       noteBL: a.noteBL == null || String(a.noteBL).trim() === '' ? null : String(a.noteBL),
       noteBR: a.noteBR == null || String(a.noteBR).trim() === '' ? null : String(a.noteBR),
